@@ -17,5 +17,12 @@ export const CFG = {
     'script[src*="events.framer.com"]',
     '#__framer-badge-container',
     '#__framer-badge',
+    '.w-webflow-badge',
+    '#WIX_ADS',
+    '.wix-ads',
+    '#wix-badge',
+    'link[href*="editorbar"]',
+    'link[href*="canvas-sandbox"]',
+    'script[src*="framer.com/bootstrap"]',
   ],
 };
