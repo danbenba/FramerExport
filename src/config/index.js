@@ -10,6 +10,8 @@ export const CFG = {
     'events.framer.com',
     'sentry.io',
     'api.framer.com',
+    'stats.g.doubleclick.net',
+    'google-analytics.com',
   ],
   stripSelectors: [
     'script[src*="events.framer.com"]',
