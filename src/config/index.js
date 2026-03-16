@@ -1,5 +1,5 @@
 export const CFG = {
-  viewport: { width: 1280, height: 900 },
+  viewport: { width: 1440, height: 900 },
   timeout: 60000,
   scrollStep: 200,
   scrollDelay: 100,
