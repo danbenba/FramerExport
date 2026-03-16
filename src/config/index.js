@@ -1,6 +1,6 @@
 export const CFG = {
   viewport: { width: 1440, height: 900 },
-  timeout: 60000,
+  timeout: 90000,
   scrollStep: 200,
   scrollDelay: 100,
   concurrency: 6,
