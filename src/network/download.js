@@ -13,18 +13,18 @@ export function dlBuffer(url, retries = CFG.retries) {
         }
         if (res.statusCode !== 200) {
           return left > 1
-            ? setTimeout(() => go(left - 1), 300)
+            ? setTimeout(() => go(left - 1), 500)
             : reject(new Error(`HTTP ${res.statusCode}`));
         }
         const ch = [];
         res.on('data', (c) => ch.push(c));
         res.on('end', () => resolve(Buffer.concat(ch)));
-        res.on('error', (e) => (left > 1 ? setTimeout(() => go(left - 1), 300) : reject(e)));
+        res.on('error', (e) => (left > 1 ? setTimeout(() => go(left - 1), 500) : reject(e)));
       });
-      req.on('error', (e) => (left > 1 ? setTimeout(() => go(left - 1), 300) : reject(e)));
+      req.on('error', (e) => (left > 1 ? setTimeout(() => go(left - 1), 500) : reject(e)));
       req.on('timeout', () => {
         req.destroy();
-        left > 1 ? setTimeout(() => go(left - 1), 300) : reject(new Error('Timeout'));
+        left > 1 ? setTimeout(() => go(left - 1), 500) : reject(new Error('Timeout'));
       });
     };
     go(retries);
