@@ -3,7 +3,7 @@ export const CFG = {
   timeout: 90000,
   scrollStep: 200,
   scrollDelay: 100,
-  concurrency: 6,
+  concurrency: 8,
   retries: 2,
   dlTimeout: 15000,
   stripDomains: [
