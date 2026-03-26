@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "type": "module",
   "main": "src/cli/index.js",
+  "bin": {
+    "framer-export": "./src/cli/index.js"
+  },
   "scripts": {
     "start": "node src/cli/index.js",
     "dev": "node src/cli/index.js"
