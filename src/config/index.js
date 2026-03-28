@@ -5,7 +5,7 @@ export const CFG = {
   scrollDelay: 100,
   concurrency: 12,
   retries: 3,
-  dlTimeout: 15000,
+  dlTimeout: 30000,
   stripDomains: [
     'events.framer.com',
     'sentry.io',
