@@ -4,7 +4,7 @@ export const CFG = {
   scrollStep: 200,
   scrollDelay: 100,
   concurrency: 12,
-  retries: 2,
+  retries: 3,
   dlTimeout: 15000,
   stripDomains: [
     'events.framer.com',
