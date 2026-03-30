@@ -2,7 +2,7 @@ export const CFG = {
   viewport: { width: 1440, height: 900 },
   timeout: 90000,
   scrollStep: 250,
-  scrollDelay: 100,
+  scrollDelay: 60,
   concurrency: 12,
   retries: 3,
   dlTimeout: 30000,
