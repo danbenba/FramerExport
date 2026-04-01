@@ -4,7 +4,7 @@ export async function prettifyJS(src) {
   try {
     return await prettier.format(src, {
       parser: 'babel',
-      printWidth: 80,
+      printWidth: 100,
       tabWidth: 2,
       useTabs: false,
       semi: true,
