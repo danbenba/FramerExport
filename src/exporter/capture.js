@@ -13,7 +13,7 @@ export async function launchAndCapture(exporter) {
   await exporter.page.setViewport(CFG.viewport);
   await exporter.page.setUserAgent(
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-      '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+      '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
   );
 
   exporter.page.on('response', async (res) => {
