@@ -90,7 +90,7 @@ export async function launchAndCapture(exporter) {
   await new Promise((r) => setTimeout(r, 2000));
 
   try {
-    await exporter.page.waitForNetworkIdle({ idleTime: 1500, timeout: 5000 });
+    await exporter.page.waitForNetworkIdle({ idleTime: 1500, timeout: 8000 });
   } catch {}
 
   scrollSpin.stopAndPersist({
