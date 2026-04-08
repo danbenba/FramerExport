@@ -9,7 +9,7 @@ const ASCII_ART = `
   ${chalk.magenta('║')}   ${chalk.bold.cyan(' |_||_| \\__,_|_|_|_\\___|_|    |___/_\\_\\ .__/\\___/_|  \\__|')} ${chalk.magenta('║')}
   ${chalk.magenta('║')}   ${chalk.bold.cyan('                                       |_|')}                 ${chalk.magenta('║')}
   ${chalk.magenta('║')}                                                              ${chalk.magenta('║')}
-  ${chalk.magenta('║')}        ${chalk.gray('v2.0.0')}  ${chalk.white.bold('Full Mirror & Clean Export Tool')}           ${chalk.magenta('║')}
+  ${chalk.magenta('║')}        ${chalk.gray('v3.0.0')}  ${chalk.white.bold('Full Mirror & Clean Export Tool')}           ${chalk.magenta('║')}
   ${chalk.magenta('║')}                                                              ${chalk.magenta('║')}
   ${chalk.magenta('╚══════════════════════════════════════════════════════════════╝')}
 `;
