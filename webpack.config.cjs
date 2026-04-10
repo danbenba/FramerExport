@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-  entry: './main.js',
+  entry: './src/cli/index.js',
   output: {
     filename: 'framer-export.bundle.cjs',
     path: path.resolve(__dirname, 'dist'),
