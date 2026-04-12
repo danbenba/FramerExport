@@ -5,3 +5,4 @@ framer-output/
 .DS_Store
 .claude/
 *.tgz
+*.env
