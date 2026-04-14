@@ -6,3 +6,4 @@ framer-output/
 .claude/
 *.tgz
 *.env
+coverage/
