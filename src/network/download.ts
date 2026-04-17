@@ -1,0 +1,32 @@
+import https from 'https';
+import http from 'http';
+import { URL } from 'url';
+import { CFG } from '../config/index.js';
+
+export function dlBuffer(url: string, retries: number = CFG.retries): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const proto = url.startsWith('https') ? https : http;
+    const go = (left: number): void => {
+      const req = proto.get(url, { timeout: CFG.dlTimeout }, (res) => {
+        if (res.statusCode! >= 300 && res.statusCode! < 400 && res.headers.location) {
+          return dlBuffer(new URL(res.headers.location, url).href, left).then(resolve, reject);
+        }
+        if (res.statusCode !== 200) {
+          return left > 1
+            ? setTimeout(() => go(left - 1), 500)
+            : reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        const ch: Buffer[] = [];
+        res.on('data', (c: Buffer) => ch.push(c));
+        res.on('end', () => resolve(Buffer.concat(ch)));
+        res.on('error', (e: Error) => (left > 1 ? setTimeout(() => go(left - 1), 500) : reject(e)));
+      });
+      req.on('error', (e: Error) => (left > 1 ? setTimeout(() => go(left - 1), 500) : reject(e)));
+      req.on('timeout', () => {
+        req.destroy();
+        left > 1 ? setTimeout(() => go(left - 1), 500) : reject(new Error('Timeout'));
+      });
+    };
+    go(retries);
+  });
+}
