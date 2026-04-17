@@ -2,6 +2,7 @@ import type { PlatformHandler } from './types.js';
 
 const IMG_EXTS: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.avif'];
 const FONT_EXTS: string[] = ['.woff2', '.woff', '.ttf', '.otf', '.eot'];
+const VIDEO_EXTS: string[] = ['.mp4', '.webm', '.ogg'];
 
 export const webflow: PlatformHandler = {
   name: 'webflow',
@@ -15,7 +16,8 @@ export const webflow: PlatformHandler = {
     return (
       html.includes('data-wf-site') ||
       html.includes('w-webflow-badge') ||
-      html.includes('Webflow') || html.includes('webflow.js')
+      html.includes('Webflow') ||
+      html.includes('webflow.js')
     );
   },
 
@@ -34,13 +36,15 @@ export const webflow: PlatformHandler = {
 
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (
-      host.includes('webflow.com') ||
       host.includes('website-files.com') ||
+      host.includes('webflow.com') ||
       host.includes('uploads-ssl.webflow.com')
     ) {
+      if (VIDEO_EXTS.includes(ext)) return 'assets/videos';
       if (pathname.includes('/images/') || IMG_EXTS.includes(ext)) return 'assets/images';
-      if (ext === '.css') return 'styles';
-      if (ext === '.js') return 'scripts/vendor';
+      if (pathname.includes('/css/') || ext === '.css') return 'styles';
+      if (pathname.includes('/js/') || ext === '.js') return 'scripts/vendor';
+      if (pathname.includes('/gsap/') || pathname.includes('/plugins/')) return 'scripts/vendor';
       if (FONT_EXTS.includes(ext)) return 'assets/fonts';
       return 'assets/misc';
     }
@@ -48,12 +52,7 @@ export const webflow: PlatformHandler = {
     if (host.includes('d3e54v103j8qbb.cloudfront.net')) {
       if (ext === '.js') return 'scripts/vendor';
       if (ext === '.css') return 'styles';
-      return 'assets/misc';
-    }
-
-    if (host.includes('global-uploads.webflow.com') || host.includes('assets-global.website-files.com')) {
       if (IMG_EXTS.includes(ext)) return 'assets/images';
-      if (FONT_EXTS.includes(ext)) return 'assets/fonts';
       return 'assets/misc';
     }
 
