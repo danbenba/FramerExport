@@ -69,6 +69,54 @@ function removeElementById(html: string, id: string): string {
   return html;
 }
 
+function processSEO(html: string, url: string): string {
+  const canonical = url.split('?')[0].replace(/\/$/, '');
+  
+  // Inject Canonical
+  if (!html.includes('rel="canonical"')) {
+    html = html.replace('</head>', `  <link rel="canonical" href="${canonical}">\n  </head>`);
+  }
+
+  // Inject Meta Description if missing
+  if (!html.includes('name="description"')) {
+    html = html.replace('</head>', `  <meta name="description" content="Exported with Cooksite - Fast, SEO-optimized, and clean.">\n  </head>`);
+  }
+
+  // Inject OG Tags if missing
+  if (!html.includes('property="og:')) {
+    html = html.replace('</head>', `  <meta property="og:type" content="website">\n  <meta property="og:url" content="${canonical}">\n  <meta property="og:title" content="Exported Site">\n  <meta property="og:description" content="A fast, clean version of this site, exported for performance.">\n  </head>`);
+  }
+
+  // Inject Robot tags
+  if (!html.includes('name="robots"')) {
+    html = html.replace('</head>', `  <meta name="robots" content="index, follow">\n  </head>`);
+  }
+
+  return html;
+}
+
+function stripIntegrityAndCors(html: string): string {
+  html = html.replace(/\s+integrity="[^"]*"/g, '');
+  html = html.replace(/\s+crossorigin="[^"]*"/g, '');
+  html = html.replace(/\s+crossorigin/g, '');
+  html = html.replace(/<link[^>]*rel="preconnect"[^>]*>/g, '');
+  html = html.replace(/<link[^>]*rel="dns-prefetch"[^>]*>/g, '');
+  html = html.replace(/<meta[^>]*content-security-policy[^>]*>/gi, '');
+  return html;
+}
+
+function stripSrcsetCdnUrls(html: string): string {
+  html = html.replace(/srcset="([^"]*)"/g, (_match: string, srcset: string) => {
+    const cleaned: string = srcset
+      .split(',')
+      .map((entry: string) => entry.trim())
+      .filter((entry: string) => !entry.startsWith('http'))
+      .join(', ');
+    return cleaned ? 'srcset="' + cleaned + '"' : '';
+  });
+  return html;
+}
+
 export async function buildOutput(exporter: ExporterContext): Promise<void> {
   exporter.cooking?.update('Stripping platform badges...');
   log('Starting HTML post-processing...');
@@ -78,6 +126,18 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   if (!html) {
     warn('No SSR HTML available, cannot build output');
     return;
+  }
+
+  exporter.cooking?.update('Removing integrity checks...');
+  const beforeIntegrity: number = html.length;
+  html = stripIntegrityAndCors(html);
+  log('Stripped integrity/crossorigin/preconnect (' + (beforeIntegrity - html.length) + ' chars)');
+  success('Integrity and CORS restrictions removed');
+
+  if (typeof processSEO === 'function') {
+    exporter.cooking?.update('Optimizing SEO...');
+    html = processSEO(html, exporter.siteUrl);
+    success('SEO meta tags optimized');
   }
 
   log('Stripping ' + exporter.platform.stripSelectors.length + ' selectors:');
@@ -106,6 +166,10 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   const beforeRewrite: number = html.length;
   html = exporter.assets.rewrite(html, '');
   log('HTML rewrite delta: ' + (html.length - beforeRewrite) + ' chars');
+
+  exporter.cooking?.update('Cleaning srcset references...');
+  html = stripSrcsetCdnUrls(html);
+  log('Cleaned remaining CDN URLs from srcset attributes');
 
   await rewriteDownloadedFiles(exporter);
   success('All URLs rewritten to local paths');
