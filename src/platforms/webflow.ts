@@ -29,6 +29,13 @@ export const webflow: PlatformHandler = {
     /<a[^>]*class="[^"]*w-webflow-badge[^"]*"[^>]*>[\s\S]*?<\/a>/g,
     /<a[^>]*href="[^"]*webflow\.com\?utm_campaign=brandjs[^"]*"[^>]*>[\s\S]*?<\/a>/g,
     /<style>[^<]*\.w-webflow-badge[^<]*<\/style>/g,
+    /Powered by <a[^>]*href="[^"]*webflow\.com"[^>]*>[^<]*<\/a>/g,
+    /<!-- This site was created in Webflow\.[^>]*-->/g,
+    /<html([^>]*) data-wf-domain="[^"]*"/g,
+    /<html([^>]*) data-wf-page="[^"]*"/g,
+    /<html([^>]*) data-wf-site="[^"]*"/g,
+    /<html([^>]*) data-wf-status="[^"]*"/g,
+    /<meta[^>]*content="Webflow"[^>]*>/g,
   ],
 
   hydrationTimeout: 2000,
