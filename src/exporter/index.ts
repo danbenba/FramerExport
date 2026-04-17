@@ -79,6 +79,7 @@ export class FramerExporter implements ExporterContext {
       '',
       'assets/images',
       'assets/fonts',
+      'assets/videos',
       'assets/misc',
       'styles',
       'scripts/vendor',
