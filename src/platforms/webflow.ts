@@ -15,7 +15,7 @@ export const webflow: PlatformHandler = {
     return (
       html.includes('data-wf-site') ||
       html.includes('w-webflow-badge') ||
-      html.includes('Webflow')
+      html.includes('Webflow') || html.includes('webflow.js')
     );
   },
 
