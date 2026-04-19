@@ -16,7 +16,7 @@ export const wix: PlatformHandler = {
       html.includes('wix-viewer-model') ||
       html.includes('id="WIX_ADS"') ||
       html.includes('X-Wix-') ||
-      html.includes('Wix.com')
+      html.includes('Wix.com') || html.includes('wixcode-sdk')
     );
   },
 
