@@ -20,7 +20,7 @@ export const wix: PlatformHandler = {
     );
   },
 
-  stripDomains: ['frog.wix.com', 'bi.wixapi.com', 'fed.wixcodescheduler.com'],
+  stripDomains: ['frog.wix.com', 'bi.wixapi.com', 'fed.wixcodescheduler.com', 'editor.wix.com'],
 
   stripSelectors: ['#WIX_ADS', '.wix-ads', '#wix-badge'],
 
