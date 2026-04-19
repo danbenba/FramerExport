@@ -17,7 +17,7 @@ export const framer: PlatformHandler = {
     );
   },
 
-  stripDomains: ['events.framer.com', 'api.framer.com'],
+  stripDomains: ['events.framer.com', 'api.framer.com', 'collect.frameranalytics.com'],
 
   stripSelectors: [
     'script[src*="events.framer.com"]',
