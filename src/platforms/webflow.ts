@@ -19,7 +19,7 @@ export const webflow: PlatformHandler = {
     );
   },
 
-  stripDomains: ['js-agent.newrelic.com', 'cdn.heapanalytics.com'],
+  stripDomains: ['js-agent.newrelic.com', 'cdn.heapanalytics.com', 'tr.snapchat.com'],
 
   stripSelectors: ['.w-webflow-badge', 'link[href*="editorbar"]'],
 
