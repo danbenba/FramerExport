@@ -9,7 +9,7 @@ export const CFG: Config = {
   retries: 3,
   dlTimeout: 30000,
   sharedStripDomains: [
-    'sentry.io',
+    'sentry.io', 'www.googletagmanager.com', 'connect.facebook.net',
     'stats.g.doubleclick.net',
     'google-analytics.com',
   ],
