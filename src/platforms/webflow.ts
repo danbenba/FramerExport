@@ -51,7 +51,7 @@ export const webflow: PlatformHandler = {
       return 'assets/misc';
     }
 
-    if (host.includes('global-uploads.webflow.com')) {
+    if (host.includes('global-uploads.webflow.com') || host.includes('assets-global.website-files.com')) {
       if (IMG_EXTS.includes(ext)) return 'assets/images';
       if (FONT_EXTS.includes(ext)) return 'assets/fonts';
       return 'assets/misc';
