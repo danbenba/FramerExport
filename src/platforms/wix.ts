@@ -28,7 +28,7 @@ export const wix: PlatformHandler = {
     /<div[^>]*class="[^"]*wix-ads[^"]*"[^>]*>[\s\S]*?<\/div>/g,
   ],
 
-  hydrationTimeout: 2000,
+  hydrationTimeout: 3000,
   needsHydrationCheck: false,
 
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
