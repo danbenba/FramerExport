@@ -7,3 +7,4 @@ framer-output/
 *.tgz
 *.env
 coverage/
+*.map
