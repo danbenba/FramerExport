@@ -29,7 +29,7 @@ export const webflow: PlatformHandler = {
     /<style>[^<]*\.w-webflow-badge[^<]*<\/style>/g,
   ],
 
-  hydrationTimeout: 1500,
+  hydrationTimeout: 2000,
   needsHydrationCheck: false,
 
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
