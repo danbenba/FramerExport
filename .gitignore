@@ -8,3 +8,4 @@ framer-output/
 *.env
 coverage/
 *.map
+tmp/
