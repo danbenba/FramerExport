@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 import chalk from 'chalk';
-import ora from 'ora';
 import type { Browser, Page } from 'puppeteer';
 import { AssetMap } from '../assets/asset-map.js';
 import { dlBuffer } from '../network/download.js';
@@ -13,6 +12,7 @@ import { printSummary } from './summary.js';
 import { detectPlatform, getPlatformByName } from '../platforms/index.js';
 import type { PlatformHandler, PlatformType } from '../platforms/types.js';
 import type { ExporterContext } from '../types.js';
+import { CookingSpinner } from '../cli/cooking.js';
 
 export class FramerExporter implements ExporterContext {
   siteUrl: string;
@@ -23,6 +23,7 @@ export class FramerExporter implements ExporterContext {
   ssrHTML: string;
   prettyPrint: boolean;
   platform: PlatformHandler;
+  cooking?: CookingSpinner;
 
   constructor(siteUrl: string, outDir: string, platformOverride?: PlatformType) {
     this.siteUrl = siteUrl;
@@ -42,11 +43,15 @@ export class FramerExporter implements ExporterContext {
 
   async run(): Promise<void> {
     console.log(
-      chalk.bold.magenta('\n[EXPORT] ExporterLand v3 - Full Mirror & Clean Export')
+      chalk.bold.magenta('\n  Cooksite v4 - Full Mirror & Clean Export\n')
     );
     info(`Source   : ${chalk.underline(this.siteUrl)}`);
     info(`Output   : ${chalk.yellow(this.outDir)}`);
     info(`Platform : ${chalk.magenta(this.platform.displayName)}`);
+    console.log('');
+
+    this.cooking = new CookingSpinner();
+    this.cooking.start('Preparing directories...');
 
     for (const d of [
       '',
@@ -61,33 +66,32 @@ export class FramerExporter implements ExporterContext {
       await fs.mkdir(path.join(this.outDir, d), { recursive: true });
     }
 
-    const ssrSpin = ora({ text: 'Fetching SSR HTML...', color: 'yellow' }).start();
+    this.cooking.update('Fetching SSR HTML...');
     try {
       const buf: Buffer = await dlBuffer(this.siteUrl);
       this.ssrHTML = buf.toString('utf-8');
-      ssrSpin.stopAndPersist({
-        symbol: chalk.green('[SUCCESS]'),
-        text: `SSR HTML fetched (${(this.ssrHTML.length / 1024).toFixed(1)} KB)`,
-      });
+      log(`  ${chalk.green('✓')} SSR HTML fetched (${(this.ssrHTML.length / 1024).toFixed(1)} KB)`);
     } catch (e) {
-      ssrSpin.stopAndPersist({
-        symbol: chalk.red('[ERROR]'),
-        text: 'Could not fetch SSR HTML: ' + (e as Error).message,
-      });
+      log(`  ${chalk.red('✗')} Could not fetch SSR HTML: ${(e as Error).message}`);
     }
 
     const htmlDetected = detectPlatform(this.siteUrl, this.ssrHTML);
     if (htmlDetected.name !== this.platform.name) {
       this.platform = htmlDetected;
-      log(`  Platform refined: ${chalk.magenta(this.platform.displayName)} (from HTML analysis)`);
+      log(`  ${chalk.blue('i')} Platform refined: ${chalk.magenta(this.platform.displayName)}`);
     }
 
     await launchAndCapture(this);
 
+    this.cooking.update('Downloading assets...');
     await downloadAll(this);
 
+    this.cooking.update('Building output...');
     await buildOutput(this);
 
+    this.cooking.stop();
+
+    console.log('');
     success('Export complete!');
     await printSummary(this);
   }
