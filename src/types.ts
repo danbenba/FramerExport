@@ -1,6 +1,7 @@
 import type { Browser, Page } from 'puppeteer';
 import type { AssetMap } from './assets/asset-map.js';
 import type { PlatformHandler } from './platforms/types.js';
+import type { CookingSpinner } from './cli/cooking.js';
 
 export interface Config {
   viewport: { width: number; height: number };
@@ -22,4 +23,5 @@ export interface ExporterContext {
   ssrHTML: string;
   prettyPrint?: boolean;
   platform: PlatformHandler;
+  cooking?: CookingSpinner;
 }
