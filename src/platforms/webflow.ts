@@ -26,7 +26,6 @@ export const webflow: PlatformHandler = {
   stripPatterns: [
     /<a[^>]*class="[^"]*w-webflow-badge[^"]*"[^>]*>[\s\S]*?<\/a>/g,
     /<a[^>]*href="[^"]*webflow\.com\?utm_campaign=brandjs[^"]*"[^>]*>[\s\S]*?<\/a>/g,
-    /<div[^>]*class="[^"]*w-embed-youtubevideo[^"]*"[^>]*>[sS]*?</div>/g,
     /<style>[^<]*\.w-webflow-badge[^<]*<\/style>/g,
   ],
 
