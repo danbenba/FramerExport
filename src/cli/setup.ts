@@ -85,7 +85,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
   console.log('');
 
-  const outDir: string = await ask2('Output directory', './cooksite-output');
+  const outDir: string = await ask2('Output directory', './cooksite-export');
   console.log(`  ${chalk.green('✓')} ${chalk.green('Output:')} ${chalk.yellow(outDir)}\n`);
 
   console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
