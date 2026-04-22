@@ -14,6 +14,13 @@ function extractFlag(args: string[], flag: string): string | null {
   return value;
 }
 
+function hasFlag(args: string[], flag: string): boolean {
+  const idx: number = args.indexOf(flag);
+  if (idx === -1) return false;
+  args.splice(idx, 1);
+  return true;
+}
+
 async function main(): Promise<void> {
   const args: string[] = process.argv.slice(2);
 
@@ -23,8 +30,10 @@ async function main(): Promise<void> {
   }
 
   if (args.includes('--setup')) {
+    hasFlag(args, '--setup');
+    const legacyMode: boolean = hasFlag(args, '--legacy-mode');
     const { runSetup } = await import('./setup.js');
-    await runSetup();
+    await runSetup(legacyMode);
     return;
   }
 
@@ -38,14 +47,14 @@ async function main(): Promise<void> {
   showBanner();
 
   const url: string = args[0];
-  const out: string = args[1] || './framer-output';
+  const out: string = args[1] || './cooksite-output';
 
   try {
     new URL(url);
   } catch {
     const chalk = (await import('chalk')).default;
     console.log(`  ${chalk.red('✗')} ${chalk.red.bold('Invalid URL:')} ${chalk.white(url)}`);
-    console.log(`  ${chalk.gray('Expected format: https://yoursite.framer.app')}\n`);
+    console.log(`  ${chalk.gray('Expected: https://yoursite.framer.app')}\n`);
     process.exit(1);
   }
 
