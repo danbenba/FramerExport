@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   showBanner();
 
   const url: string = args[0];
-  const out: string = args[1] || './cooksite-output';
+  const out: string = args[1] || './cooksite-export';
 
   try {
     new URL(url);
