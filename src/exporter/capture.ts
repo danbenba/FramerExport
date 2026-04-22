@@ -1,11 +1,12 @@
 import puppeteer from 'puppeteer';
-import ora from 'ora';
 import chalk from 'chalk';
 import { CFG } from '../config/index.js';
+import { log } from '../logger/index.js';
 import type { ExporterContext } from '../types.js';
 
 export async function launchAndCapture(exporter: ExporterContext): Promise<void> {
-  const spin = ora({ text: 'Launching browser...', color: 'cyan' }).start();
+  exporter.cooking?.update('Launching browser...');
+
   exporter.browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -39,59 +40,50 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     } catch {}
   });
 
-  spin.text = 'Loading page...';
+  exporter.cooking?.update('Loading page...');
   await exporter.page.goto(exporter.siteUrl, {
     waitUntil: 'networkidle2',
     timeout: CFG.timeout,
   });
 
-  spin.text = `Waiting for ${exporter.platform.displayName} hydration...`;
+  exporter.cooking?.update(`Waiting for ${exporter.platform.displayName} hydration...`);
 
   if (exporter.platform.needsHydrationCheck) {
-    await exporter.page.evaluate(
-      (timeout: number) =>
-        new Promise<void>((r) => {
-          const start: number = Date.now();
-          const tick = (): void => {
-            const m = document.getElementById('main') || document.body;
-            if (m && m.children.length > 0) setTimeout(r, 2000);
-            else if (Date.now() - start > timeout) r();
-            else setTimeout(tick, 200);
-          };
-          tick();
-        }),
-      exporter.platform.hydrationTimeout
-    );
+    const timeout = exporter.platform.hydrationTimeout;
+    await exporter.page.evaluate(`
+      new Promise(function(r) {
+        var start = Date.now();
+        var tick = function() {
+          var m = document.getElementById('main') || document.body;
+          if (m && m.children.length > 0) setTimeout(r, 2000);
+          else if (Date.now() - start > ${timeout}) r();
+          else setTimeout(tick, 200);
+        };
+        tick();
+      })
+    `);
   } else {
     await new Promise<void>((r) => setTimeout(r, exporter.platform.hydrationTimeout));
   }
 
-  spin.stopAndPersist({
-    symbol: chalk.green('[SUCCESS]'),
-    text: `${exporter.platform.displayName} page loaded and hydrated`,
-  });
+  log(`  ${chalk.green('✓')} ${exporter.platform.displayName} page loaded and hydrated`);
 
-  const scrollSpin = ora({
-    text: 'Scrolling to trigger lazy loads...',
-    color: 'magenta',
-  }).start();
-  await exporter.page.evaluate(
-    (cfg: { scrollStep: number; scrollDelay: number }) =>
-      new Promise<void>((r) => {
-        let y = 0;
-        const max: number = Math.max(
-          document.body.scrollHeight,
-          document.documentElement.scrollHeight
-        );
-        const step = (): void => {
-          y += cfg.scrollStep;
-          window.scrollTo({ top: y, behavior: 'instant' as ScrollBehavior });
-          y < max + 500 ? setTimeout(step, cfg.scrollDelay) : (window.scrollTo(0, 0), r());
-        };
-        step();
-      }),
-    { scrollStep: CFG.scrollStep, scrollDelay: CFG.scrollDelay }
-  );
+  exporter.cooking?.update('Scrolling to trigger lazy loads...');
+
+  const scrollStep = CFG.scrollStep;
+  const scrollDelay = CFG.scrollDelay;
+  await exporter.page.evaluate(`
+    new Promise(function(r) {
+      var y = 0;
+      var max = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+      var step = function() {
+        y += ${scrollStep};
+        window.scrollTo({ top: y, behavior: 'instant' });
+        y < max + 500 ? setTimeout(step, ${scrollDelay}) : (window.scrollTo(0, 0), r());
+      };
+      step();
+    })
+  `);
 
   await new Promise<void>((r) => setTimeout(r, 2000));
 
@@ -99,10 +91,7 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     await exporter.page.waitForNetworkIdle({ idleTime: 1500, timeout: 8000 });
   } catch {}
 
-  scrollSpin.stopAndPersist({
-    symbol: chalk.green('[SUCCESS]'),
-    text: `Captured ${exporter.assets.buffers.size} network resources`,
-  });
+  log(`  ${chalk.green('✓')} Captured ${exporter.assets.buffers.size} network resources`);
   await exporter.browser.close();
   exporter.browser = null;
 }
