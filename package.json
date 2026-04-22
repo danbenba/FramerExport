@@ -1,10 +1,10 @@
 {
-  "name": "framer-export",
-  "version": "3.0.0",
+  "name": "cooksite",
+  "version": "4.0.0",
   "type": "module",
   "main": "dist/cli/index.js",
   "bin": {
-    "framer-export": "./dist/cli/index.js"
+    "cooksite": "./dist/cli/index.js"
   },
   "scripts": {
     "start": "tsx src/cli/index.ts",
