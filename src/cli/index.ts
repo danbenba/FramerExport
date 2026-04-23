@@ -47,7 +47,6 @@ async function main(): Promise<void> {
   showBanner();
 
   const url: string = args[0];
-  const out: string = args[1] || './cooksite-export';
 
   try {
     new URL(url);
@@ -58,7 +57,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { FramerExporter } = await import('../exporter/index.js');
+  const { FramerExporter, deriveOutputName } = await import('../exporter/index.js');
+  const { detectPlatform } = await import('../platforms/index.js');
+
+  const detected = platformOverride || detectPlatform(url).name;
+  const defaultDir: string = deriveOutputName(url, detected as PlatformType);
+  const out: string = args[1] || `./${defaultDir}`;
 
   try {
     await new FramerExporter(url, path.resolve(out), platformOverride || undefined).run();
