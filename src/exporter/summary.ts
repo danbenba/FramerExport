@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import chalk from 'chalk';
 import { log } from '../logger/index.js';
 import type { ExporterContext } from '../types.js';
 
@@ -19,19 +20,25 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
     count('styles'),
     count('data'),
   ]);
-  log('');
-  log(`=== ${exporter.platform.displayName} Export Summary ===`);
-  log(`  index.html        - Main page`);
-  log(`  styles/           - ${styles} CSS files`);
-  log(`  scripts/vendor/   - ${vendor} ${exporter.platform.displayName} JS modules`);
-  log(`  scripts/modules/  - ${scripts} component modules`);
-  log(`  assets/images/    - ${imgs} images`);
-  log(`  assets/fonts/     - ${fonts} fonts`);
-  log(`  data/             - ${data} data files`);
-  log('');
-  log('To view:');
-  log(`  cd ${exporter.outDir} && node serve.cjs`);
-  log(`  Or: npx serve ${exporter.outDir}`);
-  log('');
-  log('NOTE: Must be served via HTTP (not file://) for .mjs modules to load.');
+
+  console.log('');
+  console.log(chalk.bold.white(`  ${exporter.platform.displayName} Export Summary`));
+  console.log(chalk.gray('  ' + '─'.repeat(40)));
+  console.log(`  ${chalk.yellow('index.html')}        ${chalk.gray('Main page')}`);
+  console.log(`  ${chalk.yellow('styles/')}           ${chalk.white(String(styles))} ${chalk.gray('CSS files')}`);
+  console.log(`  ${chalk.yellow('scripts/vendor/')}   ${chalk.white(String(vendor))} ${chalk.gray('JS modules')}`);
+  console.log(`  ${chalk.yellow('scripts/modules/')}  ${chalk.white(String(scripts))} ${chalk.gray('components')}`);
+  console.log(`  ${chalk.yellow('assets/images/')}    ${chalk.white(String(imgs))} ${chalk.gray('images')}`);
+  console.log(`  ${chalk.yellow('assets/fonts/')}     ${chalk.white(String(fonts))} ${chalk.gray('fonts')}`);
+  console.log(`  ${chalk.yellow('data/')}             ${chalk.white(String(data))} ${chalk.gray('data files')}`);
+  console.log('');
+
+  const quotedDir: string = `"${exporter.outDir}"`;
+  console.log(chalk.bold.white('  To serve locally:'));
+  console.log(chalk.gray('  ' + '─'.repeat(40)));
+  console.log(`  ${chalk.cyan('cd ' + quotedDir + ' && node serve.cjs')}`);
+  console.log(`  ${chalk.gray('or:')} ${chalk.cyan('npx serve ' + quotedDir)}`);
+  console.log('');
+  console.log(chalk.gray('  NOTE: Must be served via HTTP (not file://) for JS modules.'));
+  console.log('');
 }
