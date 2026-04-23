@@ -1,11 +1,11 @@
 import puppeteer from 'puppeteer';
-import chalk from 'chalk';
 import { CFG } from '../config/index.js';
-import { log } from '../logger/index.js';
+import { log, success } from '../logger/index.js';
 import type { ExporterContext } from '../types.js';
 
 export async function launchAndCapture(exporter: ExporterContext): Promise<void> {
   exporter.cooking?.update('Launching browser...');
+  log('Launching headless browser...');
 
   exporter.browser = await puppeteer.launch({
     headless: true,
@@ -17,11 +17,13 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
       '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
   );
+  log('Browser launched, viewport set to ' + CFG.viewport.width + 'x' + CFG.viewport.height);
 
   const allStripDomains: string[] = [
     ...CFG.sharedStripDomains,
     ...exporter.platform.stripDomains,
   ];
+  log('Stripping ' + allStripDomains.length + ' analytics/tracking domains');
 
   exporter.page.on('response', async (res) => {
     const url: string = res.url();
@@ -40,15 +42,18 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     } catch {}
   });
 
-  exporter.cooking?.update('Loading page...');
+  exporter.cooking?.update('Navigating to site...');
+  log('Navigating to ' + exporter.siteUrl);
   await exporter.page.goto(exporter.siteUrl, {
     waitUntil: 'networkidle2',
     timeout: CFG.timeout,
   });
+  success('Page loaded (networkidle2)');
 
-  exporter.cooking?.update(`Waiting for ${exporter.platform.displayName} hydration...`);
+  exporter.cooking?.update('Waiting for ' + exporter.platform.displayName + ' hydration...');
 
   if (exporter.platform.needsHydrationCheck) {
+    log('Waiting for #main hydration (timeout: ' + exporter.platform.hydrationTimeout + 'ms)');
     const timeout = exporter.platform.hydrationTimeout;
     await exporter.page.evaluate(`
       new Promise(function(r) {
@@ -63,12 +68,13 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
       })
     `);
   } else {
+    log('Waiting ' + exporter.platform.hydrationTimeout + 'ms for ' + exporter.platform.displayName + ' render');
     await new Promise<void>((r) => setTimeout(r, exporter.platform.hydrationTimeout));
   }
-
-  log(`  ${chalk.green('✓')} ${exporter.platform.displayName} page loaded and hydrated`);
+  success(exporter.platform.displayName + ' page hydrated');
 
   exporter.cooking?.update('Scrolling to trigger lazy loads...');
+  log('Scrolling page to trigger lazy-loaded assets...');
 
   const scrollStep = CFG.scrollStep;
   const scrollDelay = CFG.scrollDelay;
@@ -85,13 +91,15 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     })
   `);
 
+  log('Waiting for network to settle...');
   await new Promise<void>((r) => setTimeout(r, 2000));
 
   try {
     await exporter.page.waitForNetworkIdle({ idleTime: 1500, timeout: 8000 });
   } catch {}
 
-  log(`  ${chalk.green('✓')} Captured ${exporter.assets.buffers.size} network resources`);
+  success('Captured ' + exporter.assets.buffers.size + ' network resources');
   await exporter.browser.close();
   exporter.browser = null;
+  log('Browser closed');
 }
