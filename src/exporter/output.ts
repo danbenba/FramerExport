@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { log, warn } from '../logger/index.js';
+import { log, warn, success } from '../logger/index.js';
 import { prettifyJS } from '../formatter/prettify.js';
 import { SERVE_SCRIPT } from '../server/template.js';
 import type { ExporterContext } from '../types.js';
@@ -70,7 +70,8 @@ function removeElementById(html: string, id: string): string {
 }
 
 export async function buildOutput(exporter: ExporterContext): Promise<void> {
-  log('Building output...');
+  exporter.cooking?.update('Stripping platform badges...');
+  log('Stripping ' + exporter.platform.stripSelectors.length + ' badge/editor selectors');
 
   let html: string = exporter.ssrHTML;
   if (!html) {
@@ -82,25 +83,33 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
     html = stripBySelector(html, sel);
   }
 
+  log('Applying ' + exporter.platform.stripPatterns.length + ' regex strip patterns');
   for (const pattern of exporter.platform.stripPatterns) {
     html = html.replace(new RegExp(pattern.source, pattern.flags), '');
   }
+  success('Platform badges and tracking stripped');
 
+  exporter.cooking?.update('Rewriting asset URLs...');
+  log('Rewriting CDN URLs to local paths...');
   html = exporter.assets.rewrite(html, '');
 
   await rewriteDownloadedFiles(exporter);
+  success('All URLs rewritten to local paths');
 
+  exporter.cooking?.update('Pretty-printing JS files...');
   await prettifyDownloadedJS(exporter);
 
+  exporter.cooking?.update('Writing output files...');
   await fs.writeFile(path.join(exporter.outDir, 'index.html'), html);
-  log('  index.html written');
+  log('Written index.html');
 
   await fs.writeFile(path.join(exporter.outDir, 'serve.cjs'), SERVE_SCRIPT);
-  log('  serve.cjs written');
+  log('Written serve.cjs');
 }
 
 async function rewriteDownloadedFiles(exporter: ExporterContext): Promise<void> {
   const dirs: string[] = ['scripts/vendor', 'scripts/modules', 'styles'];
+  let rewritten = 0;
 
   for (const dir of dirs) {
     const fullDir: string = path.join(exporter.outDir, dir);
@@ -120,19 +129,20 @@ async function rewriteDownloadedFiles(exporter: ExporterContext): Promise<void> 
         let content: string = await fs.readFile(filePath, 'utf-8');
         const before: string = content;
         content = exporter.assets.rewrite(content, dir);
-        if (content !== before) await fs.writeFile(filePath, content);
+        if (content !== before) {
+          await fs.writeFile(filePath, content);
+          rewritten++;
+        }
       } catch {}
     }
   }
-  log('  Rewrote URLs in JS/CSS files');
+  log('Rewrote URLs in ' + rewritten + ' JS/CSS files');
 }
 
 async function prettifyDownloadedJS(exporter: ExporterContext): Promise<void> {
-  const OVERWRITE = true;
   const dirs: string[] = ['scripts/vendor', 'scripts/modules'];
   let count = 0;
-
-  log('Pretty-printing JS/MJS files...');
+  let total = 0;
 
   for (const dir of dirs) {
     const fullDir: string = path.join(exporter.outDir, dir);
@@ -143,27 +153,36 @@ async function prettifyDownloadedJS(exporter: ExporterContext): Promise<void> {
       continue;
     }
 
-    for (const file of files) {
-      const ext: string = path.extname(file).toLowerCase();
-      if (ext !== '.mjs' && ext !== '.js') continue;
+    const jsFiles: string[] = files.filter((f) => {
+      const ext: string = path.extname(f).toLowerCase();
+      return ext === '.mjs' || ext === '.js';
+    });
+    total += jsFiles.length;
 
+    for (const file of jsFiles) {
       const filePath: string = path.join(fullDir, file);
       try {
         const raw: string = await fs.readFile(filePath, 'utf-8');
 
         const nlRatio: number = (raw.match(/\n/g) || []).length / raw.length;
-        if (nlRatio > 0.05) continue;
+        if (nlRatio > 0.05) {
+          count++;
+          continue;
+        }
 
         const pretty: string = await prettifyJS(raw);
-        const destPath: string = OVERWRITE ? filePath : filePath.replace(ext, `.pretty${ext}`);
-
-        await fs.writeFile(destPath, pretty, 'utf-8');
+        await fs.writeFile(filePath, pretty, 'utf-8');
         count++;
+
+        if (count % 5 === 0) {
+          exporter.cooking?.update('Pretty-printing... (' + count + '/' + total + ')');
+        }
       } catch (e) {
-        warn(`Pretty-print skipped: ${file} - ${(e as Error).message}`);
+        warn('Pretty-print skipped: ' + file + ' - ' + (e as Error).message);
+        count++;
       }
     }
   }
 
-  log(`  Pretty-printed ${count} JS/MJS files`);
+  success('Formatted ' + count + '/' + total + ' JS/MJS files');
 }
