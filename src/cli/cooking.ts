@@ -1,81 +1,72 @@
-import ora, { type Ora } from 'ora';
 import chalk from 'chalk';
 
 const SHINE_WIDTH = 6;
 
 export class CookingSpinner {
-  private spinner: Ora;
-  private frame = 0;
   private interval: NodeJS.Timeout | null = null;
+  private frame = 0;
   private phase = '';
-
-  constructor() {
-    this.spinner = ora({ spinner: { frames: [' '], interval: 80 }, color: 'yellow' });
-  }
+  private active = false;
 
   start(phase: string = ''): void {
     this.phase = phase;
     this.frame = 0;
-    this.spinner.start();
-    this.renderFrame();
+    this.active = true;
+    this.draw();
     this.interval = setInterval(() => {
       this.frame++;
-      this.renderFrame();
+      this.draw();
     }, 80);
   }
 
   update(phase: string): void {
     this.phase = phase;
-    this.renderFrame();
   }
 
-  succeed(message: string): void {
-    this.stop();
-    console.log(`  ${chalk.green('✓')} ${chalk.green(message)}`);
-  }
-
-  fail(message: string): void {
-    this.stop();
-    console.log(`  ${chalk.red('✗')} ${chalk.red(message)}`);
+  log(message: string): void {
+    if (this.active) {
+      process.stdout.write('\r\x1B[2K');
+    }
+    process.stdout.write(message + '\n');
+    if (this.active) {
+      this.draw();
+    }
   }
 
   stop(): void {
+    this.active = false;
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
     }
-    this.spinner.stop();
+    process.stdout.write('\r\x1B[2K');
   }
 
-  private renderFrame(): void {
-    const base = 'Cooking';
-    const dotCount: number = (this.frame % 16 < 4) ? 1 : (this.frame % 16 < 8) ? 2 : (this.frame % 16 < 12) ? 3 : 2;
+  private draw(): void {
+    if (!this.active) return;
+    const text = 'Cooking';
+    const dotCount: number = 1 + (this.frame % 3);
     const dots: string = '.'.repeat(dotCount);
     const pad: string = ' '.repeat(3 - dotCount);
-    const cookingText: string = base + dots + pad;
-
-    const shimmer: string = this.renderShimmer(cookingText);
+    const shimmer: string = this.renderShimmer(text);
+    const dotStr: string = chalk.rgb(100, 100, 100)(dots);
     const phaseText: string = this.phase ? `  ${chalk.gray(this.phase)}` : '';
-    this.spinner.text = shimmer + phaseText;
+    process.stdout.write(`\r\x1B[2K  ${shimmer}${dotStr}${pad}${phaseText}`);
   }
 
   private renderShimmer(text: string): string {
     let result = '';
-    const shinePos: number = this.frame % (text.length + SHINE_WIDTH * 2) - SHINE_WIDTH;
-
+    const pos: number = this.frame % (text.length + SHINE_WIDTH * 2) - SHINE_WIDTH;
     for (let i = 0; i < text.length; i++) {
-      const ch: string = text[i];
-      if (ch === ' ') {
-        result += ' ';
-        continue;
-      }
-      const dist: number = Math.abs(i - shinePos);
+      const dist: number = Math.abs(i - pos);
       if (dist < SHINE_WIDTH) {
-        const brightness: number = 1 - dist / SHINE_WIDTH;
-        const gray: number = Math.floor(130 + brightness * 125);
-        result += chalk.rgb(gray, gray, gray)(ch);
+        const t: number = 1 - dist / SHINE_WIDTH;
+        const r: number = Math.floor(100 + t * 100);
+        const g: number = Math.floor(100 + t * 110);
+        const b: number = Math.floor(100 + t * 155);
+        result += chalk.rgb(r, g, b)(text[i]);
       } else {
-        result += chalk.rgb(130, 130, 130)(ch);
+        result += chalk.rgb(100, 100, 100)(text[i]);
       }
     }
     return result;
