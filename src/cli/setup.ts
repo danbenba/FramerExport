@@ -4,7 +4,7 @@ import path from 'path';
 import { URL } from 'url';
 import chalk from 'chalk';
 import { showBanner } from './banner.js';
-import { FramerExporter } from '../exporter/index.js';
+import { FramerExporter, deriveOutputName } from '../exporter/index.js';
 import { detectPlatform } from '../platforms/index.js';
 import { select } from './select.js';
 import type { PlatformType } from '../platforms/types.js';
@@ -80,12 +80,14 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     return answer.trim() || defaultVal || '';
   };
 
+  const derivedName: string = deriveOutputName(siteUrl, platformName);
+
   console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
   console.log(chalk.magenta('  │') + chalk.bold.white('  Step 3 : Output Directory                   ') + chalk.magenta('│'));
   console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
   console.log('');
 
-  const outDir: string = await ask2('Output directory', './cooksite-export');
+  const outDir: string = await ask2('Output directory', './' + derivedName);
   console.log(`  ${chalk.green('✓')} ${chalk.green('Output:')} ${chalk.yellow(outDir)}\n`);
 
   console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
