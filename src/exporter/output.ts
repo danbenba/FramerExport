@@ -71,7 +71,8 @@ function removeElementById(html: string, id: string): string {
 
 export async function buildOutput(exporter: ExporterContext): Promise<void> {
   exporter.cooking?.update('Stripping platform badges...');
-  log('Stripping ' + exporter.platform.stripSelectors.length + ' badge/editor selectors');
+  log('Starting HTML post-processing...');
+  log('HTML size: ' + (exporter.ssrHTML.length / 1024).toFixed(1) + ' KB');
 
   let html: string = exporter.ssrHTML;
   if (!html) {
@@ -79,19 +80,32 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
     return;
   }
 
+  log('Stripping ' + exporter.platform.stripSelectors.length + ' selectors:');
   for (const sel of exporter.platform.stripSelectors) {
+    const before: number = html.length;
     html = stripBySelector(html, sel);
+    const removed: number = before - html.length;
+    if (removed > 0) {
+      log('  Stripped ' + sel + ' (' + removed + ' chars removed)');
+    }
   }
 
-  log('Applying ' + exporter.platform.stripPatterns.length + ' regex strip patterns');
+  log('Applying ' + exporter.platform.stripPatterns.length + ' regex patterns...');
   for (const pattern of exporter.platform.stripPatterns) {
+    const before: number = html.length;
     html = html.replace(new RegExp(pattern.source, pattern.flags), '');
+    const removed: number = before - html.length;
+    if (removed > 0) {
+      log('  Pattern removed ' + removed + ' chars');
+    }
   }
   success('Platform badges and tracking stripped');
 
   exporter.cooking?.update('Rewriting asset URLs...');
-  log('Rewriting CDN URLs to local paths...');
+  log('Rewriting ' + exporter.assets.entries.size + ' CDN URLs to local paths...');
+  const beforeRewrite: number = html.length;
   html = exporter.assets.rewrite(html, '');
+  log('HTML rewrite delta: ' + (html.length - beforeRewrite) + ' chars');
 
   await rewriteDownloadedFiles(exporter);
   success('All URLs rewritten to local paths');
@@ -99,12 +113,14 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   exporter.cooking?.update('Pretty-printing JS files...');
   await prettifyDownloadedJS(exporter);
 
-  exporter.cooking?.update('Writing output files...');
+  exporter.cooking?.update('Writing final output...');
+  log('Writing index.html (' + (html.length / 1024).toFixed(1) + ' KB)...');
   await fs.writeFile(path.join(exporter.outDir, 'index.html'), html);
-  log('Written index.html');
+  success('index.html written');
 
   await fs.writeFile(path.join(exporter.outDir, 'serve.cjs'), SERVE_SCRIPT);
-  log('Written serve.cjs');
+  log('serve.cjs written');
+  success('Output build complete');
 }
 
 async function rewriteDownloadedFiles(exporter: ExporterContext): Promise<void> {
