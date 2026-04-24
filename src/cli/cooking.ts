@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 
-const SHINE_WIDTH = 6;
+const SHINE_WIDTH = 8;
 
 export class CookingSpinner {
   private interval: NodeJS.Timeout | null = null;
@@ -16,7 +16,7 @@ export class CookingSpinner {
     this.interval = setInterval(() => {
       this.frame++;
       this.draw();
-    }, 80);
+    }, 70);
   }
 
   update(phase: string): void {
@@ -49,7 +49,7 @@ export class CookingSpinner {
     const dots: string = '.'.repeat(dotCount);
     const pad: string = ' '.repeat(3 - dotCount);
     const shimmer: string = this.renderShimmer(text);
-    const dotStr: string = chalk.rgb(100, 100, 100)(dots);
+    const dotStr: string = chalk.rgb(180, 180, 180)(dots);
     const phaseText: string = this.phase ? `  ${chalk.gray(this.phase)}` : '';
     process.stdout.write(`\r\x1B[2K  ${shimmer}${dotStr}${pad}${phaseText}`);
   }
@@ -61,12 +61,10 @@ export class CookingSpinner {
       const dist: number = Math.abs(i - pos);
       if (dist < SHINE_WIDTH) {
         const t: number = 1 - dist / SHINE_WIDTH;
-        const r: number = Math.floor(100 + t * 100);
-        const g: number = Math.floor(100 + t * 110);
-        const b: number = Math.floor(100 + t * 155);
-        result += chalk.rgb(r, g, b)(text[i]);
+        const gray: number = Math.floor(180 + t * 75);
+        result += chalk.rgb(gray, gray, gray)(text[i]);
       } else {
-        result += chalk.rgb(100, 100, 100)(text[i]);
+        result += chalk.rgb(180, 180, 180)(text[i]);
       }
     }
     return result;
