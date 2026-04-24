@@ -16,12 +16,15 @@ export async function downloadAll(exporter: ExporterContext): Promise<void> {
   }
 
   const total: number = toDownload.length;
-  log('Downloading ' + total + ' assets (concurrency: ' + CFG.concurrency + ')');
+  log('Starting download of ' + total + ' unique assets');
+  log('Concurrency: ' + CFG.concurrency + ' parallel downloads');
+  log('Retry policy: ' + CFG.retries + ' attempts, ' + CFG.dlTimeout + 'ms timeout');
 
   let ok = 0;
   let cached = 0;
   let fail = 0;
   let completed = 0;
+  let lastReported = 0;
 
   const tasks: Array<() => Promise<void>> = toDownload.map(
     ({ url, localPath }) =>
@@ -48,19 +51,27 @@ export async function downloadAll(exporter: ExporterContext): Promise<void> {
             !url.includes('framer.com/edit') &&
             !url.includes('framerstatic.com/editorbar')
           ) {
-            warn('Failed: ' + url.slice(0, 60) + ' - ' + (e as Error).message);
+            warn('Download failed: ' + path.basename(localPath) + ' - ' + (e as Error).message);
           }
         }
 
         completed++;
-        if (completed % 10 === 0 || completed === total) {
-          exporter.cooking?.update('Downloading assets... (' + completed + '/' + total + ')');
-          log('Downloaded ' + completed + '/' + total + ' assets');
+        const pct: number = Math.floor((completed / total) * 100);
+        if (pct >= lastReported + 10 || completed === total) {
+          exporter.cooking?.update('Downloading... ' + completed + '/' + total + ' (' + pct + '%)');
+          log('Download progress: ' + completed + '/' + total + ' (' + pct + '%)');
+          lastReported = pct;
         }
       }
   );
 
   await pool(tasks, CFG.concurrency);
-  success(ok + ' assets downloaded (' + cached + ' from cache, ' + fail + ' failed)');
+
+  success('Downloads complete: ' + ok + ' succeeded, ' + cached + ' from cache, ' + fail + ' failed');
+
+  const totalBytes: number = [...exporter.assets.entries.values()].length;
+  log('Total unique assets written to disk: ' + totalBytes);
+
   exporter.assets.buffers.clear();
+  log('Network buffer cache cleared');
 }
