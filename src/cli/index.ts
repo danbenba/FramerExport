@@ -1,10 +1,12 @@
-#!/usr/bin/env node
-
 import path from 'path';
 import { URL } from 'url';
+import pkg from '../../package.json';
 import { showHelp } from './help.js';
 import { showBanner } from './banner.js';
+import { checkForUpdates } from './update-check.js';
 import type { PlatformType } from '../platforms/types.js';
+
+const VERSION = pkg.version;
 
 function extractFlag(args: string[], flag: string): string | null {
   const idx: number = args.indexOf(flag);
@@ -24,6 +26,38 @@ function hasFlag(args: string[], flag: string): boolean {
 async function main(): Promise<void> {
   const args: string[] = process.argv.slice(2);
 
+  if (args.includes('--version') || args.includes('-v')) {
+    console.log(VERSION);
+    process.exit(0);
+  }
+
+  if (args.includes('--about')) {
+    const chalk = (await import('chalk')).default;
+    showBanner();
+    console.log(`  ${chalk.white.bold('Framer Export')}  ${chalk.gray(`v${pkg.version}`)}`);
+    console.log(`  ${chalk.white(pkg.description)}\n`);
+    console.log(`  ${chalk.white.bold('Author')}     ${chalk.cyan('Dany (danbenba)')}`);
+    console.log(`  ${chalk.white.bold('Portfolio')}  ${chalk.underline.cyan('https://github.com/danbenba')}`);
+    console.log(`  ${chalk.white.bold('GitHub')}     ${chalk.underline.cyan(pkg.repository.url.replace('git+', '').replace('.git', ''))}`);
+    console.log(`  ${chalk.white.bold('npm')}        ${chalk.underline.cyan(`https://www.npmjs.com/package/${pkg.name}`)}`);
+    console.log(`  ${chalk.white.bold('License')}    ${chalk.green(pkg.license)}`);
+    console.log(`  ${chalk.white.bold('Node')}       ${chalk.gray(`>=${pkg.engines.node}`)}`);
+    console.log('');
+    process.exit(0);
+  }
+
+  checkForUpdates(VERSION).then((latest) => {
+    if (!latest) return;
+    import('chalk').then((chalk) => {
+      console.log('');
+      console.log(
+        `  ${chalk.default.yellow('↳')} Update available: ${chalk.default.gray(VERSION)} → ${chalk.default.green(latest)}`,
+      );
+      console.log(`  ${chalk.default.gray('  Run:')} ${chalk.default.cyan('npm i -g framer-export@latest')}`);
+      console.log('');
+    });
+  });
+
   if (args.includes('--help') || args.includes('-h')) {
     showHelp();
     process.exit(0);
@@ -38,8 +72,9 @@ async function main(): Promise<void> {
   }
 
   if (!args.length) {
-    showHelp();
-    process.exit(0);
+    const { runSetup } = await import('./setup.js');
+    await runSetup(false);
+    return;
   }
 
   const platformOverride = extractFlag(args, '--platform') as PlatformType | null;

@@ -1,27 +1,65 @@
 {
-  "name": "cooksite",
-  "version": "4.0.0",
+  "name": "framer-export",
+  "version": "4.2.1",
+  "description": "Export any Framer, Webflow, or Wix site into a fully working local mirror. Downloads all assets, strips badges, rewrites URLs, and pretty-prints JS.",
   "type": "module",
   "main": "dist/cli/index.js",
+  "types": "dist/cli/index.d.ts",
   "bin": {
-    "cooksite": "./dist/cli/index.js"
+    "framer-export": "./bin/framer-export.js",
+    "fexport": "./bin/fexport.js",
+    "framerexport": "./bin/framerexport.js"
   },
+  "files": [
+    "dist/",
+    "bin/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "start": "tsx src/cli/index.ts",
     "dev": "tsx src/cli/index.ts",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "framer",
+    "webflow",
+    "wix",
+    "exporter",
+    "export",
+    "scraper",
+    "mirror",
+    "site-downloader",
+    "site-export",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danbenba/FramerExport.git"
+  },
+  "homepage": "https://github.com/danbenba/FramerExport#readme",
+  "bugs": {
+    "url": "https://github.com/danbenba/FramerExport/issues"
+  },
+  "license": "MIT",
+  "author": "Dany (danbenba)",
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "chalk": "^5.3.0",
     "ora": "^8.0.0",
     "prettier": "^3.2.0",
-    "puppeteer": "^22.0.0"
+    "puppeteer": "^22.0.0",
+    "readline-promise": "^1.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "tsup": "^8.0.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0"
   }

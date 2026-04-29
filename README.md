@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/Puppeteer-40B5A4?style=for-the-badge&logo=puppeteer&logoColor=white" alt="Puppeteer" />
-  <img src="https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/version-4.0.1-blue?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License" />
 </p>
 
@@ -51,8 +51,8 @@
 
 ```bash
 # Clone and install
-git clone https://github.com/danbenba/f-export.git
-cd f-export
+git clone https://github.com/danbenba/FramerExport.git
+cd FramerExport
 npm install
 
 # Interactive mode (recommended)
@@ -93,9 +93,9 @@ cd webflow-mysite && node serve.cjs
 
 ```
 Usage:
-  cooksite <url> [output-dir]
-  cooksite --setup
-  cooksite --setup --legacy-mode
+  framer-export <url> [output-dir]
+  framer-export --setup
+  framer-export --setup --legacy-mode
 
 Options:
   --setup            Launch interactive setup wizard
@@ -108,19 +108,19 @@ Options:
 
 ```bash
 # Auto-detect platform from URL
-cooksite https://mysite.framer.app
+framer-export https://mysite.framer.app
 
 # Force platform for custom domains
-cooksite --platform webflow https://custom-domain.com
+framer-export --platform webflow https://custom-domain.com
 
 # Specify output directory
-cooksite https://mysite.webflow.io ./my-export
+framer-export https://mysite.webflow.io ./my-export
 
 # Interactive wizard with arrow-key selection
-cooksite --setup
+framer-export --setup
 
 # Legacy mode (y/n prompts)
-cooksite --setup --legacy-mode
+framer-export --setup --legacy-mode
 ```
 
 ### npm Scripts

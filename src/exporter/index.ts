@@ -33,7 +33,7 @@ export function deriveOutputName(url: string, platformName: PlatformType): strin
 
     return `${platformName}-${siteName}`;
   } catch {
-    return 'cooksite-export';
+    return 'framer-export-output';
   }
 }
 

@@ -1,5 +1,5 @@
-import readline from 'readline';
-import { stdin, stdout } from 'process';
+import readline from 'node:readline';
+import { stdin, stdout } from 'node:process';
 import chalk from 'chalk';
 
 export interface SelectOption {

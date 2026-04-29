@@ -4,7 +4,7 @@ export default defineConfig({
   entry: ['src/cli/index.ts'],
   format: ['esm'],
   target: 'node20',
-  outDir: 'dist',
+  outDir: 'dist/cli',
   clean: true,
   sourcemap: true,
   splitting: false,

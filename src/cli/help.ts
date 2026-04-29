@@ -5,9 +5,9 @@ export function showHelp(): void {
   showBanner();
 
   console.log(chalk.white.bold('  USAGE\n'));
-  console.log(`    ${chalk.cyan('npm run dev')}   ${chalk.gray('--')} ${chalk.yellow('<url>')} ${chalk.gray('[output-dir]')}`);
-  console.log(`    ${chalk.cyan('npm start')}     ${chalk.gray('--')} ${chalk.yellow('<url>')} ${chalk.gray('[output-dir]')}`);
-  console.log(`    ${chalk.cyan('cooksite')}      ${chalk.yellow('<url>')} ${chalk.gray('[output-dir]')}`);
+    console.log(`    ${chalk.cyan('npm run dev')}   ${chalk.gray('--')} ${chalk.yellow('<url>')} ${chalk.gray('[output-dir]')}`);
+    console.log(`    ${chalk.cyan('npm start')}     ${chalk.gray('--')} ${chalk.yellow('<url>')} ${chalk.gray('[output-dir]')}`);
+    console.log(`    ${chalk.cyan('framer-export')} ${chalk.yellow('<url>')} ${chalk.gray('[output-dir]')}`);
 
   console.log('');
   console.log(chalk.white.bold('  OPTIONS\n'));
@@ -38,11 +38,11 @@ export function showHelp(): void {
 
   console.log('');
   console.log(chalk.white.bold('  EXAMPLES\n'));
-  console.log(`    ${chalk.gray('$')} ${chalk.cyan('cooksite')} ${chalk.yellow('https://mysite.framer.app')}`);
-  console.log(`    ${chalk.gray('$')} ${chalk.cyan('cooksite')} ${chalk.yellow('https://mysite.webflow.io')}`);
-  console.log(`    ${chalk.gray('$')} ${chalk.cyan('cooksite')} ${chalk.yellow('https://user.wixsite.com/my-site')}`);
-  console.log(`    ${chalk.gray('$')} ${chalk.cyan('cooksite')} ${chalk.green('--platform webflow')} ${chalk.yellow('https://custom.com')}`);
-  console.log(`    ${chalk.gray('$')} ${chalk.cyan('cooksite')} ${chalk.green('--setup')}`);
-  console.log(`    ${chalk.gray('$')} ${chalk.cyan('cooksite')} ${chalk.green('--setup --legacy-mode')}`);
+    console.log(`    ${chalk.gray('$')} ${chalk.cyan('framer-export')} ${chalk.yellow('https://mysite.framer.app')}`);
+    console.log(`    ${chalk.gray('$')} ${chalk.cyan('framer-export')} ${chalk.yellow('https://mysite.webflow.io')}`);
+    console.log(`    ${chalk.gray('$')} ${chalk.cyan('framer-export')} ${chalk.yellow('https://user.wixsite.com/my-site')}`);
+    console.log(`    ${chalk.gray('$')} ${chalk.cyan('framer-export')} ${chalk.green('--platform webflow')} ${chalk.yellow('https://custom.com')}`);
+    console.log(`    ${chalk.gray('$')} ${chalk.cyan('framer-export')} ${chalk.green('--setup')}`);
+    console.log(`    ${chalk.gray('$')} ${chalk.cyan('framer-export')} ${chalk.green('--setup --legacy-mode')}`);
   console.log('');
 }

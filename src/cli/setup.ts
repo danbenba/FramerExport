@@ -1,7 +1,7 @@
-import readline from 'readline/promises';
-import { stdin, stdout } from 'process';
-import path from 'path';
-import { URL } from 'url';
+import readline from 'node:readline/promises';
+import { stdin, stdout } from 'node:process';
+import path from 'node:path';
+import { URL } from 'node:url';
 import chalk from 'chalk';
 import { showBanner } from './banner.js';
 import { FramerExporter, deriveOutputName } from '../exporter/index.js';
@@ -9,14 +9,47 @@ import { detectPlatform } from '../platforms/index.js';
 import { select } from './select.js';
 import type { PlatformType } from '../platforms/types.js';
 
+function getWidth(): number {
+  return process.stdout.columns || 80;
+}
+
+function drawHeader(title: string): void {
+  const width = getWidth();
+  const isSmall = width < 50;
+  const magenta = chalk.magenta;
+  const boldWhite = chalk.bold.white;
+
+  if (isSmall) {
+    console.log(`\n${magenta('●')} ${boldWhite(title)}`);
+    return;
+  }
+
+  const boxWidth = 45;
+  const padding = Math.max(0, boxWidth - title.length - 2);
+  const rightPad = ' '.repeat(padding);
+  
+  console.log(magenta('  ┌─────────────────────────────────────────────┐'));
+  console.log(magenta('  │') + boldWhite('  ' + title) + rightPad + magenta('│'));
+  console.log(magenta('  └─────────────────────────────────────────────┘'));
+  console.log('');
+}
+
 function line(label: string, value: string): void {
-  console.log(`  ${chalk.magenta('│')} ${chalk.bold(label.padEnd(14))} ${chalk.yellow(value)}`);
+  const width = getWidth();
+  const isSmall = width < 50;
+  const magenta = chalk.magenta;
+  
+  if (isSmall) {
+    console.log(`  ${chalk.bold(label)}: ${chalk.yellow(value)}`);
+    return;
+  }
+  console.log(`  ${magenta('│')} ${chalk.bold(label.padEnd(14))} ${chalk.yellow(value)}`);
 }
 
 export async function runSetup(legacyMode: boolean = false): Promise<void> {
   showBanner();
 
-  console.log(chalk.bold.white('  Welcome to Cooksite setup.\n'));
+  console.log(chalk.bold.white('  Welcome to Framer Export setup.\n'));
   console.log(chalk.gray('  Supports Framer, Webflow, and Wix sites.\n'));
 
   const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -28,10 +61,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     return answer.trim() || defaultVal || '';
   };
 
-  console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-  console.log(chalk.magenta('  │') + chalk.bold.white('  Step 1 : Site URL                           ') + chalk.magenta('│'));
-  console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
-  console.log('');
+  drawHeader('Step 1 : Site URL');
 
   let siteUrl = '';
   while (!siteUrl) {
@@ -45,10 +75,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   }
   console.log(`  ${chalk.green('✓')} ${chalk.green('URL:')} ${chalk.underline(siteUrl)}\n`);
 
-  console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-  console.log(chalk.magenta('  │') + chalk.bold.white('  Step 2 : Platform                           ') + chalk.magenta('│'));
-  console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
-  console.log('');
+  drawHeader('Step 2 : Platform');
 
   const detected = detectPlatform(siteUrl);
   let platformName: PlatformType;
@@ -82,18 +109,12 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
 
   const derivedName: string = deriveOutputName(siteUrl, platformName);
 
-  console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-  console.log(chalk.magenta('  │') + chalk.bold.white('  Step 3 : Output Directory                   ') + chalk.magenta('│'));
-  console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
-  console.log('');
+  drawHeader('Step 3 : Output Directory');
 
   const outDir: string = await ask2('Output directory', './' + derivedName);
   console.log(`  ${chalk.green('✓')} ${chalk.green('Output:')} ${chalk.yellow(outDir)}\n`);
 
-  console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-  console.log(chalk.magenta('  │') + chalk.bold.white('  Step 4 : Options                            ') + chalk.magenta('│'));
-  console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
-  console.log('');
+  drawHeader('Step 4 : Options');
 
   let prettyPrint: boolean;
   let concurrency: number;
@@ -123,15 +144,23 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   }
 
   console.log('');
-  console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-  console.log(chalk.magenta('  │') + chalk.bold.white('  Summary                                     ') + chalk.magenta('│'));
-  console.log(chalk.magenta('  ├─────────────────────────────────────────────┤'));
+  const width = getWidth();
+  const isSmall = width < 50;
+  if (!isSmall) {
+    console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
+    console.log(chalk.magenta('  │') + chalk.bold.white('  Summary                                     ') + chalk.magenta('│'));
+    console.log(chalk.magenta('  ├─────────────────────────────────────────────┤'));
+  } else {
+    console.log(chalk.bold.white('  Summary:'));
+  }
   line('URL', siteUrl);
   line('Platform', platformName);
   line('Output', path.resolve(outDir));
   line('Pretty-print', prettyPrint ? 'yes' : 'no');
   line('Concurrency', String(concurrency));
-  console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
+  if (!isSmall) {
+    console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
+  }
   console.log('');
 
   let startExport: boolean;

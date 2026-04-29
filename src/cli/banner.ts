@@ -1,18 +1,36 @@
 import chalk from 'chalk';
+import pkg from '../../package.json';
 
-const ASCII_ART: string = `
-  ${chalk.magenta('╔══════════════════════════════════════════════════════════════╗')}
-  ${chalk.magenta('║')}                                                              ${chalk.magenta('║')}
-  ${chalk.magenta('║')}   ${chalk.bold.cyan('   ___            _        _ _')}                              ${chalk.magenta('║')}
-  ${chalk.magenta('║')}   ${chalk.bold.cyan('  / __| ___  ___ | | __ __(_) |_ ___')}                       ${chalk.magenta('║')}
-  ${chalk.magenta('║')}   ${chalk.bold.cyan(' | (__ / _ \\/ _ \\| |/ /(_-< |  _/ -_)')}                      ${chalk.magenta('║')}
-  ${chalk.magenta('║')}   ${chalk.bold.cyan('  \\___|\\___/\\___/|_\\_\\ /__/_|\\__\\___|')}                      ${chalk.magenta('║')}
-  ${chalk.magenta('║')}                                                              ${chalk.magenta('║')}
-  ${chalk.magenta('║')}        ${chalk.gray('v4.0.0')}  ${chalk.white.bold('Framer · Webflow · Wix Exporter')}         ${chalk.magenta('║')}
-  ${chalk.magenta('║')}                                                              ${chalk.magenta('║')}
-  ${chalk.magenta('╚══════════════════════════════════════════════════════════════╝')}
-`;
+function getWidth(): number {
+  return process.stdout.columns || 80;
+}
+
+const ASCII_ART = [
+  '███████╗███████╗██╗  ██╗██████╗  ██████╗ ██████╗ ████████╗',
+  '██╔════╝██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝',
+  '█████╗  █████╗   ╚███╔╝ ██████╔╝██║   ██║██████╔╝   ██║   ',
+  '██╔══╝  ██╔══╝   ██╔██╗ ██╔═══╝ ██║   ██║██╔══██╗   ██║   ',
+  '██║     ███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ',
+  '╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝',
+];
 
 export function showBanner(): void {
-  console.log(ASCII_ART);
+  const width = getWidth();
+  const isSmall = width < 65;
+
+  if (isSmall) {
+    console.log(`\n  ${chalk.cyan.bold('F-EXPORT')} ${chalk.gray(`v${pkg.version}`)}`);
+    console.log(`  ${chalk.white.bold('Framer · Webflow · Wix Exporter')}\n`);
+    return;
+  }
+
+  const cyan = chalk.cyan.bold;
+  const gray = chalk.gray;
+
+  console.log('');
+  ASCII_ART.forEach((line) => {
+    console.log('  ' + cyan(line));
+  });
+  console.log('');
+  console.log(`  ${gray(`v${pkg.version}`)}  ${chalk.white.bold('Framer · Webflow · Wix Exporter')}\n`);
 }

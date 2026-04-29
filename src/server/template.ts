@@ -24,28 +24,52 @@ const MIME = {
   '.woff2':     'font/woff2',
   '.ttf':       'font/ttf',
   '.otf':       'font/otf',
+  '.mp4':       'video/mp4',
+  '.webm':      'video/webm',
+  '.ogg':       'video/ogg',
   '.framercms': 'application/octet-stream',
 };
 
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   let url = decodeURIComponent(req.url.split('?')[0]);
   if (url === '/') url = '/index.html';
 
-  const filePath = path.join(ROOT, url);
-  if (!filePath.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
+  let filePath = path.join(ROOT, url);
+  if (!filePath.startsWith(ROOT)) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
 
-  fs.readFile(filePath, (err, data) => {
-    if (err) { res.writeHead(404); res.end('Not found'); return; }
-    const ext  = path.extname(filePath).toLowerCase();
-    const mime = MIME[ext] || 'application/octet-stream';
-    res.writeHead(200, {
-      'Content-Type': mime,
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, max-age=3600',
+  const serveFile = (pathToFile) => {
+    fs.readFile(pathToFile, (err, data) => {
+      if (err) {
+        // SPA Fallback: if it's not a file, serve index.html
+        if (url !== '/index.html' && !path.extname(url)) {
+          return serveFile(path.join(ROOT, 'index.html'));
+        }
+        res.writeHead(404);
+        res.end('Not found');
+        return;
+      }
+      const ext  = path.extname(pathToFile).toLowerCase();
+      const mime = MIME[ext] || 'application/octet-stream';
+      res.writeHead(200, {
+        'Content-Type': mime,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=3600',
+      });
+      res.end(data);
     });
-    res.end(data);
-  });
-}).listen(PORT, () => {
-  console.log('Serving at http://localhost:' + PORT);
+  };
+
+  serveFile(filePath);
+});
+
+server.listen(PORT, () => {
+  console.log('\\x1b[32m%s\\x1b[0m', '  🚀 Cooksite Local Server Running');
+  console.log('\\x1b[36m%s\\x1b[0m', '  ├─ URL:      http://localhost:' + PORT);
+  console.log('\\x1b[35m%s\\x1b[0m', '  └─ Directory: ' + ROOT);
+  console.log('\\n  Press Ctrl+C to stop.');
 });
 `;
