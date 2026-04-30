@@ -8,42 +8,18 @@ import { FramerExporter, deriveOutputName } from '../exporter/index.js';
 import { detectPlatform } from '../platforms/index.js';
 import { select } from './select.js';
 import type { PlatformType } from '../platforms/types.js';
-
-function getWidth(): number {
-  return process.stdout.columns || 80;
-}
+import { boxTop, boxLine, boxSep, boxBot, boxRow, maxWidth } from './box.js';
 
 function drawHeader(title: string): void {
-  const width = getWidth();
-  const isSmall = width < 50;
-  const magenta = chalk.hex('#D4A017');
-  const boldWhite = chalk.bold.white;
-
-  if (isSmall) {
-    console.log(`\n${magenta('●')} ${boldWhite(title)}`);
+  const w = maxWidth();
+  if (w < 50) {
+    console.log(`\n  ${chalk.hex('#D4A017')('●')} ${chalk.bold.white(title)}`);
     return;
   }
-
-  const boxWidth = 45;
-  const padding = Math.max(0, boxWidth - title.length - 2);
-  const rightPad = ' '.repeat(padding);
-  
-  console.log(magenta('  ┌─────────────────────────────────────────────┐'));
-  console.log(magenta('  │') + boldWhite('  ' + title) + rightPad + magenta('│'));
-  console.log(magenta('  └─────────────────────────────────────────────┘'));
+  console.log(boxTop(w));
+  console.log(boxLine(w, chalk.bold.white('  ' + title)));
+  console.log(boxBot(w));
   console.log('');
-}
-
-function line(label: string, value: string): void {
-  const width = getWidth();
-  const isSmall = width < 50;
-  const magenta = chalk.hex('#D4A017');
-  
-  if (isSmall) {
-    console.log(`  ${chalk.bold(label)}: ${chalk.yellow(value)}`);
-    return;
-  }
-  console.log(`  ${magenta('│')} ${chalk.bold(label.padEnd(14))} ${chalk.yellow(value)}`);
 }
 
 export async function runSetup(legacyMode: boolean = false): Promise<void> {
@@ -154,24 +130,32 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     concurrency = parseInt(concurrencyVal, 10);
   }
 
+  const w = maxWidth();
+  const isSmall = w < 50;
+  const G = chalk.hex('#C4953A');
+  const B = chalk.hex('#8B6914');
+
   console.log('');
-  const width = getWidth();
-  const isSmall = width < 50;
   if (!isSmall) {
-    console.log(chalk.hex('#D4A017')('  ┌─────────────────────────────────────────────┐'));
-    console.log(chalk.hex('#D4A017')('  │') + chalk.bold.white('  Summary                                     ') + chalk.hex('#D4A017')('│'));
-    console.log(chalk.hex('#D4A017')('  ├─────────────────────────────────────────────┤'));
+    console.log(boxTop(w));
+    console.log(boxLine(w, chalk.bold.white('  Summary')));
   } else {
     console.log(chalk.bold.white('  Summary:'));
   }
-  line('URL', siteUrl);
-  line('Platform', platformName);
-  line('Output', path.resolve(outDir));
-  line('Pretty-print', prettyPrint ? 'yes' : 'no');
-  line('Sub-pages', includeSubpages ? 'yes' : 'no');
-  line('Concurrency', String(concurrency));
+
+  for (const [label, value] of [
+    ['URL', siteUrl],
+    ['Platform', platformName],
+    ['Output', path.resolve(outDir)],
+    ['Pretty-print', prettyPrint ? 'yes' : 'no'],
+    ['Sub-pages', includeSubpages ? 'yes' : 'no'],
+    ['Concurrency', String(concurrency)],
+  ]) {
+    console.log(boxRow(w, label, value));
+  }
+
   if (!isSmall) {
-    console.log(chalk.hex('#D4A017')('  └─────────────────────────────────────────────┘'));
+    console.log(boxBot(w));
   }
   console.log('');
 
