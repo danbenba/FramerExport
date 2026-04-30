@@ -18,13 +18,13 @@ function output(line: string): void {
 }
 
 export const log = (m: string): void =>
-  output(`${chalk.gray(`[${T()}]`)} ${chalk.cyan('[LOG]')} ${m}`);
+  output(`${chalk.gray(`[${T()}]`)} ${chalk.hex('#D4A017')('[LOG]')} ${m}`);
 
 export const info = (m: string): void =>
-  output(`${chalk.gray(`[${T()}]`)} ${chalk.blue('[INFO]')} ${chalk.bold(m)}`);
+  output(`${chalk.gray(`[${T()}]`)} ${chalk.hex('#B8860B')('[INFO]')} ${chalk.bold(m)}`);
 
 export const warn = (m: string): void => {
-  const line = `${chalk.gray(`[${T()}]`)} ${chalk.yellow('[WARN]')} ${chalk.yellow(m)}`;
+  const line = `${chalk.gray(`[${T()}]`)} ${chalk.hex('#CC7722')('[WARN]')} ${chalk.hex('#CC7722')(m)}`;
   if (_cooking) _cooking.log(line);
   else console.warn(line);
 };

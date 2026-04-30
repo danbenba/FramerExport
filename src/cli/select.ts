@@ -16,10 +16,10 @@ export async function select(question: string, options: SelectOption[], defaultI
         stdout.write(`\x1B[${options.length + 1}A`);
         stdout.write('\x1B[J');
       }
-      console.log(`  ${chalk.cyan('?')} ${chalk.white.bold(question)}`);
+      console.log(`  ${chalk.hex('#D4A017')('?')} ${chalk.white.bold(question)}`);
       for (let i = 0; i < options.length; i++) {
         if (i === selected) {
-          console.log(`    ${chalk.cyan('>')} ${chalk.white.bold(options[i].label)}`);
+          console.log(`    ${chalk.hex('#D4A017')('>')} ${chalk.white.bold(options[i].label)}`);
         } else {
           console.log(`      ${chalk.gray(options[i].label)}`);
         }
@@ -48,7 +48,7 @@ export async function select(question: string, options: SelectOption[], defaultI
 
         stdout.write(`\x1B[${options.length + 1}A`);
         stdout.write('\x1B[J');
-        console.log(`  ${chalk.green('✓')} ${chalk.white.bold(question)} ${chalk.cyan(options[selected].label)}\n`);
+        console.log(`  ${chalk.green('✓')} ${chalk.white.bold(question)} ${chalk.hex('#D4A017')(options[selected].label)}\n`);
 
         resolve(options[selected].value);
       } else if ((key.ctrl && key.name === 'c') || key.name === 'escape') {

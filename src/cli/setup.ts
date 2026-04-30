@@ -16,7 +16,7 @@ function getWidth(): number {
 function drawHeader(title: string): void {
   const width = getWidth();
   const isSmall = width < 50;
-  const magenta = chalk.magenta;
+  const magenta = chalk.hex('#D4A017');
   const boldWhite = chalk.bold.white;
 
   if (isSmall) {
@@ -37,7 +37,7 @@ function drawHeader(title: string): void {
 function line(label: string, value: string): void {
   const width = getWidth();
   const isSmall = width < 50;
-  const magenta = chalk.magenta;
+  const magenta = chalk.hex('#D4A017');
   
   if (isSmall) {
     console.log(`  ${chalk.bold(label)}: ${chalk.yellow(value)}`);
@@ -56,7 +56,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
 
   const ask = async (question: string, defaultVal?: string): Promise<string> => {
     const suffix: string = defaultVal ? chalk.gray(` (${defaultVal})`) : '';
-    const prompt: string = `  ${chalk.cyan('?')} ${chalk.white.bold(question)}${suffix} ${chalk.gray('>')} `;
+    const prompt: string = `  ${chalk.hex('#D4A017')('?')} ${chalk.white.bold(question)}${suffix} ${chalk.gray('>')} `;
     const answer: string = await rl.question(prompt);
     return answer.trim() || defaultVal || '';
   };
@@ -81,12 +81,12 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   let platformName: PlatformType;
 
   if (legacyMode) {
-    console.log(`  ${chalk.blue('i')} Auto-detected: ${chalk.magenta(detected.displayName)}`);
+    console.log(`  ${chalk.blue('i')} Auto-detected: ${chalk.hex('#D4A017')(detected.displayName)}`);
     const platformInput: string = await ask('Platform (framer/webflow/wix)', detected.name);
     platformName = (['framer', 'webflow', 'wix'].includes(platformInput)
       ? platformInput
       : detected.name) as PlatformType;
-    console.log(`  ${chalk.green('✓')} ${chalk.green('Platform:')} ${chalk.magenta(platformName)}\n`);
+    console.log(`  ${chalk.green('✓')} ${chalk.green('Platform:')} ${chalk.hex('#D4A017')(platformName)}\n`);
   } else {
     rl.close();
     const platforms = [
@@ -102,7 +102,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
 
   const ask2 = async (question: string, defaultVal?: string): Promise<string> => {
     const suffix: string = defaultVal ? chalk.gray(` (${defaultVal})`) : '';
-    const prompt: string = `  ${chalk.cyan('?')} ${chalk.white.bold(question)}${suffix} ${chalk.gray('>')} `;
+    const prompt: string = `  ${chalk.hex('#D4A017')('?')} ${chalk.white.bold(question)}${suffix} ${chalk.gray('>')} `;
     const answer: string = await rl2.question(prompt);
     return answer.trim() || defaultVal || '';
   };
@@ -118,11 +118,16 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
 
   let prettyPrint: boolean;
   let concurrency: number;
+  let includeSubpages: boolean;
 
   if (legacyMode) {
     const prettyAnswer: string = await ask2('Pretty-print JS files? (y/n)', 'y');
     prettyPrint = prettyAnswer.toLowerCase().startsWith('y');
     console.log(`  ${chalk.green('✓')} Pretty-print: ${prettyPrint ? chalk.green('yes') : chalk.red('no')}\n`);
+
+    const subpagesAnswer: string = await ask2('Export sub-pages? (y/n)', 'n');
+    includeSubpages = subpagesAnswer.toLowerCase().startsWith('y');
+    console.log(`  ${chalk.green('✓')} Sub-pages: ${includeSubpages ? chalk.green('yes') : chalk.red('no')}\n`);
 
     const concurrencyAnswer: string = await ask2('Download concurrency', '12');
     concurrency = parseInt(concurrencyAnswer, 10) || 12;
@@ -134,6 +139,12 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
       { label: 'No', value: 'no' },
     ]);
     prettyPrint = prettyVal === 'yes';
+
+    const subpagesVal = await select('Export sub-pages?', [
+      { label: 'No', value: 'no' },
+      { label: 'Yes, crawl and export', value: 'yes' },
+    ], 0);
+    includeSubpages = subpagesVal === 'yes';
 
     const concurrencyVal = await select('Download concurrency', [
       { label: '6 (slow connection)', value: '6' },
@@ -147,9 +158,9 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   const width = getWidth();
   const isSmall = width < 50;
   if (!isSmall) {
-    console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-    console.log(chalk.magenta('  │') + chalk.bold.white('  Summary                                     ') + chalk.magenta('│'));
-    console.log(chalk.magenta('  ├─────────────────────────────────────────────┤'));
+    console.log(chalk.hex('#D4A017')('  ┌─────────────────────────────────────────────┐'));
+    console.log(chalk.hex('#D4A017')('  │') + chalk.bold.white('  Summary                                     ') + chalk.hex('#D4A017')('│'));
+    console.log(chalk.hex('#D4A017')('  ├─────────────────────────────────────────────┤'));
   } else {
     console.log(chalk.bold.white('  Summary:'));
   }
@@ -157,9 +168,10 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   line('Platform', platformName);
   line('Output', path.resolve(outDir));
   line('Pretty-print', prettyPrint ? 'yes' : 'no');
+  line('Sub-pages', includeSubpages ? 'yes' : 'no');
   line('Concurrency', String(concurrency));
   if (!isSmall) {
-    console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
+    console.log(chalk.hex('#D4A017')('  └─────────────────────────────────────────────┘'));
   }
   console.log('');
 
@@ -189,5 +201,5 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
 
   const exporter = new FramerExporter(siteUrl, path.resolve(outDir), platformName);
   exporter.prettyPrint = prettyPrint;
-  await exporter.run();
+  await exporter.run(includeSubpages);
 }

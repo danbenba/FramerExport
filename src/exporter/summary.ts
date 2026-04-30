@@ -30,11 +30,13 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
     count('data'),
   ]);
 
+  const G = chalk.hex('#D4A017');
+
   console.log('');
   if (!isSmall) {
-    console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-    console.log(chalk.magenta('  │') + chalk.bold.white('  Export Summary                            ') + chalk.magenta('│'));
-    console.log(chalk.magenta('  ├─────────────────────────────────────────────┤'));
+    console.log(G('  ┌─────────────────────────────────────────────┐'));
+    console.log(G('  │') + chalk.bold.white('  Export Summary                            ') + G('│'));
+    console.log(G('  ├─────────────────────────────────────────────┤'));
   } else {
     console.log(chalk.bold.white('  Export Summary:'));
   }
@@ -46,7 +48,7 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
     if (isSmall) {
       console.log(`  ${chalk.yellow(label)} ${chalk.white(String(count))} ${chalk.gray(type)}`);
     } else {
-      console.log(`  ${chalk.magenta('│')} ${chalk.yellow(l)} ${chalk.white(c)} ${chalk.gray(type.padEnd(20))} ${chalk.magenta('│')}`);
+      console.log(`  ${G('│')} ${chalk.yellow(l)} ${chalk.white(c)} ${chalk.gray(type.padEnd(20))} ${G('│')}`);
     }
   };
 
@@ -60,21 +62,21 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
   row('data/', data, 'data files');
 
   if (!isSmall) {
-    console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
+    console.log(G('  └─────────────────────────────────────────────┘'));
   }
 
   console.log('');
   const quotedDir: string = `"${exporter.outDir}"`;
   
   if (!isSmall) {
-    console.log(chalk.magenta('  ┌─────────────────────────────────────────────┐'));
-    console.log(chalk.magenta('  │') + chalk.bold.white('  To serve locally                          ') + chalk.magenta('│'));
-    console.log(chalk.magenta('  ├─────────────────────────────────────────────┤'));
-    console.log(`  ${chalk.magenta('│')} ${chalk.cyan('cd ' + path.basename(exporter.outDir) + ' && node serve.cjs').padEnd(44)} ${chalk.magenta('│')}`);
-    console.log(chalk.magenta('  └─────────────────────────────────────────────┘'));
+    console.log(G('  ┌─────────────────────────────────────────────┐'));
+    console.log(G('  │') + chalk.bold.white('  To serve locally                          ') + G('│'));
+    console.log(G('  ├─────────────────────────────────────────────┤'));
+    console.log(`  ${G('│')} ${chalk.hex('#D4A017')('cd ' + path.basename(exporter.outDir) + ' && node serve.cjs').padEnd(44)} ${G('│')}`);
+    console.log(G('  └─────────────────────────────────────────────┘'));
   } else {
     console.log(chalk.bold.white('  To serve locally:'));
-    console.log(`  ${chalk.cyan('cd ' + path.basename(exporter.outDir) + ' && node serve.cjs')}`);
+    console.log(`  ${chalk.hex('#D4A017')('cd ' + path.basename(exporter.outDir) + ' && node serve.cjs')}`);
   }
   
   console.log('');

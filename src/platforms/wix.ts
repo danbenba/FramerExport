@@ -18,7 +18,14 @@ export const wix: PlatformHandler = {
       html.includes('id="WIX_ADS"') ||
       html.includes('X-Wix-') ||
       html.includes('Wix.com') ||
-      html.includes('wixcode-sdk')
+      html.includes('wixcode-sdk') ||
+      html.includes('data-wix') ||
+      html.includes('wix-code') ||
+      html.includes('WixCode') ||
+      /\bwix\.com\b/.test(html) ||
+      /meta\s+name=["']generator["']\s+content=["'][^"']*Wix[^"']*["']/i.test(html) ||
+      /_wix_/i.test(html) ||
+      /wix-ecom/i.test(html)
     );
   },
 

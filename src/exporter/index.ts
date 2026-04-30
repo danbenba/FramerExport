@@ -5,7 +5,7 @@ import type { Browser, Page } from 'puppeteer';
 import { AssetMap } from '../assets/asset-map.js';
 import { dlBuffer } from '../network/download.js';
 import { info, log, success, setCooking } from '../logger/index.js';
-import { launchAndCapture } from './capture.js';
+import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
 import { downloadAll } from './download.js';
 import { buildOutput } from './output.js';
 import { printSummary } from './summary.js';
@@ -64,11 +64,14 @@ export class FramerExporter implements ExporterContext {
     }
   }
 
-  async run(): Promise<void> {
-    console.log(chalk.bold.magenta('\n  Cooksite v4 - Full Mirror & Clean Export\n'));
+  async run(includeSubpages: boolean = false): Promise<void> {
+    console.log(chalk.bold.hex('#D4A017')('\n  Cooksite v4 - Full Mirror & Clean Export\n'));
     info('Source   : ' + chalk.underline(this.siteUrl));
     info('Output   : ' + chalk.yellow(this.outDir));
-    info('Platform : ' + chalk.magenta(this.platform.displayName));
+    info('Platform : ' + chalk.hex('#D4A017')(this.platform.displayName));
+    if (includeSubpages) {
+      info('Subpages : ' + chalk.green('enabled'));
+    }
     console.log('');
 
     this.cooking = new CookingSpinner();
@@ -85,6 +88,7 @@ export class FramerExporter implements ExporterContext {
       'scripts/vendor',
       'scripts/modules',
       'data',
+      'subpages',
     ]) {
       await fs.mkdir(path.join(this.outDir, d), { recursive: true });
     }
@@ -103,10 +107,16 @@ export class FramerExporter implements ExporterContext {
     const htmlDetected = detectPlatform(this.siteUrl, this.ssrHTML);
     if (htmlDetected.name !== this.platform.name) {
       this.platform = htmlDetected;
-      log('Platform refined: ' + chalk.magenta(this.platform.displayName) + ' (from HTML analysis)');
+      log('Platform refined: ' + chalk.hex('#D4A017')(this.platform.displayName) + ' (from HTML analysis)');
     }
 
     await launchAndCapture(this);
+
+    if (includeSubpages && this.page) {
+      await this.crawlSubpages();
+    }
+
+    await closeBrowser(this);
 
     this.cooking.update('Downloading assets...');
     await downloadAll(this);
@@ -120,5 +130,72 @@ export class FramerExporter implements ExporterContext {
     console.log('');
     success('Export complete!');
     await printSummary(this);
+  }
+
+  private async crawlSubpages(): Promise<void> {
+    this.cooking?.update('Discovering sub-pages...');
+    log('Scanning page for internal links...');
+
+    const page = this.page!;
+    const baseUrl = new URL(this.siteUrl);
+    const baseHost = baseUrl.hostname.replace(/^www\./, '');
+
+    const links: string[] = await page.evaluate((host: string) => {
+      const anchors = Array.from(document.querySelectorAll('a[href]'));
+      const hrefs = new Set<string>();
+      for (const a of anchors) {
+        const href = (a as HTMLAnchorElement).href;
+        if (!href || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('#')) continue;
+        try {
+          const u = new URL(href);
+          const h = u.hostname.replace(/^www\./, '');
+          if (h === host && u.pathname !== '/' && u.pathname !== '' && !u.pathname.startsWith('/#')) {
+            hrefs.add(href.split('#')[0]);
+          }
+        } catch {}
+      }
+      return Array.from(hrefs);
+    }, baseHost);
+
+    log('Found ' + links.length + ' sub-page links');
+    const uniqueLinks = [...new Set(links)].slice(0, 50);
+
+    if (uniqueLinks.length === 0) {
+      log('No sub-pages to crawl');
+      return;
+    }
+
+    for (let i = 0; i < uniqueLinks.length; i++) {
+      const link = uniqueLinks[i];
+      this.cooking?.update('Crawling sub-page ' + (i + 1) + '/' + uniqueLinks.length);
+      try {
+        const html = await captureSubpage(page, link, {
+          needsHydrationCheck: this.platform.needsHydrationCheck,
+          hydrationTimeout: this.platform.hydrationTimeout,
+        });
+
+        const slug = this.deriveSlug(link, baseUrl);
+        const filename = slug + '.html';
+        const filepath = path.join(this.outDir, 'subpages', filename);
+
+        await fs.writeFile(filepath, html, 'utf-8');
+        log('  Saved: subpages/' + filename);
+      } catch (e) {
+        log('  Skipped ' + link + ': ' + (e as Error).message);
+      }
+    }
+
+    success('Sub-pages crawled: ' + uniqueLinks.length);
+  }
+
+  private deriveSlug(link: string, baseUrl: URL): string {
+    try {
+      const u = new URL(link);
+      let pathname = u.pathname.replace(/\/+$/, '').replace(/^\//, '');
+      if (!pathname) return 'index';
+      return pathname.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_') || 'page';
+    } catch {
+      return 'page';
+    }
   }
 }

@@ -36,10 +36,10 @@ async function main(): Promise<void> {
     showBanner();
     console.log(`  ${chalk.white.bold('Framer Export')}  ${chalk.gray(`v${pkg.version}`)}`);
     console.log(`  ${chalk.white(pkg.description)}\n`);
-    console.log(`  ${chalk.white.bold('Author')}     ${chalk.cyan('Dany (danbenba)')}`);
-    console.log(`  ${chalk.white.bold('Portfolio')}  ${chalk.underline.cyan('https://github.com/danbenba')}`);
-    console.log(`  ${chalk.white.bold('GitHub')}     ${chalk.underline.cyan(pkg.repository.url.replace('git+', '').replace('.git', ''))}`);
-    console.log(`  ${chalk.white.bold('npm')}        ${chalk.underline.cyan(`https://www.npmjs.com/package/${pkg.name}`)}`);
+    console.log(`  ${chalk.white.bold('Author')}     ${chalk.hex('#D4A017')('Dany (danbenba)')}`);
+    console.log(`  ${chalk.white.bold('Portfolio')}  ${chalk.underline.hex('#D4A017')('https://github.com/danbenba')}`);
+    console.log(`  ${chalk.white.bold('GitHub')}     ${chalk.underline.hex('#D4A017')(pkg.repository.url.replace('git+', '').replace('.git', ''))}`);
+    console.log(`  ${chalk.white.bold('npm')}        ${chalk.underline.hex('#D4A017')(`https://www.npmjs.com/package/${pkg.name}`)}`);
     console.log(`  ${chalk.white.bold('License')}    ${chalk.green(pkg.license)}`);
     console.log(`  ${chalk.white.bold('Node')}       ${chalk.gray(`>=${pkg.engines.node}`)}`);
     console.log('');
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
       console.log(
         `  ${chalk.default.yellow('↳')} Update available: ${chalk.default.gray(VERSION)} → ${chalk.default.green(latest)}`,
       );
-      console.log(`  ${chalk.default.gray('  Run:')} ${chalk.default.cyan('npm i -g framer-export@latest')}`);
+      console.log(`  ${chalk.default.hex('#D4A017')('  Run:')} ${chalk.default.hex('#B8860B')('npm i -g framer-export@latest')}`);
       console.log('');
     });
   });
@@ -78,6 +78,7 @@ async function main(): Promise<void> {
   }
 
   const platformOverride = extractFlag(args, '--platform') as PlatformType | null;
+  const includeSubpages: boolean = hasFlag(args, '--subpages');
 
   showBanner();
 
@@ -100,7 +101,7 @@ async function main(): Promise<void> {
   const out: string = args[1] || `./${defaultDir}`;
 
   try {
-    await new FramerExporter(url, path.resolve(out), platformOverride || undefined).run();
+    await new FramerExporter(url, path.resolve(out), platformOverride || undefined).run(includeSubpages);
   } catch (e) {
     const chalk = (await import('chalk')).default;
     console.log(`\n  ${chalk.red('✗')} ${chalk.red.bold('FAILED:')} ${chalk.white((e as Error).message)}`);

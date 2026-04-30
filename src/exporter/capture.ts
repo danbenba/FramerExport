@@ -1,6 +1,7 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { type Page } from 'puppeteer';
 import { CFG } from '../config/index.js';
 import { log, success, info } from '../logger/index.js';
+import { detectByDom } from '../platforms/index.js';
 import type { ExporterContext } from '../types.js';
 
 export async function launchAndCapture(exporter: ExporterContext): Promise<void> {
@@ -66,6 +67,13 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
   });
   success('Page loaded (networkidle2)');
   log('Intercepted ' + intercepted + ' resources, blocked ' + blocked + ' tracking requests');
+
+  log('Checking DOM-based platform detection...');
+  const domDetected = await detectByDom(exporter.page);
+  if (domDetected && domDetected.name !== exporter.platform.name) {
+    log('Platform refined from DOM: ' + domDetected.displayName + ' (override: ' + exporter.platform.name + ')');
+    exporter.platform = domDetected;
+  }
 
   exporter.cooking?.update('Waiting for ' + exporter.platform.displayName + ' hydration...');
 
@@ -137,8 +145,41 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
   const imgCount: number = [...exporter.assets.entries.values()].filter((e) => e.localPath.startsWith('assets/images')).length;
   const fontCount: number = [...exporter.assets.entries.values()].filter((e) => e.localPath.startsWith('assets/fonts')).length;
   log('  CSS: ' + cssCount + ' | JS: ' + jsCount + ' | Images: ' + imgCount + ' | Fonts: ' + fontCount);
+}
 
-  await exporter.browser.close();
-  exporter.browser = null;
-  log('Browser closed');
+export async function closeBrowser(exporter: { browser: import('puppeteer').Browser | null }): Promise<void> {
+  if (exporter.browser) {
+    await exporter.browser.close();
+    exporter.browser = null;
+    log('Browser closed');
+  }
+}
+
+export async function captureSubpage(
+  page: Page,
+  url: string,
+  platform: { needsHydrationCheck: boolean; hydrationTimeout: number }
+): Promise<string> {
+  log('  Navigating to sub-page: ' + url);
+  await page.goto(url, { waitUntil: 'networkidle2', timeout: CFG.timeout });
+
+  if (platform.needsHydrationCheck) {
+    await page.evaluate(
+      `new Promise(function(r) {
+        var t = Date.now();
+        (function tick() {
+          var m = document.getElementById('main') || document.body;
+          if (m && m.children.length > 0) setTimeout(r, 500);
+          else if (Date.now() - t > ${platform.hydrationTimeout}) r();
+          else setTimeout(tick, 200);
+        })();
+      })`
+    );
+  } else {
+    await new Promise<void>((r) => setTimeout(r, 1000));
+  }
+
+  const html: string = await page.evaluate(() => document.documentElement.outerHTML || document.body.innerHTML);
+  log('  Sub-page fetched: ' + (html.length / 1024).toFixed(1) + ' KB');
+  return html;
 }

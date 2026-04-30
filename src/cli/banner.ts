@@ -19,17 +19,17 @@ export function showBanner(): void {
   const isSmall = width < 65;
 
   if (isSmall) {
-    console.log(`\n  ${chalk.cyan.bold('F-EXPORT')} ${chalk.gray(`v${pkg.version}`)}`);
+    console.log(`\n  ${chalk.hex('#D4A017').bold('F-EXPORT')} ${chalk.gray(`v${pkg.version}`)}`);
     console.log(`  ${chalk.white.bold('Framer · Webflow · Wix Exporter')}\n`);
     return;
   }
 
-  const cyan = chalk.cyan.bold;
+  const gold = chalk.hex('#D4A017').bold;
   const gray = chalk.gray;
 
   console.log('');
   ASCII_ART.forEach((line) => {
-    console.log('  ' + cyan(line));
+    console.log('  ' + gold(line));
   });
   console.log('');
   console.log(`  ${gray(`v${pkg.version}`)}  ${chalk.white.bold('Framer · Webflow · Wix Exporter')}\n`);
