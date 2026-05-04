@@ -33,10 +33,26 @@ export function deriveOutputName(url: string, platformName: PlatformType): strin
       siteName = hostname.replace(/\./g, '-');
     }
 
-    return `${platformName}-${siteName}`;
+    const cleanName =
+      siteName
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '') || 'site';
+
+    return `${platformName}-${cleanName}-${randomOutputSuffix()}`;
   } catch {
-    return 'framer-export-output';
+    return `framer-export-output-${randomOutputSuffix()}`;
   }
+}
+
+function randomOutputSuffix(): string {
+  const adjectives = ['clean', 'bright', 'swift', 'sharp', 'fresh', 'solid', 'tidy', 'prime'];
+  const nouns = ['mirror', 'export', 'site', 'build', 'copy', 'page', 'stack', 'bundle'];
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const id = Math.random().toString(36).slice(2, 6);
+  return `${adjective}-${noun}-${id}`;
 }
 
 export class FramerExporter implements ExporterContext {
