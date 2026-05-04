@@ -9,6 +9,7 @@ import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
 import { downloadAll } from './download.js';
 import { buildOutput } from './output.js';
 import { printSummary } from './summary.js';
+import { runAiPromptAssistant } from '../ai/prompt-assistant.js';
 import { detectPlatform, getPlatformByName } from '../platforms/index.js';
 import type { PlatformHandler, PlatformType } from '../platforms/types.js';
 import type { ExporterContext } from '../types.js';
@@ -107,7 +108,11 @@ export class FramerExporter implements ExporterContext {
     const htmlDetected = detectPlatform(this.siteUrl, this.ssrHTML);
     if (htmlDetected.name !== this.platform.name) {
       this.platform = htmlDetected;
-      log('Platform refined: ' + chalk.hex('#D4A017')(this.platform.displayName) + ' (from HTML analysis)');
+      log(
+        'Platform refined: ' +
+          chalk.hex('#D4A017')(this.platform.displayName) +
+          ' (from HTML analysis)'
+      );
     }
 
     await launchAndCapture(this);
@@ -130,6 +135,7 @@ export class FramerExporter implements ExporterContext {
     console.log('');
     success('Export complete!');
     await printSummary(this);
+    await runAiPromptAssistant(this);
   }
 
   private async crawlSubpages(): Promise<void> {
@@ -145,11 +151,23 @@ export class FramerExporter implements ExporterContext {
       const hrefs = new Set<string>();
       for (const a of anchors) {
         const href = (a as HTMLAnchorElement).href;
-        if (!href || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('#')) continue;
+        if (
+          !href ||
+          href.startsWith('javascript:') ||
+          href.startsWith('mailto:') ||
+          href.startsWith('tel:') ||
+          href.startsWith('#')
+        )
+          continue;
         try {
           const u = new URL(href);
           const h = u.hostname.replace(/^www\./, '');
-          if (h === host && u.pathname !== '/' && u.pathname !== '' && !u.pathname.startsWith('/#')) {
+          if (
+            h === host &&
+            u.pathname !== '/' &&
+            u.pathname !== '' &&
+            !u.pathname.startsWith('/#')
+          ) {
             hrefs.add(href.split('#')[0]);
           }
         } catch {}
