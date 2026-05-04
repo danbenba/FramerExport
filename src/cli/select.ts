@@ -1,6 +1,7 @@
 import readline from 'node:readline';
 import { stdin, stdout } from 'node:process';
-import { stripAnsi, ui } from './theme.js';
+import { maxWidth, panelBot, panelLine, panelSep, panelTop } from './box.js';
+import { centerText, stripAnsi, truncatePlain, ui } from './theme.js';
 
 export interface SelectOption {
   label: string;
@@ -27,7 +28,15 @@ async function arrowSelect(
   options: SelectOption[],
   defaultIndex: number
 ): Promise<string> {
-  const questionRow = await queryCursorRow();
+  const width = Math.max(44, Math.min(maxWidth(), 72));
+  const inner = width - 4;
+  const optionStartOffset = 3;
+  const lineCount = options.length + 4;
+  const rows = process.stdout.rows || 24;
+  const columns = process.stdout.columns || 80;
+  const panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
+  const panelLeftCol = Math.max(1, Math.floor((columns - width) / 2) + 1);
+  const footerRow = Math.min(rows, panelTopRow + lineCount + 1);
 
   return new Promise((resolve) => {
     const firstEnabled: number = options.findIndex((option) => !option.disabled);
@@ -47,26 +56,31 @@ async function arrowSelect(
 
     const render = (initial: boolean = false): void => {
       if (!initial) {
-        stdout.write(`\x1B[${options.length + 1}A`);
-        stdout.write('\x1B[J');
+        stdout.write('\x1B[2J');
       }
-      console.log(`  ${ui.primary('●')} ${ui.text.bold(question)}`);
+      const lines: string[] = [];
+      lines.push(panelTop(width));
+      lines.push(
+        panelLine(width, centerText(`${ui.primary('●')} ${ui.text.bold(question)}`, inner))
+      );
+      lines.push(panelSep(width));
       for (let i = 0; i < options.length; i++) {
-        if (options[i].disabled) {
-          console.log(`      ${ui.muted(stripAnsi(options[i].label))}`);
-        } else if (i === selected) {
-          console.log(`    ${ui.primary('>')} ${ui.text.bold(options[i].label)}`);
-        } else {
-          console.log(`      ${ui.muted(options[i].label)}`);
-        }
+        lines.push(
+          panelLine(width, centerText(renderOption(options[i], i === selected, inner), inner))
+        );
       }
+      lines.push(panelBot(width));
+
+      lines.forEach((line, index) => writeAt(panelTopRow + index, panelLeftCol, line));
+      writeAt(
+        footerRow,
+        panelLeftCol,
+        centerText(ui.muted('↑↓ move  ·  enter select  ·  mouse hover/click  ·  esc close'), width)
+      );
     };
 
     const choose = (): void => {
       cleanup();
-
-      stdout.write(`\x1B[${options.length + 1}A`);
-      stdout.write('\x1B[J');
       console.log(
         `  ${ui.success('✓')} ${ui.text.bold(question)} ${ui.primary(stripAnsi(options[selected].label))}\n`
       );
@@ -90,28 +104,31 @@ async function arrowSelect(
         return;
       }
 
-      if (mouse.kind !== 'click' || questionRow === null) return;
-      const idx = mouse.y - questionRow - 1;
+      const idx = mouse.y - panelTopRow - optionStartOffset;
       if (idx < 0 || idx >= options.length || options[idx].disabled) return;
 
-      selected = idx;
-      render();
-      choose();
+      if (selected !== idx) {
+        selected = idx;
+        render();
+      }
+
+      if (mouse.kind === 'click') {
+        choose();
+      }
     };
 
     const cleanup = (): void => {
-      disableMouse();
+      leaveInteractiveScreen();
       stdin.setRawMode(false);
       stdin.removeListener('keypress', onKeypress);
       stdin.removeListener('data', onMouseData);
       stdin.pause();
     };
 
-    render(true);
-
     readline.emitKeypressEvents(stdin);
     stdin.setRawMode(true);
-    enableMouse();
+    enterInteractiveScreen();
+    render(true);
 
     const onKeypress = (_str: string | undefined, key: readline.Key): void => {
       if (!key) return;
@@ -191,60 +208,72 @@ async function fallbackPrompt(
 
 type MouseEventInfo =
   | { kind: 'click'; x: number; y: number }
+  | { kind: 'hover'; x: number; y: number }
   | { kind: 'wheel-up'; x: number; y: number }
   | { kind: 'wheel-down'; x: number; y: number };
 
-function enableMouse(): void {
-  stdout.write('\x1B[?1000h\x1B[?1006h');
+function renderOption(option: SelectOption, selected: boolean, width: number): string {
+  const plain = truncatePlain(stripAnsi(option.label), Math.max(10, width - 12));
+  if (option.disabled) {
+    return `${ui.border('[')} ${ui.muted(plain)} ${ui.border(']')}`;
+  }
+  if (selected) {
+    return `${ui.primary('›')} ${ui.primary('[')} ${ui.text.bold(plain)} ${ui.primary(']')} ${ui.primary('‹')}`;
+  }
+  return `${ui.muted(' ')} ${ui.border('[')} ${ui.muted(plain)} ${ui.border(']')} ${ui.muted(' ')}`;
 }
 
-function disableMouse(): void {
-  stdout.write('\x1B[?1000l\x1B[?1006l');
+function enterInteractiveScreen(): void {
+  stdout.write(
+    '\x1B[?1049h' +
+      '\x1B[2J' +
+      '\x1B[H' +
+      '\x1B[?25l' +
+      '\x1B[?1006h' +
+      '\x1B[?1000h' +
+      '\x1B[?1002h' +
+      '\x1B[?1003h'
+  );
+}
+
+function leaveInteractiveScreen(): void {
+  stdout.write(
+    '\x1B[?1003l' + '\x1B[?1002l' + '\x1B[?1000l' + '\x1B[?1006l' + '\x1B[?25h' + '\x1B[?1049l'
+  );
 }
 
 function parseMouseEvent(chunk: Buffer): MouseEventInfo | null {
   const text = chunk.toString('utf-8');
   const match = text.match(/\x1B\[<(\d+);(\d+);(\d+)([mM])/);
-  if (!match) return null;
+  if (!match) return parseLegacyMouseEvent(text);
 
   const code = Number(match[1]);
   const x = Number(match[2]);
   const y = Number(match[3]);
   const state = match[4];
-  if (state !== 'M') return null;
-
   if (code === 64) return { kind: 'wheel-up', x, y };
   if (code === 65) return { kind: 'wheel-down', x, y };
-  if ((code & 3) === 0) return { kind: 'click', x, y };
+  if (state === 'm') return { kind: 'click', x, y };
+  if ((code & 32) === 32 || code === 35) return { kind: 'hover', x, y };
+  if ((code & 3) === 0) return { kind: 'hover', x, y };
   return null;
 }
 
-function queryCursorRow(): Promise<number | null> {
-  if (!stdin.isTTY || !stdout.isTTY) return Promise.resolve(null);
+function parseLegacyMouseEvent(text: string): MouseEventInfo | null {
+  const match = text.match(/\x1B\[M([\s\S])([\s\S])([\s\S])/);
+  if (!match) return null;
 
-  return new Promise((resolve) => {
-    const wasRaw = stdin.isRaw;
-    let done = false;
+  const code = match[1].charCodeAt(0) - 32;
+  const x = match[2].charCodeAt(0) - 32;
+  const y = match[3].charCodeAt(0) - 32;
 
-    const finish = (row: number | null): void => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      stdin.removeListener('data', onData);
-      if (!wasRaw) stdin.setRawMode(false);
-      resolve(row);
-    };
+  if (code === 64) return { kind: 'wheel-up', x, y };
+  if (code === 65) return { kind: 'wheel-down', x, y };
+  if ((code & 3) === 3) return { kind: 'click', x, y };
+  if ((code & 32) === 32) return { kind: 'hover', x, y };
+  return { kind: 'hover', x, y };
+}
 
-    const onData = (chunk: Buffer): void => {
-      const match = chunk.toString('utf-8').match(/\x1B\[(\d+);\d+R/);
-      if (!match) return;
-      finish(Number(match[1]));
-    };
-
-    const timer = setTimeout(() => finish(null), 80);
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.on('data', onData);
-    stdout.write('\x1B[6n');
-  });
+function writeAt(row: number, col: number, text: string): void {
+  stdout.write(`\x1B[${row};${col}H${text}`);
 }

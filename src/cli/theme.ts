@@ -59,3 +59,15 @@ export function chip(label: string): string {
 export function bullet(label: string = '•'): string {
   return ui.primary(label);
 }
+
+export function centerText(text: string, width: number): string {
+  const visible = stripAnsi(text).length;
+  if (visible >= width) return text;
+  const left = Math.floor((width - visible) / 2);
+  return ' '.repeat(left) + text + ' '.repeat(width - visible - left);
+}
+
+export function truncatePlain(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, Math.max(0, max - 2)) + '..';
+}
