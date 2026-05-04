@@ -1,9 +1,12 @@
 import path from 'path';
 import { URL } from 'url';
+import { spawnSync } from 'child_process';
 import pkg from '../../package.json';
 import { showHelp } from './help.js';
 import { showBanner } from './banner.js';
+import { showLoadingIntro } from './cooking.js';
 import { checkForUpdates } from './update-check.js';
+import { select } from './select.js';
 import { ui } from './theme.js';
 import type { PlatformType } from '../platforms/types.js';
 
@@ -22,6 +25,57 @@ function hasFlag(args: string[], flag: string): boolean {
   if (idx === -1) return false;
   args.splice(idx, 1);
   return true;
+}
+
+async function showUpdateNotice(): Promise<void> {
+  const latest = await checkForUpdates(VERSION);
+  if (!latest) return;
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.log('');
+    console.log(
+      `  ${ui.warning('↳')} Update available: ${ui.muted(VERSION)} -> ${ui.success(latest)}`
+    );
+    console.log(`  ${ui.primary('  Run:')} ${ui.primarySoft('npm i -g framer-export@latest')}`);
+    console.log('');
+    return;
+  }
+
+  const action = await select(
+    'Update available',
+    [
+      { label: 'Continue without updating', value: 'continue' },
+      { label: 'Update now', value: 'update' },
+    ],
+    0,
+    {
+      headerLines: [
+        `Current version: ${VERSION}`,
+        `Latest version:  ${latest}`,
+        'You can continue now and update later.',
+      ],
+      footer: 'enter continue  ·  mouse hover/click',
+    }
+  );
+
+  if (action === 'update') {
+    console.log(
+      `  ${ui.primary('Updating:')} ${ui.primarySoft('npm i -g framer-export@latest')}\n`
+    );
+    const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const result = spawnSync(npmCommand, ['i', '-g', 'framer-export@latest'], {
+      stdio: 'inherit',
+    });
+
+    if (result.status === 0) {
+      console.log(`\n  ${ui.success('✓')} Updated. Re-run your command to use the new version.\n`);
+      process.exit(0);
+    }
+
+    console.log(
+      `\n  ${ui.error('✗')} Update failed. Run manually: ${ui.primarySoft('npm i -g framer-export@latest')}\n`
+    );
+  }
 }
 
 async function main(): Promise<void> {
@@ -53,20 +107,13 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  checkForUpdates(VERSION).then((latest) => {
-    if (!latest) return;
-    console.log('');
-    console.log(
-      `  ${ui.warning('↳')} Update available: ${ui.muted(VERSION)} -> ${ui.success(latest)}`
-    );
-    console.log(`  ${ui.primary('  Run:')} ${ui.primarySoft('npm i -g framer-export@latest')}`);
-    console.log('');
-  });
-
   if (args.includes('--help') || args.includes('-h')) {
     showHelp();
     process.exit(0);
   }
+
+  await showLoadingIntro(VERSION);
+  await showUpdateNotice();
 
   if (args.includes('--setup')) {
     hasFlag(args, '--setup');
