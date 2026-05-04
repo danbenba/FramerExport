@@ -14,6 +14,7 @@ import { detectPlatform, getPlatformByName } from '../platforms/index.js';
 import type { PlatformHandler, PlatformType } from '../platforms/types.js';
 import type { ExporterContext } from '../types.js';
 import { CookingSpinner } from '../cli/cooking.js';
+import { chip, ui } from '../cli/theme.js';
 
 export function deriveOutputName(url: string, platformName: PlatformType): string {
   try {
@@ -66,12 +67,14 @@ export class FramerExporter implements ExporterContext {
   }
 
   async run(includeSubpages: boolean = false): Promise<void> {
-    console.log(chalk.bold.hex('#D4A017')('\n  Cooksite v4 - Full Mirror & Clean Export\n'));
+    console.log(
+      `\n  ${ui.text.bold('Framer Export')} ${chip('mirror')} ${ui.muted('v4 pipeline')}\n`
+    );
     info('Source   : ' + chalk.underline(this.siteUrl));
-    info('Output   : ' + chalk.yellow(this.outDir));
-    info('Platform : ' + chalk.hex('#D4A017')(this.platform.displayName));
+    info('Output   : ' + ui.primary(this.outDir));
+    info('Platform : ' + ui.primary(this.platform.displayName));
     if (includeSubpages) {
-      info('Subpages : ' + chalk.green('enabled'));
+      info('Subpages : ' + ui.success('enabled'));
     }
     console.log('');
 
@@ -108,11 +111,7 @@ export class FramerExporter implements ExporterContext {
     const htmlDetected = detectPlatform(this.siteUrl, this.ssrHTML);
     if (htmlDetected.name !== this.platform.name) {
       this.platform = htmlDetected;
-      log(
-        'Platform refined: ' +
-          chalk.hex('#D4A017')(this.platform.displayName) +
-          ' (from HTML analysis)'
-      );
+      log('Platform refined: ' + ui.primary(this.platform.displayName) + ' (from HTML analysis)');
     }
 
     await launchAndCapture(this);

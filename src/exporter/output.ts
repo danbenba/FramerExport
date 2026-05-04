@@ -49,7 +49,10 @@ function removeElementById(html: string, id: string): string {
     let depth = 0;
     let i: number = tagStart;
     while (i < html.length) {
-      if (html.startsWith(`<${tagName}`, i) && (html[i + tagName.length + 1] === ' ' || html[i + tagName.length + 1] === '>')) {
+      if (
+        html.startsWith(`<${tagName}`, i) &&
+        (html[i + tagName.length + 1] === ' ' || html[i + tagName.length + 1] === '>')
+      ) {
         depth++;
         i += tagName.length + 1;
       } else if (html.startsWith(`</${tagName}>`, i)) {
@@ -71,7 +74,7 @@ function removeElementById(html: string, id: string): string {
 
 function processSEO(html: string, url: string): string {
   const canonical = url.split('?')[0].replace(/\/$/, '');
-  
+
   // Inject Canonical
   if (!html.includes('rel="canonical"')) {
     html = html.replace('</head>', `  <link rel="canonical" href="${canonical}">\n  </head>`);
@@ -79,12 +82,18 @@ function processSEO(html: string, url: string): string {
 
   // Inject Meta Description if missing
   if (!html.includes('name="description"')) {
-    html = html.replace('</head>', `  <meta name="description" content="Exported with Cooksite - Fast, SEO-optimized, and clean.">\n  </head>`);
+    html = html.replace(
+      '</head>',
+      `  <meta name="description" content="Exported with Framer Export - Fast, SEO-optimized, and clean.">\n  </head>`
+    );
   }
 
   // Inject OG Tags if missing
   if (!html.includes('property="og:')) {
-    html = html.replace('</head>', `  <meta property="og:type" content="website">\n  <meta property="og:url" content="${canonical}">\n  <meta property="og:title" content="Exported Site">\n  <meta property="og:description" content="A fast, clean version of this site, exported for performance.">\n  </head>`);
+    html = html.replace(
+      '</head>',
+      `  <meta property="og:type" content="website">\n  <meta property="og:url" content="${canonical}">\n  <meta property="og:title" content="Exported Site">\n  <meta property="og:description" content="A fast, clean version of this site, exported for performance.">\n  </head>`
+    );
   }
 
   // Inject Robot tags

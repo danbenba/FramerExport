@@ -1,17 +1,23 @@
-import chalk from 'chalk';
 import pkg from '../../package.json';
+import { chip, softGradient, ui } from './theme.js';
 
 function getWidth(): number {
   return process.stdout.columns || 80;
 }
 
 const ASCII_ART = [
-  '███████╗███████╗██╗  ██╗██████╗  ██████╗ ██████╗ ████████╗',
-  '██╔════╝██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝',
-  '█████╗  █████╗   ╚███╔╝ ██████╔╝██║   ██║██████╔╝   ██║   ',
-  '██╔══╝  ██╔══╝   ██╔██╗ ██╔═══╝ ██║   ██║██╔══██╗   ██║   ',
-  '██║     ███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ',
-  '╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝',
+  '███████╗██████╗  █████╗ ███╗   ███╗███████╗██████╗ ',
+  '██╔════╝██╔══██╗██╔══██╗████╗ ████║██╔════╝██╔══██╗',
+  '█████╗  ██████╔╝███████║██╔████╔██║█████╗  ██████╔╝',
+  '██╔══╝  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══╝  ██╔══██╗',
+  '██║     ██║  ██║██║  ██║██║ ╚═╝ ██║███████╗██║  ██║',
+  '╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝',
+  '███████╗██╗  ██╗██████╗  ██████╗ ██████╗ ████████╗',
+  '██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝',
+  '█████╗   ╚███╔╝ ██████╔╝██║   ██║██████╔╝   ██║   ',
+  '██╔══╝   ██╔██╗ ██╔═══╝ ██║   ██║██╔══██╗   ██║   ',
+  '███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ',
+  '╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ',
 ];
 
 export function showBanner(): void {
@@ -19,18 +25,22 @@ export function showBanner(): void {
   const isSmall = width < 65;
 
   if (isSmall) {
-    console.log(`\n  ${chalk.hex('#D4A017').bold('F-EXPORT')} ${chalk.gray(`v${pkg.version}`)}`);
-    console.log(`  ${chalk.white.bold('Framer · Webflow · Wix Exporter')}\n`);
+    console.log(
+      `\n  ${ui.primary.bold('f-export')} ${ui.muted(`v${pkg.version}`)} ${chip('beta ui')}`
+    );
+    console.log(`  ${ui.text.bold('Framer Export')} ${ui.muted('for Framer, Webflow, and Wix')}\n`);
     return;
   }
 
-  const gold = chalk.hex('#D4A017').bold;
-  const gray = chalk.gray;
-
   console.log('');
   ASCII_ART.forEach((line) => {
-    console.log('  ' + gold(line));
+    console.log('  ' + softGradient(line));
   });
   console.log('');
-  console.log(`  ${gray(`v${pkg.version}`)}  ${chalk.white.bold('Framer · Webflow · Wix Exporter')}\n`);
+  console.log(
+    `  ${ui.muted(`v${pkg.version}`)}  ${ui.text.bold('Framer Export')}  ${chip('fexport')} ${ui.muted('local mirror exporter')}`
+  );
+  console.log(
+    `  ${ui.muted('Framer')} ${ui.border('/')} ${ui.muted('Webflow')} ${ui.border('/')} ${ui.muted('Wix')} ${ui.border('·')} ${ui.primary('clean assets')} ${ui.border('·')} ${ui.secondary('local serve')}\n`
+  );
 }

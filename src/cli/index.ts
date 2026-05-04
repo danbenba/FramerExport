@@ -4,6 +4,7 @@ import pkg from '../../package.json';
 import { showHelp } from './help.js';
 import { showBanner } from './banner.js';
 import { checkForUpdates } from './update-check.js';
+import { ui } from './theme.js';
 import type { PlatformType } from '../platforms/types.js';
 
 const VERSION = pkg.version;
@@ -34,28 +35,32 @@ async function main(): Promise<void> {
   if (args.includes('--about')) {
     const chalk = (await import('chalk')).default;
     showBanner();
-    console.log(`  ${chalk.white.bold('Framer Export')}  ${chalk.gray(`v${pkg.version}`)}`);
-    console.log(`  ${chalk.white(pkg.description)}\n`);
-    console.log(`  ${chalk.white.bold('Author')}     ${chalk.hex('#D4A017')('Dany (danbenba)')}`);
-    console.log(`  ${chalk.white.bold('Portfolio')}  ${chalk.underline.hex('#D4A017')('https://github.com/danbenba')}`);
-    console.log(`  ${chalk.white.bold('GitHub')}     ${chalk.underline.hex('#D4A017')(pkg.repository.url.replace('git+', '').replace('.git', ''))}`);
-    console.log(`  ${chalk.white.bold('npm')}        ${chalk.underline.hex('#D4A017')(`https://www.npmjs.com/package/${pkg.name}`)}`);
-    console.log(`  ${chalk.white.bold('License')}    ${chalk.green(pkg.license)}`);
-    console.log(`  ${chalk.white.bold('Node')}       ${chalk.gray(`>=${pkg.engines.node}`)}`);
+    console.log(`  ${ui.text.bold('Framer Export')}  ${ui.muted(`v${pkg.version}`)}`);
+    console.log(`  ${ui.text(pkg.description)}\n`);
+    console.log(`  ${ui.text.bold('Author')}     ${ui.primary('Dany (danbenba)')}`);
+    console.log(
+      `  ${ui.text.bold('Portfolio')}  ${chalk.underline.hex('#FAB283')('https://github.com/danbenba')}`
+    );
+    console.log(
+      `  ${ui.text.bold('GitHub')}     ${chalk.underline.hex('#FAB283')(pkg.repository.url.replace('git+', '').replace('.git', ''))}`
+    );
+    console.log(
+      `  ${ui.text.bold('npm')}        ${chalk.underline.hex('#FAB283')(`https://www.npmjs.com/package/${pkg.name}`)}`
+    );
+    console.log(`  ${ui.text.bold('License')}    ${ui.success(pkg.license)}`);
+    console.log(`  ${ui.text.bold('Node')}       ${ui.muted(`>=${pkg.engines.node}`)}`);
     console.log('');
     process.exit(0);
   }
 
   checkForUpdates(VERSION).then((latest) => {
     if (!latest) return;
-    import('chalk').then((chalk) => {
-      console.log('');
-      console.log(
-        `  ${chalk.default.yellow('↳')} Update available: ${chalk.default.gray(VERSION)} → ${chalk.default.green(latest)}`,
-      );
-      console.log(`  ${chalk.default.hex('#D4A017')('  Run:')} ${chalk.default.hex('#B8860B')('npm i -g framer-export@latest')}`);
-      console.log('');
-    });
+    console.log('');
+    console.log(
+      `  ${ui.warning('↳')} Update available: ${ui.muted(VERSION)} -> ${ui.success(latest)}`
+    );
+    console.log(`  ${ui.primary('  Run:')} ${ui.primarySoft('npm i -g framer-export@latest')}`);
+    console.log('');
   });
 
   if (args.includes('--help') || args.includes('-h')) {
@@ -87,9 +92,8 @@ async function main(): Promise<void> {
   try {
     new URL(url);
   } catch {
-    const chalk = (await import('chalk')).default;
-    console.log(`  ${chalk.red('✗')} ${chalk.red.bold('Invalid URL:')} ${chalk.white(url)}`);
-    console.log(`  ${chalk.gray('Expected: https://yoursite.framer.app')}\n`);
+    console.log(`  ${ui.error('✗')} ${ui.error.bold('Invalid URL:')} ${ui.text(url)}`);
+    console.log(`  ${ui.muted('Expected: https://yoursite.framer.app')}\n`);
     process.exit(1);
   }
 
@@ -101,10 +105,14 @@ async function main(): Promise<void> {
   const out: string = args[1] || `./${defaultDir}`;
 
   try {
-    await new FramerExporter(url, path.resolve(out), platformOverride || undefined).run(includeSubpages);
+    await new FramerExporter(url, path.resolve(out), platformOverride || undefined).run(
+      includeSubpages
+    );
   } catch (e) {
     const chalk = (await import('chalk')).default;
-    console.log(`\n  ${chalk.red('✗')} ${chalk.red.bold('FAILED:')} ${chalk.white((e as Error).message)}`);
+    console.log(
+      `\n  ${ui.error('✗')} ${ui.error.bold('FAILED:')} ${ui.text((e as Error).message)}`
+    );
     console.log(chalk.gray((e as Error).stack || ''));
     process.exit(1);
   }

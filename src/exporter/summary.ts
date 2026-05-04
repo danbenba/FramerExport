@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
-import chalk from 'chalk';
 import type { ExporterContext } from '../types.js';
 import { boxTop, boxLine, boxBot, boxSep, maxWidth } from '../cli/box.js';
+import { chip, ui } from '../cli/theme.js';
 
 export async function printSummary(exporter: ExporterContext): Promise<void> {
   const w = maxWidth();
@@ -27,14 +27,14 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
     count('subpages'),
   ]);
 
-  const G = chalk.hex('#D4A017');
-  const G2 = chalk.hex('#DAA520');
-  const C2 = chalk.hex('#E0B040');
-  const Y = chalk.yellow;
-  const O = chalk.hex('#CC7722');
-  const Br = chalk.hex('#B8860B');
-  const Gr = chalk.gray;
-  const Gn = chalk.green;
+  const G = ui.primary;
+  const G2 = ui.primarySoft;
+  const C2 = ui.secondary;
+  const Y = ui.accent;
+  const O = ui.warning;
+  const Br = ui.info;
+  const Gr = ui.muted;
+  const Gn = ui.success;
 
   const entries: Array<[string, number, string, (s: string) => string]> = [
     ['styles/', styles, 'CSS', G],
@@ -51,10 +51,10 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
   console.log('');
   if (!isSmall) {
     console.log(boxTop(w));
-    console.log(boxLine(w, chalk.bold.white('  Export Summary')));
+    console.log(boxLine(w, `${ui.text.bold('  Export Summary')} ${chip('done')}`));
     console.log(boxSep(w));
   } else {
-    console.log(chalk.bold.white('  Export Summary:'));
+    console.log(ui.text.bold('  Export Summary:'));
   }
 
   for (const [label, cnt, type, color] of entries) {
@@ -62,13 +62,13 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
     const inner = w - 4;
     const l = label.padEnd(16);
     const c = String(cnt).padStart(3);
-    const rowText = `${color(l)}${chalk.white(c)}  ${chalk.gray(type)}`;
+    const rowText = `${color(l)}${ui.text(c)}  ${ui.muted(type)}`;
     const visible = 16 + 3 + 2 + type.length;
     const pad = Math.max(0, inner - visible);
     if (isSmall) {
-      console.log(`  ${color(label)} ${chalk.white(String(cnt))} ${chalk.gray(type)}`);
+      console.log(`  ${color(label)} ${ui.text(String(cnt))} ${ui.muted(type)}`);
     } else {
-      console.log('  ' + chalk.hex('#C4953A')('║ ') + rowText + ' '.repeat(pad) + chalk.hex('#C4953A')(' ║'));
+      console.log('  ' + ui.border('│ ') + rowText + ' '.repeat(pad) + ui.border(' │'));
     }
   }
 
@@ -80,19 +80,21 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
   const cdCmd = 'cd ' + path.basename(exporter.outDir) + ' && node serve.cjs';
   if (!isSmall) {
     console.log(boxTop(w));
-    console.log(boxLine(w, chalk.bold.white('  To serve locally')));
+    console.log(boxLine(w, ui.text.bold('  To serve locally')));
     console.log(boxSep(w));
     const inner = w - 6;
     const cmdLen = cdCmd.length;
     const pad = Math.max(0, inner - cmdLen);
-    console.log('  ' + chalk.hex('#C4953A')('║ ') + G(cdCmd) + ' '.repeat(pad) + chalk.hex('#9e9e9e')(' 🗐') + chalk.hex('#C4953A')(' ║'));
+    console.log(
+      '  ' + ui.border('│ ') + G(cdCmd) + ' '.repeat(pad) + ui.muted(' copy') + ui.border(' │')
+    );
     console.log(boxBot(w));
   } else {
-    console.log(chalk.bold.white('  To serve locally:'));
+    console.log(ui.text.bold('  To serve locally:'));
     console.log(`  ${G(cdCmd)}`);
   }
-  
+
   console.log('');
-  console.log(chalk.gray('  NOTE: Must be served via HTTP for JS modules to work.'));
+  console.log(ui.muted('  note: must be served via HTTP for JS modules to work.'));
   console.log('');
 }

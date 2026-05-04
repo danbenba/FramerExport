@@ -66,10 +66,63 @@ const server = http.createServer((req, res) => {
   serveFile(filePath);
 });
 
+const ANSI = {
+  reset: '\\x1b[0m',
+  primary: '\\x1b[38;2;250;178;131m',
+  soft: '\\x1b[38;2;255;192;159m',
+  text: '\\x1b[38;2;238;238;238m',
+  muted: '\\x1b[38;2;128;128;128m',
+  border: '\\x1b[38;2;72;72;72m',
+  success: '\\x1b[38;2;127;216;143m',
+  info: '\\x1b[38;2;86;182;194m',
+};
+
+function color(name, value) {
+  return ANSI[name] + value + ANSI.reset;
+}
+
+function frameLine(label, value) {
+  const text = '  ' + label.padEnd(10) + value;
+  const pad = Math.max(0, 56 - text.length);
+  console.log('  ' + color('border', '│ ') + color('muted', label.padEnd(10)) + color('text', value) + ' '.repeat(pad) + color('border', ' │'));
+}
+
+function drawServerUi() {
+  const logo = [
+    '███████╗██████╗  █████╗ ███╗   ███╗███████╗██████╗ ',
+    '██╔════╝██╔══██╗██╔══██╗████╗ ████║██╔════╝██╔══██╗',
+    '█████╗  ██████╔╝███████║██╔████╔██║█████╗  ██████╔╝',
+    '███████╗██╗  ██╗██████╗  ██████╗ ██████╗ ████████╗',
+    '██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝',
+    '█████╗   ╚███╔╝ ██████╔╝██║   ██║██████╔╝   ██║   ',
+  ];
+
+  console.log('');
+  for (const line of logo) console.log('  ' + color('primary', line));
+  console.log('');
+  console.log('  ' + color('border', '╭─' + '─'.repeat(56) + '─╮'));
+  console.log('  ' + color('border', '│ ') + color('text', '  Framer Export local server') + ' '.repeat(28) + color('border', ' │'));
+  console.log('  ' + color('border', '├─' + '─'.repeat(56) + '─┤'));
+  frameLine('URL', 'http://localhost:' + PORT);
+  frameLine('Root', ROOT);
+  frameLine('Mode', 'static mirror + SPA fallback');
+  console.log('  ' + color('border', '╰─' + '─'.repeat(56) + '─╯'));
+  console.log('');
+  console.log('  ' + color('success', 'ready') + color('muted', '  press Ctrl+C to stop') + '\\n');
+}
+
 server.listen(PORT, () => {
-  console.log('\\x1b[32m%s\\x1b[0m', '  🚀 Cooksite Local Server Running');
-  console.log('\\x1b[36m%s\\x1b[0m', '  ├─ URL:      http://localhost:' + PORT);
-  console.log('\\x1b[35m%s\\x1b[0m', '  └─ Directory: ' + ROOT);
-  console.log('\\n  Press Ctrl+C to stop.');
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let i = 0;
+  const timer = setInterval(() => {
+    process.stdout.write('\\r\\x1B[2K  ' + color('primary', frames[i % frames.length]) + ' ' + color('muted', 'starting Framer Export server'));
+    i++;
+  }, 80);
+
+  setTimeout(() => {
+    clearInterval(timer);
+    process.stdout.write('\\r\\x1B[2K');
+    drawServerUi();
+  }, 720);
 });
 `;

@@ -9,15 +9,16 @@ import { detectPlatform } from '../platforms/index.js';
 import { select } from './select.js';
 import type { PlatformType } from '../platforms/types.js';
 import { boxTop, boxLine, boxSep, boxBot, boxRow, maxWidth } from './box.js';
+import { bullet, chip, ui } from './theme.js';
 
 function drawHeader(title: string): void {
   const w = maxWidth();
   if (w < 50) {
-    console.log(`\n  ${chalk.hex('#D4A017')('●')} ${chalk.bold.white(title)}`);
+    console.log(`\n  ${bullet('●')} ${ui.text.bold(title)}`);
     return;
   }
   console.log(boxTop(w));
-  console.log(boxLine(w, chalk.bold.white('  ' + title)));
+  console.log(boxLine(w, ui.text.bold('  ' + title)));
   console.log(boxBot(w));
   console.log('');
 }
@@ -25,14 +26,16 @@ function drawHeader(title: string): void {
 export async function runSetup(legacyMode: boolean = false): Promise<void> {
   showBanner();
 
-  console.log(chalk.bold.white('  Welcome to Framer Export setup.\n'));
-  console.log(chalk.gray('  Supports Framer, Webflow, and Wix sites.\n'));
+  console.log(`  ${ui.text.bold('Framer Export setup')} ${chip('interactive')}`);
+  console.log(
+    `  ${ui.muted('Export Framer, Webflow, and Wix sites into a clean local mirror.')}\n`
+  );
 
   const rl = readline.createInterface({ input: stdin, output: stdout });
 
   const ask = async (question: string, defaultVal?: string): Promise<string> => {
     const suffix: string = defaultVal ? chalk.gray(` (${defaultVal})`) : '';
-    const prompt: string = `  ${chalk.hex('#D4A017')('?')} ${chalk.white.bold(question)}${suffix} ${chalk.gray('>')} `;
+    const prompt: string = `  ${ui.primary('●')} ${ui.text.bold(question)}${suffix} ${ui.muted('>')} `;
     const answer: string = await rl.question(prompt);
     return answer.trim() || defaultVal || '';
   };
@@ -46,10 +49,12 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
       new URL(input);
       siteUrl = input;
     } catch {
-      console.log(`  ${chalk.red('✗')} ${chalk.red('Invalid URL. Enter a valid URL (https://...)')}\n`);
+      console.log(
+        `  ${ui.error('✗')} ${ui.error('Invalid URL. Enter a valid URL (https://...)')}\n`
+      );
     }
   }
-  console.log(`  ${chalk.green('✓')} ${chalk.green('URL:')} ${chalk.underline(siteUrl)}\n`);
+  console.log(`  ${ui.success('✓')} ${ui.success('URL:')} ${chalk.underline(siteUrl)}\n`);
 
   drawHeader('Step 2 : Platform');
 
@@ -57,28 +62,38 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   let platformName: PlatformType;
 
   if (legacyMode) {
-    console.log(`  ${chalk.blue('i')} Auto-detected: ${chalk.hex('#D4A017')(detected.displayName)}`);
+    console.log(`  ${ui.info('i')} Auto-detected: ${ui.primary(detected.displayName)}`);
     const platformInput: string = await ask('Platform (framer/webflow/wix)', detected.name);
-    platformName = (['framer', 'webflow', 'wix'].includes(platformInput)
-      ? platformInput
-      : detected.name) as PlatformType;
-    console.log(`  ${chalk.green('✓')} ${chalk.green('Platform:')} ${chalk.hex('#D4A017')(platformName)}\n`);
+    platformName = (
+      ['framer', 'webflow', 'wix'].includes(platformInput) ? platformInput : detected.name
+    ) as PlatformType;
+    console.log(`  ${ui.success('✓')} ${ui.success('Platform:')} ${ui.primary(platformName)}\n`);
   } else {
     rl.close();
     const platforms = [
-      { label: `Framer${detected.name === 'framer' ? chalk.gray(' (detected)') : ''}`, value: 'framer' },
-      { label: `Webflow${detected.name === 'webflow' ? chalk.gray(' (detected)') : ''}`, value: 'webflow' },
+      {
+        label: `Framer${detected.name === 'framer' ? chalk.gray(' (detected)') : ''}`,
+        value: 'framer',
+      },
+      {
+        label: `Webflow${detected.name === 'webflow' ? chalk.gray(' (detected)') : ''}`,
+        value: 'webflow',
+      },
       { label: `Wix${detected.name === 'wix' ? chalk.gray(' (detected)') : ''}`, value: 'wix' },
     ];
     const defaultIdx = ['framer', 'webflow', 'wix'].indexOf(detected.name);
-    platformName = await select('Select platform', platforms, Math.max(0, defaultIdx)) as PlatformType;
+    platformName = (await select(
+      'Select platform',
+      platforms,
+      Math.max(0, defaultIdx)
+    )) as PlatformType;
   }
 
   const rl2 = legacyMode ? rl : readline.createInterface({ input: stdin, output: stdout });
 
   const ask2 = async (question: string, defaultVal?: string): Promise<string> => {
     const suffix: string = defaultVal ? chalk.gray(` (${defaultVal})`) : '';
-    const prompt: string = `  ${chalk.hex('#D4A017')('?')} ${chalk.white.bold(question)}${suffix} ${chalk.gray('>')} `;
+    const prompt: string = `  ${ui.primary('●')} ${ui.text.bold(question)}${suffix} ${ui.muted('>')} `;
     const answer: string = await rl2.question(prompt);
     return answer.trim() || defaultVal || '';
   };
@@ -88,7 +103,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   drawHeader('Step 3 : Output Directory');
 
   const outDir: string = await ask2('Output directory', './' + derivedName);
-  console.log(`  ${chalk.green('✓')} ${chalk.green('Output:')} ${chalk.yellow(outDir)}\n`);
+  console.log(`  ${ui.success('✓')} ${ui.success('Output:')} ${ui.primary(outDir)}\n`);
 
   drawHeader('Step 4 : Options');
 
@@ -99,15 +114,19 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   if (legacyMode) {
     const prettyAnswer: string = await ask2('Pretty-print JS files? (y/n)', 'y');
     prettyPrint = prettyAnswer.toLowerCase().startsWith('y');
-    console.log(`  ${chalk.green('✓')} Pretty-print: ${prettyPrint ? chalk.green('yes') : chalk.red('no')}\n`);
+    console.log(
+      `  ${ui.success('✓')} Pretty-print: ${prettyPrint ? ui.success('yes') : ui.error('no')}\n`
+    );
 
     const subpagesAnswer: string = await ask2('Export sub-pages? (y/n)', 'n');
     includeSubpages = subpagesAnswer.toLowerCase().startsWith('y');
-    console.log(`  ${chalk.green('✓')} Sub-pages: ${includeSubpages ? chalk.green('yes') : chalk.red('no')}\n`);
+    console.log(
+      `  ${ui.success('✓')} Sub-pages: ${includeSubpages ? ui.success('yes') : ui.error('no')}\n`
+    );
 
     const concurrencyAnswer: string = await ask2('Download concurrency', '12');
     concurrency = parseInt(concurrencyAnswer, 10) || 12;
-    console.log(`  ${chalk.green('✓')} Concurrency: ${chalk.yellow(String(concurrency))}\n`);
+    console.log(`  ${ui.success('✓')} Concurrency: ${ui.primary(String(concurrency))}\n`);
   } else {
     rl2.close();
     const prettyVal = await select('Pretty-print JS files?', [
@@ -116,31 +135,37 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     ]);
     prettyPrint = prettyVal === 'yes';
 
-    const subpagesVal = await select('Export sub-pages?', [
-      { label: 'No', value: 'no' },
-      { label: 'Yes, crawl and export', value: 'yes' },
-    ], 0);
+    const subpagesVal = await select(
+      'Export sub-pages?',
+      [
+        { label: 'No', value: 'no' },
+        { label: 'Yes, crawl and export', value: 'yes' },
+      ],
+      0
+    );
     includeSubpages = subpagesVal === 'yes';
 
-    const concurrencyVal = await select('Download concurrency', [
-      { label: '6 (slow connection)', value: '6' },
-      { label: '12 (default)', value: '12' },
-      { label: '20 (fast connection)', value: '20' },
-    ], 1);
+    const concurrencyVal = await select(
+      'Download concurrency',
+      [
+        { label: '6 (slow connection)', value: '6' },
+        { label: '12 (default)', value: '12' },
+        { label: '20 (fast connection)', value: '20' },
+      ],
+      1
+    );
     concurrency = parseInt(concurrencyVal, 10);
   }
 
   const w = maxWidth();
   const isSmall = w < 50;
-  const G = chalk.hex('#C4953A');
-  const B = chalk.hex('#8B6914');
-
   console.log('');
   if (!isSmall) {
     console.log(boxTop(w));
-    console.log(boxLine(w, chalk.bold.white('  Summary')));
+    console.log(boxLine(w, ui.text.bold('  Summary')));
+    console.log(boxSep(w));
   } else {
-    console.log(chalk.bold.white('  Summary:'));
+    console.log(ui.text.bold('  Summary:'));
   }
 
   for (const [label, value] of [
@@ -174,7 +199,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   }
 
   if (!startExport) {
-    console.log(`\n  ${chalk.yellow('Export cancelled.')}\n`);
+    console.log(`\n  ${ui.warning('Export cancelled.')}\n`);
     return;
   }
 
