@@ -6,7 +6,7 @@ import chalk from 'chalk';
 import { showBanner } from './banner.js';
 import { FramerExporter, deriveOutputName } from '../exporter/index.js';
 import { detectPlatform } from '../platforms/index.js';
-import { select } from './select.js';
+import { promptInput, select } from './select.js';
 import type { PlatformType } from '../platforms/types.js';
 import { boxTop, boxLine, boxSep, boxBot, boxRow, maxWidth } from './box.js';
 import { bullet, chip, ui } from './theme.js';
@@ -31,37 +31,53 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     `  ${ui.muted('Export Framer, Webflow, and Wix sites into a clean local mirror.')}\n`
   );
 
-  const rl = readline.createInterface({ input: stdin, output: stdout });
+  const rl = legacyMode ? readline.createInterface({ input: stdin, output: stdout }) : null;
 
-  const ask = async (question: string, defaultVal?: string): Promise<string> => {
+  const ask = async (
+    question: string,
+    defaultVal?: string,
+    headerLines: string[] = []
+  ): Promise<string> => {
+    if (!legacyMode) {
+      return promptInput(question, defaultVal || '', { headerLines });
+    }
+
     const suffix: string = defaultVal ? chalk.gray(` (${defaultVal})`) : '';
     const prompt: string = `  ${ui.primary('●')} ${ui.text.bold(question)}${suffix} ${ui.muted('>')} `;
-    const answer: string = await rl.question(prompt);
+    const answer: string = await rl!.question(prompt);
     return answer.trim() || defaultVal || '';
   };
 
-  drawHeader('Step 1 : Site URL');
+  if (legacyMode) drawHeader('Step 1 : Site URL');
 
   let siteUrl = '';
+  let urlError = '';
   while (!siteUrl) {
-    const input: string = await ask('Enter the site URL');
+    const input: string = await ask(
+      'Enter the site URL',
+      '',
+      ['Step 1 : Site URL', urlError].filter(Boolean)
+    );
     try {
       new URL(input);
       siteUrl = input;
+      urlError = '';
     } catch {
-      console.log(
-        `  ${ui.error('✗')} ${ui.error('Invalid URL. Enter a valid URL (https://...)')}\n`
-      );
+      urlError = 'Invalid URL. Enter a valid URL (https://...)';
+      if (legacyMode) {
+        console.log(`  ${ui.error('✗')} ${ui.error(urlError)}\n`);
+      }
     }
   }
-  console.log(`  ${ui.success('✓')} ${ui.success('URL:')} ${chalk.underline(siteUrl)}\n`);
+  if (legacyMode) {
+    console.log(`  ${ui.success('✓')} ${ui.success('URL:')} ${chalk.underline(siteUrl)}\n`);
+  }
 
-  drawHeader('Step 2 : Platform');
-
-  const detected = detectPlatform(siteUrl);
-  let platformName: PlatformType;
+  let platformName: PlatformType | null = null;
 
   if (legacyMode) {
+    drawHeader('Step 2 : Platform');
+    const detected = detectPlatform(siteUrl);
     console.log(`  ${ui.info('i')} Auto-detected: ${ui.primary(detected.displayName)}`);
     const platformInput: string = await ask('Platform (framer/webflow/wix)', detected.name);
     platformName = (
@@ -69,43 +85,85 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     ) as PlatformType;
     console.log(`  ${ui.success('✓')} ${ui.success('Platform:')} ${ui.primary(platformName)}\n`);
   } else {
-    rl.close();
-    const platforms = [
-      {
-        label: `Framer${detected.name === 'framer' ? chalk.gray(' (detected)') : ''}`,
-        value: 'framer',
-      },
-      {
-        label: `Webflow${detected.name === 'webflow' ? chalk.gray(' (detected)') : ''}`,
-        value: 'webflow',
-      },
-      { label: `Wix${detected.name === 'wix' ? chalk.gray(' (detected)') : ''}`, value: 'wix' },
-    ];
-    const defaultIdx = ['framer', 'webflow', 'wix'].indexOf(detected.name);
-    platformName = (await select(
-      'Select platform',
-      platforms,
-      Math.max(0, defaultIdx)
-    )) as PlatformType;
+    while (!platformName) {
+      const detected = detectPlatform(siteUrl);
+      const platforms = [
+        {
+          label: `Framer${detected.name === 'framer' ? chalk.gray(' (detected)') : ''}`,
+          value: 'framer',
+        },
+        {
+          label: `Webflow${detected.name === 'webflow' ? chalk.gray(' (detected)') : ''}`,
+          value: 'webflow',
+        },
+        { label: `Wix${detected.name === 'wix' ? chalk.gray(' (detected)') : ''}`, value: 'wix' },
+      ];
+      const defaultIdx = ['framer', 'webflow', 'wix'].indexOf(detected.name);
+      const platformChoice = await select('Select platform', platforms, Math.max(0, defaultIdx), {
+        headerLines: [`URL: ${siteUrl}`],
+        actions: [{ label: 'Modify URL', value: 'modify-url' }],
+        footer: 'tab focus button  ·  mouse hover/click  ·  enter select',
+      });
+
+      if (platformChoice === 'modify-url') {
+        siteUrl = '';
+        urlError = '';
+        while (!siteUrl) {
+          const input = await ask(
+            'Modify site URL',
+            '',
+            ['Step 1 : Site URL', urlError].filter(Boolean)
+          );
+          try {
+            new URL(input);
+            siteUrl = input;
+            urlError = '';
+          } catch {
+            urlError = 'Invalid URL. Enter a valid URL (https://...)';
+          }
+        }
+        continue;
+      }
+
+      platformName = platformChoice as PlatformType;
+    }
   }
 
-  const rl2 = legacyMode ? rl : readline.createInterface({ input: stdin, output: stdout });
+  if (!platformName) {
+    throw new Error('Platform selection failed');
+  }
 
-  const ask2 = async (question: string, defaultVal?: string): Promise<string> => {
+  const rl2 = legacyMode ? rl! : null;
+
+  const ask2 = async (
+    question: string,
+    defaultVal?: string,
+    headerLines: string[] = []
+  ): Promise<string> => {
+    if (!legacyMode) {
+      return promptInput(question, defaultVal || '', { headerLines });
+    }
+
     const suffix: string = defaultVal ? chalk.gray(` (${defaultVal})`) : '';
     const prompt: string = `  ${ui.primary('●')} ${ui.text.bold(question)}${suffix} ${ui.muted('>')} `;
-    const answer: string = await rl2.question(prompt);
+    const answer: string = await rl2!.question(prompt);
     return answer.trim() || defaultVal || '';
   };
 
   const derivedName: string = deriveOutputName(siteUrl, platformName);
 
-  drawHeader('Step 3 : Output Directory');
+  if (legacyMode) drawHeader('Step 3 : Output Directory');
 
-  const outDir: string = await ask2('Output directory', './' + derivedName);
-  console.log(`  ${ui.success('✓')} ${ui.success('Output:')} ${ui.primary(outDir)}\n`);
+  const outDir: string = await ask2('Output directory', './' + derivedName, [
+    'Step 3 : Output Directory',
+    `URL: ${siteUrl}`,
+    `Platform: ${platformName}`,
+  ]);
+  if (legacyMode) {
+    console.log(`  ${ui.success('✓')} ${ui.success('Output:')} ${ui.primary(outDir)}\n`);
+  }
 
-  drawHeader('Step 4 : Options');
+  if (legacyMode) drawHeader('Step 4 : Options');
 
   let prettyPrint: boolean;
   let concurrency: number;
@@ -128,7 +186,6 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     concurrency = parseInt(concurrencyAnswer, 10) || 12;
     console.log(`  ${ui.success('✓')} Concurrency: ${ui.primary(String(concurrency))}\n`);
   } else {
-    rl2.close();
     const prettyVal = await select('Pretty-print JS files?', [
       { label: 'Yes', value: 'yes' },
       { label: 'No', value: 'no' },
@@ -189,7 +246,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   if (legacyMode) {
     const confirm: string = await ask2('Start export? (y/n)', 'y');
     startExport = confirm.toLowerCase().startsWith('y');
-    rl2.close();
+    rl2!.close();
   } else {
     const confirmVal = await select('Start export?', [
       { label: 'Yes, start now', value: 'yes' },
