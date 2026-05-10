@@ -24,11 +24,13 @@
 
 ### Critères de succès
 
-1. Les 3 plateformes existantes (Framer, Webflow, Wix) ne régressent pas — détection et export identiques à v4.
+1. **GARANTIE ABSOLUE — Aucune régression sur Framer, Webflow, Wix.** Détection, capture, strip, asset mapping, sub-pages, output : strictement identique à v4. Voir §2.6 pour le mécanisme de non-régression.
 2. Chaque nouvelle plateforme a un handler avec : détection, strip badges, asset mapping, sub-pages support.
 3. Pour chaque plateforme : un export d'un site réel, servi via `serve.js`, est visuellement fidèle (≥99.5% de similarité pixel ou inspection manuelle validée).
 4. CLI permet de chercher/sélectionner parmi 28 plateformes sans friction.
 5. Release incrémentale : une phase = une version mineure ; jamais de plateforme à moitié supportée.
+6. **Un fichier par exporter** : chaque plateforme = exactement un module dans `src/platforms/<category>/<platform>.ts`. Pas de fusion, pas de partage de fichier, pas d'export multiple par fichier. Ça facilite le diff, la review, l'isolation des régressions.
+7. **Erreurs anti-bot explicites** : si Cloudflare/captcha/WAF bloque l'export, l'utilisateur voit un message d'erreur clair dans la CLI (jamais d'échec silencieux ou de fichier vide). Voir §6.
 
 ### Non-objectifs (v5)
 
@@ -210,6 +212,33 @@ scripts/
   validate-platform.ts # NEW — orchestre export + serve + screenshot diff
 ```
 
+**Règle "un fichier = un exporter"** : chaque plateforme a son propre fichier `<platform>.ts`. Pas de mutualisation, pas de fonctions partagées entre plateformes (helpers communs autorisés dans `src/platforms/_shared/` si nécessaire). Cette règle facilite : diff isolés, review ciblée, debug par plateforme, ajout futur d'une plateforme sans toucher aux autres.
+
+### 2.6 Gel de non-régression Framer / Webflow / Wix
+
+Les 3 plateformes existantes sont **gelées au niveau comportement** dès la Phase 0. Aucun changement fonctionnel sur leur pipeline n'est autorisé en v5.
+
+**Mécanisme de gel** :
+
+1. **Snapshot de référence v4** : avant tout refactor, exporter les 3 sites de référence (un site Framer, un Webflow, un Wix réels) avec la v4.4.3 actuelle. Sauvegarder :
+   - `tests/snapshots/framer/v4-export/` (dossier complet)
+   - `tests/snapshots/webflow/v4-export/`
+   - `tests/snapshots/wix/v4-export/`
+   - Plus un screenshot rendu de chaque (`v4-render.png`).
+
+2. **Test de non-régression automatisé** : `tests/regression.test.ts`
+   - Pour chaque plateforme gelée, ré-export avec la v5 en cours.
+   - Compare arborescence (mêmes fichiers, mêmes dossiers).
+   - Compare hash SHA-256 des fichiers HTML stripés (tolérance whitespace).
+   - Compare nombre d'assets téléchargés (±2% accepté pour CDN volatil).
+   - Render via `serve.js` + screenshot, diff avec `v4-render.png` (seuil 0.5%).
+
+3. **Gate Phase 0** : ces 3 tests doivent passer **avant** chaque commit de la phase 0. Si un commit casse, on revert immédiatement.
+
+4. **Gate continue Phase 1+** : les 3 tests tournent en CI (ou en local via `npm run test:regression`) à chaque commit, peu importe la phase. Une régression sur Framer/Webflow/Wix bloque le merge.
+
+5. **Fichiers gelés** : `src/platforms/framer.ts`, `src/platforms/webflow.ts`, `src/platforms/wix.ts` ne reçoivent **que** les ajouts de `category` + `priority` en Phase 0. Aucun autre changement n'est autorisé en v5 sans accord explicite et update du spec.
+
 ---
 
 ## 3. Validation pixel-perfect
@@ -293,31 +322,71 @@ Variantes plus volumineuses :
 
 ---
 
-## 5. Recherche de signatures par plateforme
+## 5. Protocole de recherche par plateforme (rigoureux)
 
-Avant d'écrire chaque handler, le workflow est :
+Avant d'écrire UN SEUL caractère du handler `<platform>.ts`, le workflow obligatoire est le suivant. Chaque étape produit un **artefact écrit** (fichier ou note dans le commit message) qui justifie les choix du handler.
 
-1. **firecrawl** sur un site exemple → HTML + screenshot.
-2. **Inspect** :
-   - Hosting domain (`*.platform.com`)
-   - `<meta name="generator">`
-   - Classes CSS/IDs uniques
-   - CDN d'assets
-   - Globals JS (`window.Shopify`, `window.__NEXT_DATA__`, `window.Notion`)
-   - Scripts d'analytics par défaut (à strip)
-   - Badge "Made with …" (sélecteur, pattern HTML)
-3. **Context7** si SDK doc disponible (Shopify Liquid, Notion API, Ghost API, WordPress REST).
-4. **Construction** du handler à partir de ces signatures.
+### 5.1 Étapes obligatoires (8 étapes)
 
-### 5.1 Notes par plateforme à risque
+**1. Choix de 3 sites de référence publics**
+   - 1 site officiel/showcase de la plateforme.
+   - 1 site client réel (pas custom domain pour faciliter la détection).
+   - 1 site custom domain pour stress-tester la détection.
+   - Sauvegarder les 3 URLs dans `tests/fixtures.json` sous la clé de la plateforme.
 
-- **Notion** — page React hydratée, pas de SSR utile. Solution : capturer le DOM final via Puppeteer (`document.documentElement.outerHTML` après hydration), ne pas utiliser le SSR fetch. Ajouter `postProcess` qui inline les CSS Notion.
-- **Shopify** — beaucoup de custom domains, anti-bot Cloudflare possible. Détection : `window.Shopify`, `cdn.shopify.com`. Si Cloudflare bloque : ajouter `puppeteer-extra-plugin-stealth` (dépendance optionnelle, lazy load).
-- **WordPress** — détection via `<meta name="generator" content="WordPress …">` ou `wp-content/`/`wp-includes/`. Custom domains majoritaires. Priorité basse (25) car beaucoup d'autres handlers peuvent matcher avant si actifs.
+**2. Capture firecrawl** sur chaque URL → HTML brut + screenshot dans `tests/research/<platform>/`.
+
+**3. Inspection systématique** (checklist non-négociable, à remplir dans `tests/research/<platform>/signatures.md`) :
+   - [ ] Hosting domain pattern (regex)
+   - [ ] `<meta name="generator">` exact content
+   - [ ] HTML attributes uniques (`data-*`, `id="…"` particuliers)
+   - [ ] Classes CSS racine uniques
+   - [ ] CDN domains (tous, listés)
+   - [ ] Globals JS exposés (à inspecter via Puppeteer `Object.keys(window)`)
+   - [ ] Scripts d'analytics tiers injectés par défaut
+   - [ ] Badge "Made with X" : sélecteur exact + pattern HTML + URL cible
+   - [ ] Stratégie de rendu : SSR pur / hydratation React / SPA full / Hybride
+   - [ ] Existence de routes alternatives (sitemap, robots.txt, page list)
+
+**4. Recherche docs avec Context7** (si SDK/API doc existe) :
+   - Shopify : `mcp__context7__resolve-library-id` "Shopify Liquid" → `query-docs`
+   - Notion : "Notion API" / "react-notion-x"
+   - Ghost : "Ghost JSON API"
+   - WordPress : "WordPress REST API"
+   - Squarespace : "Squarespace Developer Platform"
+   - Webflow (déjà fait), Framer (déjà fait), Wix (déjà fait) — gelés.
+   - Documenter les findings dans `signatures.md`.
+
+**5. Recherche web ouverte avec firecrawl** :
+   - Comment d'autres outils OSS ont scrapé cette plateforme (chercher GitHub : "<platform> scraper", "<platform> exporter", "<platform> mirror").
+   - Issues connues (Cloudflare, captcha, rate limit).
+   - Documenter les patterns dans `signatures.md`.
+
+**6. Test manuel anti-bot** :
+   - Curl le site → status code ?
+   - Puppeteer headless avec UA Chrome 131 → succès ?
+   - Si bloqué → noter dans `signatures.md` section "Anti-bot detected: <type>".
+
+**7. Synthèse des décisions** :
+   - Quelle priorité (0–100) ?
+   - Quels champs de l'interface étendue sont activés ?
+   - Quelles regex de strip ?
+   - Quel CDN mapping ?
+   - Quel scrollStrategy ?
+   - À écrire en haut du futur fichier handler comme commentaire de tête.
+
+**8. Création du handler** : SEULEMENT à ce stade, écrire `src/platforms/<category>/<platform>.ts`.
+
+### 5.2 Notes par plateforme à risque
+
+- **Notion** — page React hydratée, pas de SSR utile. Solution : capturer le DOM final via Puppeteer (`document.documentElement.outerHTML` après hydration), ne pas utiliser le SSR fetch. Ajouter `postProcess` qui inline les CSS Notion. Possiblement consulter `react-notion-x` (lib OSS) pour les classes CSS canoniques.
+- **Shopify** — beaucoup de custom domains, anti-bot Cloudflare **fréquent**. Détection : `window.Shopify`, `cdn.shopify.com`. Si Cloudflare bloque : voir §6 (gestion d'erreur explicite + stealth optionnel).
+- **WordPress** — détection via `<meta name="generator" content="WordPress …">` ou `wp-content/`/`wp-includes/`. Custom domains majoritaires. Priorité basse (25) car beaucoup d'autres handlers peuvent matcher avant si actifs. Préférer la détection par generator.
 - **Elementor** — posé sur WordPress. Détection : `data-elementor-*`, `body class="elementor-…"`. v5.2 = handler dédié qui surcharge WordPress. v5 ne va pas jusqu'à reconstituer Elementor à 100%, juste strip badge + assets.
-- **Gamma** — slides animées. v5.6 capture la slide 1 (page d'entrée publique) ; sub-pages = autres slides via `?card=N` éventuellement.
-- **Bubble** — apps Bubble lourdes en JS. Hydration longue (`hydrationTimeout: 8000`). Strip `bubble.io` analytics.
-- **Squarespace** — domaines custom dominants, détection via `static1.squarespace.com` + `<meta name="generator" content="Squarespace …">`.
+- **Gamma** — slides animées. v5.6 capture la slide 1 (page d'entrée publique) ; sub-pages = autres slides via `?card=N` éventuellement. Gros risque anti-bot car SaaS récent.
+- **Bubble** — apps Bubble lourdes en JS. Hydration longue (`hydrationTimeout: 8000`). Strip `bubble.io` analytics. Custom domains via plan payant.
+- **Squarespace** — domaines custom dominants, détection via `static1.squarespace.com` + `<meta name="generator" content="Squarespace …">`. Cloudflare possible sur certains plans.
+- **ClickFunnels** — beaucoup d'anti-bot. Possiblement bloqué dès la première requête → erreur claire à l'utilisateur.
 
 ---
 
@@ -325,12 +394,64 @@ Avant d'écrire chaque handler, le workflow est :
 
 | Risque | Mitigation |
 |---|---|
-| Régression sur Framer/Webflow/Wix | Phase 0 isolée, tests de détection sur fixtures, validation manuelle des 3 sites de référence avant de tag v5.0.0-alpha. |
+| Régression sur Framer/Webflow/Wix | Gel formel §2.6, snapshots v4 sauvegardés, `tests/regression.test.ts` en CI à chaque commit. |
 | Détection multi-match (ex. WP + plugin) | Champ `priority`, ordre déterministe, test fixtures. |
-| Anti-bot (Cloudflare, captchas) | Stealth plugin optionnel pour Shopify et autres. Si captcha hard : skip et noter dans le report. |
+| Anti-bot (Cloudflare, captchas) | Détection explicite + erreur CLI claire (voir §6.1). Stealth plugin optionnel. Pas d'échec silencieux. |
 | Pixel-diff faux positifs (fonts, anti-aliasing) | Seuil 0.5%, fallback inspection manuelle. |
 | Plateformes qui changent leurs signatures | Tests fixtures cassent en CI → on update au cas par cas. Versioning tolérant. |
 | Scope creep (tentation auth-gated) | NON-OBJECTIF formel dans ce spec. Reporter à v6. |
+
+### 6.1 Détection Cloudflare / anti-bot — gestion d'erreur explicite
+
+**Principe** : si Cloudflare, un WAF, ou un captcha bloque l'export, l'utilisateur DOIT voir un message clair. Jamais d'échec silencieux, jamais de fichier vide, jamais d'export "partiel masqué".
+
+**Détection** (à implémenter dans `src/exporter/capture.ts` ou un nouveau `src/exporter/anti-bot.ts`) :
+
+1. **HTTP status code** :
+   - 403 Forbidden → suspicion forte
+   - 503 Service Unavailable + header `cf-mitigated: challenge` → certain Cloudflare
+   - 429 Too Many Requests → rate limit
+
+2. **Markers HTML** dans la réponse SSR :
+   - `<title>Just a moment...</title>` (Cloudflare interstitial)
+   - `cf-browser-verification` / `cf-challenge-running` (classes/IDs)
+   - `Attention Required! | Cloudflare`
+   - `Please enable cookies` + Cloudflare branding
+   - `g-recaptcha` ou `h-captcha` widget visible avant le contenu
+
+3. **Markers Puppeteer** post-navigation :
+   - `await page.title()` retourne "Just a moment..."
+   - `document.querySelector('iframe[src*="challenges.cloudflare.com"]')` non-null
+   - `document.body.innerText.length < 200` après hydration prévue
+
+**Réaction** :
+
+```
+✗ ERREUR : <platform> est protégé par Cloudflare (challenge interstitiel détecté).
+
+  L'export n'a pas pu se faire car le site nécessite une vérification
+  navigateur que l'exporter headless ne peut pas franchir.
+
+  Options :
+    1. Réessayer plus tard (le challenge peut expirer)
+    2. Activer le mode stealth : framer-export <url> --stealth
+       (nécessite : npm install puppeteer-extra-plugin-stealth)
+    3. Si le site dispose d'une URL canonique alternative non protégée,
+       l'utiliser à la place.
+
+  Aucun fichier n'a été écrit. Code de sortie : 1.
+```
+
+**Implémentation** :
+- Ajouter `src/exporter/anti-bot.ts` avec `detectCloudflare(html, status, headers)`, `detectCaptcha(page)`.
+- `capture.ts` appelle ces détections après le SSR fetch ET après le `page.goto()`.
+- Si détection positive : throw `AntiBotError` avec `{platform, type, url}`.
+- `cli/index.ts` catch `AntiBotError` → affiche le message ci-dessus + exit 1.
+- Aucun fichier output n'est créé en cas d'erreur (cleanup du dossier temp).
+
+**Mode stealth optionnel** :
+- Flag CLI `--stealth` active le chargement de `puppeteer-extra-plugin-stealth` (dépendance optionnelle, installée par l'user à la demande).
+- Si flag présent mais lib absente : message d'aide pour installer.
 
 ---
 
