@@ -7,6 +7,8 @@ const VIDEO_EXTS: string[] = ['.mp4', '.webm', '.ogg'];
 export const wix: PlatformHandler = {
   name: 'wix',
   displayName: 'Wix',
+  category: 'builder',
+  priority: 88,
 
   detectByUrl(url: string): boolean {
     return /\.wixsite\.com|\.wix\.com/.test(url);

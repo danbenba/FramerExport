@@ -5,6 +5,8 @@ const FONT_EXTS: string[] = ['.woff2', '.woff', '.ttf', '.otf'];
 export const framer: PlatformHandler = {
   name: 'framer',
   displayName: 'Framer',
+  category: 'builder',
+  priority: 95,
 
   detectByUrl(url: string): boolean {
     return /\.framer\.(app|website)|framercanvas\.com/.test(url);

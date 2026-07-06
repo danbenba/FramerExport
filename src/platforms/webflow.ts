@@ -7,6 +7,8 @@ const VIDEO_EXTS: string[] = ['.mp4', '.webm', '.ogg'];
 export const webflow: PlatformHandler = {
   name: 'webflow',
   displayName: 'Webflow',
+  category: 'builder',
+  priority: 90,
 
   detectByUrl(url: string): boolean {
     return /\.webflow\.(io|com)/.test(url);
