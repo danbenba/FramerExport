@@ -170,18 +170,11 @@ const GOALS: ConversionGoal[] = [
 export async function runAiPromptAssistant(exporter: ExporterContext): Promise<void> {
   if (!stdin.isTTY || !stdout.isTTY) return;
 
-  printConvertPanel(exporter);
-  const action = await select(
-    'Framer Export AI Convert',
-    [
-      { label: `${buttonLabel('Convert')} open AI prompt modal`, value: 'convert' },
-      { label: `${buttonLabel('Skip')} finish export`, value: 'skip' },
-    ],
-    0
-  );
-  if (action === 'skip') return;
+  const serveCommand = buildServeCommand(exporter);
+  const shouldConvert = await runExportCompletePrompt(exporter, serveCommand);
+  if (!shouldConvert) return;
 
-  printAssistantModal('AI conversion prompt', [
+  printAssistantModal(`${ui.text.bold('AI conversion prompt')} ${ui.error('BETA')}`, [
     'Choose a target stack, AI tool, and conversion situation.',
     'Mouse clicks are supported in the terminal when available.',
     'A detailed prompt file will be generated inside the export folder.',
@@ -217,18 +210,8 @@ export async function runAiPromptAssistant(exporter: ExporterContext): Promise<v
   await fs.mkdir(aiDir, { recursive: true });
   await fs.writeFile(promptPath, prompt, 'utf-8');
 
-  printPromptResult(promptPath, target, aiTool, goal);
-
-  const promptAction = await select(
-    'Prompt actions',
-    [
-      { label: `${buttonLabel('Copy prompt')} clipboard`, value: 'copy' },
-      { label: `${buttonLabel('Done')} keep file only`, value: 'done' },
-    ],
-    0
-  );
-
-  if (promptAction === 'copy') {
+  const copyPrompt = await runPromptReadyPrompt(promptPath, target, aiTool, goal);
+  if (copyPrompt) {
     try {
       await copyToClipboard(prompt);
       console.log(`  ${ui.success('✓')} ${ui.text.bold('Prompt copied to clipboard')}\n`);
@@ -298,11 +281,113 @@ function centerText(text: string, width: number): string {
   return ' '.repeat(left) + text + ' '.repeat(width - visible - left);
 }
 
+function buildServeCommand(exporter: ExporterContext): string {
+  return `cd ${path.basename(exporter.outDir)} && node serve.js`;
+}
+
+async function runExportCompletePrompt(
+  exporter: ExporterContext,
+  serveCommand: string
+): Promise<boolean> {
+  let copyServeCommand = true;
+
+  while (true) {
+    const action = await select(
+      'Export complete',
+      [
+        {
+          label: `${checkboxLabel(copyServeCommand)} Copy serve command when finishing`,
+          value: 'toggle-copy',
+        },
+        {
+          label: `${buttonLabel('Convert to AI code')} ${ui.error('BETA')}`,
+          value: 'convert',
+        },
+        { label: buttonLabel('Finish'), value: 'finish' },
+      ],
+      2,
+      {
+        headerLines: [
+          `Output: ${path.basename(exporter.outDir)}`,
+          `Run: ${serveCommand}`,
+          'Use Convert to open the AI conversion assistant.',
+        ],
+        footer: 'enter select  ·  checkbox toggles copy  ·  mouse hover/click',
+      }
+    );
+
+    if (action === 'toggle-copy') {
+      copyServeCommand = !copyServeCommand;
+      continue;
+    }
+
+    if (action === 'finish') {
+      if (copyServeCommand) {
+        try {
+          await copyToClipboard(serveCommand);
+          console.log(`  ${ui.success('✓')} ${ui.text.bold('Serve command copied')}\n`);
+        } catch (error) {
+          console.log(
+            `  ${ui.warning('!')} ${ui.warning('Clipboard copy unavailable:')} ${ui.muted((error as Error).message)}\n`
+          );
+        }
+      }
+      return false;
+    }
+
+    return true;
+  }
+}
+
+async function runPromptReadyPrompt(
+  promptPath: string,
+  target: ConversionTarget,
+  aiTool: AiTool,
+  goal: ConversionGoal
+): Promise<boolean> {
+  const relPath = path.relative(process.cwd(), promptPath) || promptPath;
+  let copyPrompt = false;
+
+  while (true) {
+    const action = await select(
+      `AI Prompt Ready ${ui.error('BETA')}`,
+      [
+        {
+          label: `${checkboxLabel(copyPrompt)} Copy prompt when finishing`,
+          value: 'toggle-copy',
+        },
+        { label: buttonLabel('Finish'), value: 'finish' },
+      ],
+      1,
+      {
+        headerLines: [
+          `Tool: ${aiTool.displayName}`,
+          `Stack: ${target.label}`,
+          `Mode: ${goal.label}`,
+          `File: ${relPath}`,
+        ],
+        footer: 'enter finish  ·  checkbox toggles copy  ·  mouse hover/click',
+      }
+    );
+
+    if (action === 'toggle-copy') {
+      copyPrompt = !copyPrompt;
+      continue;
+    }
+
+    return copyPrompt;
+  }
+}
+
+function checkboxLabel(checked: boolean): string {
+  return checked ? ui.success('☑') : ui.muted('☐');
+}
+
 function printConvertPanel(exporter: ExporterContext): void {
   const w = maxWidth();
   const inner = w - 4;
   const rows = [
-    centerText(`${ui.text.bold('AI Convert')} ${ui.muted('BETA')}`, inner),
+    centerText(`${ui.text.bold('AI Convert')} ${ui.error('BETA')}`, inner),
     centerText(ui.muted('Generate a conversion prompt after the export.'), inner),
     centerText(`${buttonLabel('Convert')} ${ui.muted('or')} ${buttonLabel('Skip')}`, inner),
     centerText(ui.muted(path.basename(exporter.outDir)), inner),
@@ -321,7 +406,7 @@ function printAssistantModal(title: string, lines: string[]): void {
 
   console.log('');
   console.log(boxTop(w));
-  console.log(boxLine(w, centerText(`${ui.primary('◆')} ${ui.text.bold(title)}`, inner)));
+  console.log(boxLine(w, centerText(`${ui.primary('◆')} ${title}`, inner)));
   console.log(boxSep(w));
   for (const line of lines) {
     console.log(boxLine(w, centerText(ui.muted(line), inner)));
@@ -545,7 +630,7 @@ function printPromptResult(
       boxLine(
         w,
         centerText(
-          `${ui.success('✓')} ${ui.text.bold('AI Prompt Ready')} ${ui.muted('BETA')}`,
+          `${ui.success('✓')} ${ui.text.bold('AI Prompt Ready')} ${ui.error('BETA')}`,
           inner
         )
       )
