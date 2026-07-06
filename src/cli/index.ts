@@ -156,6 +156,11 @@ async function main(): Promise<void> {
       includeSubpages
     );
   } catch (e) {
+    const { AntiBotError, formatAntiBotError } = await import('../exporter/anti-bot.js');
+    if (e instanceof AntiBotError) {
+      console.log(formatAntiBotError(e));
+      process.exit(1);
+    }
     const chalk = (await import('chalk')).default;
     console.log(
       `\n  ${ui.error('✗')} ${ui.error.bold('FAILED:')} ${ui.text((e as Error).message)}`

@@ -1,5 +1,6 @@
 import { showBanner } from './banner.js';
 import { chip, ui } from './theme.js';
+import { platformsByCategory, CATEGORY_LABELS, CATEGORY_ORDER } from '../platforms/index.js';
 
 export function showHelp(): void {
   showBanner();
@@ -17,7 +18,7 @@ export function showHelp(): void {
 
   const opts: Array<[string, string]> = [
     ['--setup', 'Launch the interactive setup assistant'],
-    ['--platform <p>', 'Force platform: framer, webflow, wix'],
+    ['--platform <p>', 'Force platform by id (e.g. framer, shopify, notion)'],
     ['--subpages', 'Crawl and export sub-pages'],
     ['--legacy-mode', 'Use text input instead of arrow selection'],
     ['--help, -h', 'Show this help message'],
@@ -30,14 +31,10 @@ export function showHelp(): void {
   console.log('');
   console.log(ui.text.bold('  SUPPORTED PLATFORMS\n'));
 
-  const platforms: Array<[string, string]> = [
-    ['Framer', 'Auto-detected via .framer.app / .framer.website URLs'],
-    ['Webflow', 'Auto-detected via .webflow.io URLs'],
-    ['Wix', 'Auto-detected via .wixsite.com URLs + HTML analysis'],
-  ];
-
-  for (const [name, desc] of platforms) {
-    console.log(`    ${ui.primary(name.padEnd(12))} ${ui.muted(desc)}`);
+  const grouped = platformsByCategory();
+  for (const cat of CATEGORY_ORDER) {
+    const names = grouped[cat].map((handler) => handler.displayName).join(', ');
+    console.log(`    ${ui.primary(CATEGORY_LABELS[cat].padEnd(22))} ${ui.muted(names)}`);
   }
 
   console.log('');

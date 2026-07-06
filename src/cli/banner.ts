@@ -28,7 +28,7 @@ export function showBanner(): void {
     console.log(
       `\n  ${ui.primary.bold('f-export')} ${ui.muted(`v${pkg.version}`)} ${chip('beta ui')}`
     );
-    console.log(`  ${ui.text.bold('Framer Export')} ${ui.muted('for Framer, Webflow, and Wix')}\n`);
+    console.log(`  ${ui.text.bold('Framer Export')} ${ui.muted('25+ platforms · local mirror')}\n`);
     return;
   }
 
@@ -41,6 +41,6 @@ export function showBanner(): void {
     `  ${ui.muted(`v${pkg.version}`)}  ${ui.text.bold('Framer Export')}  ${chip('fexport')} ${ui.muted('local mirror exporter')}`
   );
   console.log(
-    `  ${ui.muted('Framer')} ${ui.border('/')} ${ui.muted('Webflow')} ${ui.border('/')} ${ui.muted('Wix')} ${ui.border('·')} ${ui.primary('clean assets')} ${ui.border('·')} ${ui.secondary('local serve')}\n`
+    `  ${ui.muted('Framer')} ${ui.border('/')} ${ui.muted('Webflow')} ${ui.border('/')} ${ui.muted('Wix')} ${ui.border('/')} ${ui.muted('+22 more')} ${ui.border('·')} ${ui.primary('clean assets')} ${ui.border('·')} ${ui.secondary('local serve')}\n`
   );
 }
