@@ -6,6 +6,7 @@ import { AssetMap } from '../assets/asset-map.js';
 import { dlBuffer } from '../network/download.js';
 import { info, log, success, setCooking } from '../logger/index.js';
 import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
+import { AntiBotError } from './anti-bot.js';
 import { downloadAll } from './download.js';
 import { buildOutput } from './output.js';
 import { printSummary } from './summary.js';
@@ -130,19 +131,40 @@ export class FramerExporter implements ExporterContext {
       log('Platform refined: ' + ui.primary(this.platform.displayName) + ' (from HTML analysis)');
     }
 
-    await launchAndCapture(this);
+    try {
+      await launchAndCapture(this);
 
-    if (includeSubpages && this.page) {
-      await this.crawlSubpages();
+      if (includeSubpages && this.page) {
+        await this.crawlSubpages();
+      }
+
+      await closeBrowser(this);
+
+      this.cooking.update('Downloading assets...');
+      await downloadAll(this);
+
+      this.cooking.update('Building output...');
+      await buildOutput(this);
+
+      if (this.platform.postProcess) {
+        this.cooking.update('Running ' + this.platform.displayName + ' post-processing...');
+        try {
+          await this.platform.postProcess(this);
+          log('postProcess hook completed');
+        } catch (e) {
+          log('postProcess hook error (continuing): ' + (e as Error).message);
+        }
+      }
+    } catch (e) {
+      this.cooking?.stop();
+      setCooking(null);
+      await closeBrowser(this);
+      // On a bot-protection block, leave no empty/partial export behind.
+      if (e instanceof AntiBotError) {
+        await fs.rm(this.outDir, { recursive: true, force: true }).catch(() => {});
+      }
+      throw e;
     }
-
-    await closeBrowser(this);
-
-    this.cooking.update('Downloading assets...');
-    await downloadAll(this);
-
-    this.cooking.update('Building output...');
-    await buildOutput(this);
 
     this.cooking.stop();
     setCooking(null);
