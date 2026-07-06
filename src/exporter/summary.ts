@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { ExporterContext } from '../types.js';
-import { boxTop, boxLine, boxBot, boxSep, maxWidth } from '../cli/box.js';
+import { boxTop, boxLine, boxBot, boxSep, boxRow, maxWidth } from '../cli/box.js';
 import { chip, ui } from '../cli/theme.js';
 
 export async function printSummary(exporter: ExporterContext): Promise<void> {
@@ -77,21 +77,19 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
   }
 
   console.log('');
-  const cdCmd = 'cd ' + path.basename(exporter.outDir) + ' && node serve.cjs';
+  const cdCmd = 'cd ' + path.basename(exporter.outDir);
+  const runCmd = 'node serve.js';
   if (!isSmall) {
     console.log(boxTop(w));
     console.log(boxLine(w, ui.text.bold('  To serve locally')));
     console.log(boxSep(w));
-    const inner = w - 6;
-    const cmdLen = cdCmd.length;
-    const pad = Math.max(0, inner - cmdLen);
-    console.log(
-      '  ' + ui.border('│ ') + G(cdCmd) + ' '.repeat(pad) + ui.muted(' copy') + ui.border(' │')
-    );
+    console.log(boxRow(w, 'Open', cdCmd));
+    console.log(boxRow(w, 'Run', runCmd));
     console.log(boxBot(w));
   } else {
     console.log(ui.text.bold('  To serve locally:'));
     console.log(`  ${G(cdCmd)}`);
+    console.log(`  ${G(runCmd)}`);
   }
 
   console.log('');
