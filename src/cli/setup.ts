@@ -5,8 +5,9 @@ import { URL } from 'node:url';
 import chalk from 'chalk';
 import { showBanner } from './banner.js';
 import { FramerExporter, deriveOutputName } from '../exporter/index.js';
-import { detectPlatform } from '../platforms/index.js';
+import { detectPlatform, PLATFORM_REGISTRY } from '../platforms/index.js';
 import { promptInput, select } from './select.js';
+import { selectPlatform } from './select-grouped.js';
 import type { PlatformType } from '../platforms/types.js';
 import { boxTop, boxLine, boxSep, boxBot, boxRow, maxWidth } from './box.js';
 import { bullet, chip, ui } from './theme.js';
@@ -28,7 +29,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
 
   console.log(`  ${ui.text.bold('Framer Export setup')} ${chip('interactive')}`);
   console.log(
-    `  ${ui.muted('Export Framer, Webflow, and Wix sites into a clean local mirror.')}\n`
+    `  ${ui.muted('Export 25+ website platforms into a clean, self-hosted local mirror.')}\n`
   );
 
   const rl = legacyMode ? readline.createInterface({ input: stdin, output: stdout }) : null;
@@ -79,33 +80,15 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     drawHeader('Step 2 : Platform');
     const detected = detectPlatform(siteUrl);
     console.log(`  ${ui.info('i')} Auto-detected: ${ui.primary(detected.displayName)}`);
-    const platformInput: string = await ask('Platform (framer/webflow/wix)', detected.name);
-    platformName = (
-      ['framer', 'webflow', 'wix'].includes(platformInput) ? platformInput : detected.name
-    ) as PlatformType;
+    const platformInput: string = await ask('Platform name', detected.name);
+    const known = PLATFORM_REGISTRY.some((platform) => platform.name === platformInput);
+    platformName = (known ? platformInput : detected.name) as PlatformType;
     console.log(`  ${ui.success('✓')} ${ui.success('Platform:')} ${ui.primary(platformName)}\n`);
   } else {
     while (!platformName) {
-      const detected = detectPlatform(siteUrl);
-      const platforms = [
-        {
-          label: `Framer${detected.name === 'framer' ? chalk.gray(' (detected)') : ''}`,
-          value: 'framer',
-        },
-        {
-          label: `Webflow${detected.name === 'webflow' ? chalk.gray(' (detected)') : ''}`,
-          value: 'webflow',
-        },
-        { label: `Wix${detected.name === 'wix' ? chalk.gray(' (detected)') : ''}`, value: 'wix' },
-      ];
-      const defaultIdx = ['framer', 'webflow', 'wix'].indexOf(detected.name);
-      const platformChoice = await select('Select platform', platforms, Math.max(0, defaultIdx), {
-        headerLines: [`URL: ${siteUrl}`],
-        actions: [{ label: 'Modify URL', value: 'modify-url' }],
-        footer: 'tab focus button  ·  mouse hover/click  ·  enter select',
-      });
+      const selection = await selectPlatform(siteUrl);
 
-      if (platformChoice === 'modify-url') {
+      if ('modifyUrl' in selection) {
         siteUrl = '';
         urlError = '';
         while (!siteUrl) {
@@ -125,7 +108,7 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
         continue;
       }
 
-      platformName = platformChoice as PlatformType;
+      platformName = selection.platform;
     }
   }
 
@@ -151,23 +134,62 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
   };
 
   const derivedName: string = deriveOutputName(siteUrl, platformName);
+  let outDir = './' + derivedName;
 
-  if (legacyMode) drawHeader('Step 3 : Output Directory');
-
-  const outDir: string = await ask2('Output directory', './' + derivedName, [
-    'Step 3 : Output Directory',
-    `URL: ${siteUrl}`,
-    `Platform: ${platformName}`,
-  ]);
   if (legacyMode) {
+    drawHeader('Step 3 : Output Directory');
+    outDir = await ask2('Output directory', outDir, [
+      'Step 3 : Output Directory',
+      `URL: ${siteUrl}`,
+      `Platform: ${platformName}`,
+    ]);
     console.log(`  ${ui.success('✓')} ${ui.success('Output:')} ${ui.primary(outDir)}\n`);
+    drawHeader('Step 4 : Options');
+  } else {
+    outDir = await ask2('Output directory', outDir, [
+      'Step 3 : Output Directory',
+      `URL: ${siteUrl}`,
+      `Platform: ${platformName}`,
+    ]);
   }
 
-  if (legacyMode) drawHeader('Step 4 : Options');
+  let prettyPrint = true;
+  let concurrency = 12;
+  let includeSubpages = false;
+  let startExport = false;
 
-  let prettyPrint: boolean;
-  let concurrency: number;
-  let includeSubpages: boolean;
+  const summaryRows = (): Array<[string, string]> => [
+    ['URL', siteUrl],
+    ['Platform', platformName],
+    ['Output', path.resolve(outDir)],
+    ['Pretty-print', prettyPrint ? 'yes' : 'no'],
+    ['Sub-pages', includeSubpages ? 'yes' : 'no'],
+    ['Concurrency', String(concurrency)],
+  ];
+
+  const summaryLines = (): string[] => summaryRows().map(([label, value]) => `${label}: ${value}`);
+
+  const printSummary = (): void => {
+    const w = maxWidth();
+    const isSmall = w < 50;
+    console.log('');
+    if (!isSmall) {
+      console.log(boxTop(w));
+      console.log(boxLine(w, ui.text.bold('  Summary')));
+      console.log(boxSep(w));
+    } else {
+      console.log(ui.text.bold('  Summary:'));
+    }
+
+    for (const [label, value] of summaryRows()) {
+      console.log(boxRow(w, label, value));
+    }
+
+    if (!isSmall) {
+      console.log(boxBot(w));
+    }
+    console.log('');
+  };
 
   if (legacyMode) {
     const prettyAnswer: string = await ask2('Pretty-print JS files? (y/n)', 'y');
@@ -185,74 +207,117 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
     const concurrencyAnswer: string = await ask2('Download concurrency', '12');
     concurrency = parseInt(concurrencyAnswer, 10) || 12;
     console.log(`  ${ui.success('✓')} Concurrency: ${ui.primary(String(concurrency))}\n`);
-  } else {
-    const prettyVal = await select('Pretty-print JS files?', [
-      { label: 'Yes', value: 'yes' },
-      { label: 'No', value: 'no' },
-    ]);
-    prettyPrint = prettyVal === 'yes';
 
-    const subpagesVal = await select(
-      'Export sub-pages?',
-      [
-        { label: 'No', value: 'no' },
-        { label: 'Yes, crawl and export', value: 'yes' },
-      ],
-      0
-    );
-    includeSubpages = subpagesVal === 'yes';
+    printSummary();
 
-    const concurrencyVal = await select(
-      'Download concurrency',
-      [
-        { label: '6 (slow connection)', value: '6' },
-        { label: '12 (default)', value: '12' },
-        { label: '20 (fast connection)', value: '20' },
-      ],
-      1
-    );
-    concurrency = parseInt(concurrencyVal, 10);
-  }
-
-  const w = maxWidth();
-  const isSmall = w < 50;
-  console.log('');
-  if (!isSmall) {
-    console.log(boxTop(w));
-    console.log(boxLine(w, ui.text.bold('  Summary')));
-    console.log(boxSep(w));
-  } else {
-    console.log(ui.text.bold('  Summary:'));
-  }
-
-  for (const [label, value] of [
-    ['URL', siteUrl],
-    ['Platform', platformName],
-    ['Output', path.resolve(outDir)],
-    ['Pretty-print', prettyPrint ? 'yes' : 'no'],
-    ['Sub-pages', includeSubpages ? 'yes' : 'no'],
-    ['Concurrency', String(concurrency)],
-  ]) {
-    console.log(boxRow(w, label, value));
-  }
-
-  if (!isSmall) {
-    console.log(boxBot(w));
-  }
-  console.log('');
-
-  let startExport: boolean;
-
-  if (legacyMode) {
     const confirm: string = await ask2('Start export? (y/n)', 'y');
     startExport = confirm.toLowerCase().startsWith('y');
     rl2!.close();
   } else {
-    const confirmVal = await select('Start export?', [
-      { label: 'Yes, start now', value: 'yes' },
-      { label: 'Cancel', value: 'no' },
-    ]);
-    startExport = confirmVal === 'yes';
+    let optionStep = 0;
+
+    while (true) {
+      while (optionStep < 3) {
+        if (optionStep === 0) {
+          const prettyVal = await select(
+            'Pretty-print JS files?',
+            [
+              { label: 'Yes', value: 'yes' },
+              { label: 'No', value: 'no' },
+            ],
+            prettyPrint ? 0 : 1,
+            {
+              headerLines: ['Step 4 : Options'],
+              actions: [{ label: 'Previous: output directory', value: 'previous' }],
+              footer: 'previous go back  ·  enter next  ·  mouse hover/click',
+            }
+          );
+
+          if (prettyVal === 'previous') {
+            outDir = await ask2('Output directory', outDir, [
+              'Step 3 : Output Directory',
+              `URL: ${siteUrl}`,
+              `Platform: ${platformName}`,
+            ]);
+            optionStep = 0;
+            continue;
+          }
+
+          prettyPrint = prettyVal === 'yes';
+          optionStep = 1;
+          continue;
+        }
+
+        if (optionStep === 1) {
+          const subpagesVal = await select(
+            'Export sub-pages?',
+            [
+              { label: 'No', value: 'no' },
+              { label: 'Yes, crawl and export', value: 'yes' },
+            ],
+            includeSubpages ? 1 : 0,
+            {
+              headerLines: ['Step 4 : Options'],
+              actions: [{ label: 'Previous: pretty-print', value: 'previous' }],
+              footer: 'previous go back  ·  enter next  ·  mouse hover/click',
+            }
+          );
+
+          if (subpagesVal === 'previous') {
+            optionStep = 0;
+            continue;
+          }
+
+          includeSubpages = subpagesVal === 'yes';
+          optionStep = 2;
+          continue;
+        }
+
+        const concurrencyVal = await select(
+          'Download concurrency',
+          [
+            { label: '6 (slow connection)', value: '6' },
+            { label: '12 (default)', value: '12' },
+            { label: '20 (fast connection)', value: '20' },
+          ],
+          concurrency === 6 ? 0 : concurrency === 20 ? 2 : 1,
+          {
+            headerLines: ['Step 4 : Options'],
+            actions: [{ label: 'Previous: sub-pages', value: 'previous' }],
+            footer: 'previous go back  ·  enter next  ·  mouse hover/click',
+          }
+        );
+
+        if (concurrencyVal === 'previous') {
+          optionStep = 1;
+          continue;
+        }
+
+        concurrency = parseInt(concurrencyVal, 10);
+        optionStep = 3;
+      }
+
+      const confirmVal = await select(
+        'Ready to export?',
+        [
+          { label: 'Previous: edit options', value: 'previous' },
+          { label: 'Next: start now', value: 'next' },
+          { label: 'Cancel', value: 'cancel' },
+        ],
+        1,
+        {
+          headerLines: ['Summary', ...summaryLines()],
+          footer: 'previous edit options  ·  next start export  ·  mouse hover/click',
+        }
+      );
+
+      if (confirmVal === 'previous') {
+        optionStep = 2;
+        continue;
+      }
+      startExport = confirmVal === 'next';
+      break;
+    }
   }
 
   if (!startExport) {
@@ -267,5 +332,14 @@ export async function runSetup(legacyMode: boolean = false): Promise<void> {
 
   const exporter = new FramerExporter(siteUrl, path.resolve(outDir), platformName);
   exporter.prettyPrint = prettyPrint;
-  await exporter.run(includeSubpages);
+  try {
+    await exporter.run(includeSubpages);
+  } catch (e) {
+    const { AntiBotError, formatAntiBotError } = await import('../exporter/anti-bot.js');
+    if (e instanceof AntiBotError) {
+      console.log(formatAntiBotError(e));
+      process.exit(1);
+    }
+    throw e;
+  }
 }
