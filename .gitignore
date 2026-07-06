@@ -9,3 +9,17 @@ framer-output/
 coverage/
 *.map
 tmp/
+
+# generated site exports (never commit)
+/cooksite-export/
+/framer-*/
+/webflow-*/
+/wix-*/
+/shopify-*/
+/notion-*/
+/squarespace-*/
+/ghost-*/
+/ooo/
+/tatatwda/
+/dev.exe/
+/framer-export.js
