@@ -6,9 +6,9 @@
   "main": "dist/cli/index.js",
   "types": "dist/cli/index.d.ts",
   "bin": {
-    "framer-export": "./bin/framer-export.js",
-    "fexport": "./bin/fexport.js",
-    "framerexport": "./bin/framerexport.js"
+    "framer-export": "bin/framer-export.js",
+    "fexport": "bin/fexport.js",
+    "framerexport": "bin/framerexport.js"
   },
   "files": [
     "dist/",
