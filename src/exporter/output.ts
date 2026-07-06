@@ -168,13 +168,40 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
       log('  Pattern removed ' + removed + ' chars');
     }
   }
+  if (exporter.platform.stripScripts && exporter.platform.stripScripts.length > 0) {
+    log('Applying ' + exporter.platform.stripScripts.length + ' script-strip patterns...');
+    for (const pattern of exporter.platform.stripScripts) {
+      const before: number = html.length;
+      html = html.replace(new RegExp(pattern.source, pattern.flags), '');
+      const removed: number = before - html.length;
+      if (removed > 0) log('  Script pattern removed ' + removed + ' chars');
+    }
+  }
+
   success('Platform badges and tracking stripped');
+
+  if (exporter.platform.postCapture) {
+    try {
+      const before: number = html.length;
+      html = exporter.platform.postCapture(html, exporter);
+      log('postCapture hook applied (delta ' + (html.length - before) + ' chars)');
+    } catch (e) {
+      warn('postCapture hook failed: ' + (e as Error).message);
+    }
+  }
 
   exporter.cooking?.update('Rewriting asset URLs...');
   log('Rewriting ' + exporter.assets.entries.size + ' CDN URLs to local paths...');
   const beforeRewrite: number = html.length;
   html = exporter.assets.rewrite(html, '');
   log('HTML rewrite delta: ' + (html.length - beforeRewrite) + ' chars');
+
+  if (exporter.platform.rewriteUrlPatterns && exporter.platform.rewriteUrlPatterns.length > 0) {
+    for (const { from, to } of exporter.platform.rewriteUrlPatterns) {
+      html = html.replace(new RegExp(from.source, from.flags), to);
+    }
+    log('Applied ' + exporter.platform.rewriteUrlPatterns.length + ' custom URL rewrites');
+  }
 
   exporter.cooking?.update('Cleaning srcset references...');
   html = stripSrcsetCdnUrls(html);
@@ -191,8 +218,13 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   await fs.writeFile(path.join(exporter.outDir, 'index.html'), html);
   success('index.html written');
 
-  await fs.writeFile(path.join(exporter.outDir, 'serve.cjs'), SERVE_SCRIPT);
-  log('serve.cjs written');
+  await fs.writeFile(path.join(exporter.outDir, 'serve.js'), SERVE_SCRIPT);
+  log('serve.js written');
+  await fs.writeFile(
+    path.join(exporter.outDir, 'package.json'),
+    JSON.stringify({ type: 'module', scripts: { serve: 'node serve.js' } }, null, 2) + '\n'
+  );
+  log('package.json written for serve.js');
   success('Output build complete');
 }
 
