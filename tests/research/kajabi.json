@@ -1,0 +1,54 @@
+{
+  "platform": "kajabi",
+  "displayName": "Kajabi",
+  "category": "course",
+  "detectUrlRegex": "\\.mykajabi\\.com",
+  "hostingDomains": [
+    ".mykajabi.com"
+  ],
+  "cdnDomains": [
+    "kajabi-storefronts-production.kajabi-cdn.com",
+    "kajabi-app-assets.kajabi-cdn.com"
+  ],
+  "renderStrategy": "ssr-static",
+  "suggestedPriority": 85,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "metaGenerator": "",
+  "badgePresent": true,
+  "badgeSelector": ".footer__powered-by a",
+  "badgeTargetUrl": "https://app.kajabi.com/r/{referralCode}?powered_by=true",
+  "badgeHtmlPattern": "<div class=\"footer__powered-by\"><a target=\"_blank\" rel=\"nofollow noopener\" href=\"https://app.kajabi.com/r/hp63ysLY?powered_by=true\">Powered by Kajabi</a></div>",
+  "htmlSignatures": [
+    "kjb-settings-id=\"...\" attribute on themed elements (e.g. kjb-settings-id=\"sections_footer_settings_copyright\") — 59 hits on glendz, 66 on idolcourses; unique to Kajabi theme editor",
+    "inline script: var Kajabi = Kajabi || {};",
+    "Kajabi.theme = { activeThemeName: \"Premier\", previewThemeId: null, editor: false }",
+    "Kajabi.currentSiteUser = { \"id\":\"-1\", \"type\":\"Guest\", \"contactId\":\"\" }",
+    "class=\"footer__powered-by\" (badge wrapper on free/lower tiers only)",
+    "footer__copyright / footer__menu / footer__menu-item / footer__text-container classes",
+    "data-dynamic-sections, data-section-id, data-content-for-index attributes",
+    "asset URLs under /kajabi-storefronts-production/themes/{themeId}/assets/ (e.g. themes/717774/assets/)",
+    "<meta name=\"csrf-param\" content=\"authenticity_token\"> (Ruby on Rails backend)",
+    "response headers x-frame-options / CSP frame-ancestors whitelist app.kajabi.com + communities.kajabi.com + communities-widget.kajabi.com (plus any per-site custom domain)"
+  ],
+  "jsGlobals": [
+    "window.Kajabi",
+    "window.Kajabi.theme",
+    "window.Kajabi.currentSiteUser",
+    "window.rudderanalytics"
+  ],
+  "analyticsScripts": [
+    "rs-dp.kajabi.com",
+    "cdn.rudderlabs.com"
+  ],
+  "antiBot": "cloudflare",
+  "scrollStrategy": "standard",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "referenceUrls": [
+    "https://glendz.mykajabi.com/",
+    "https://idolcourses.mykajabi.com/"
+  ],
+  "notes": "Kajabi fingerprint fully re-verified against live sites; all signatures corroborated.",
+  "corrections": "No signatures were invented or hallucinated — the researcher output verified as accurate on every point, so nothing was removed. Re-verified live on 2026-07-06 via raw curl (WebFetch strips scripts/meta/classes, giving false negatives, so raw HTML was used).\n\nCONFIRMED (unchanged): (1) both cdnDomains real and present — kajabi-storefronts-production.kajabi-cdn.com (18/34 hits) and kajabi-app-assets.kajabi-cdn.com (7/7 hits); neither is fabricated. (2) metaGenerator genuinely absent. (3) Inline globals var Kajabi / Kajabi.theme{activeThemeName,previewThemeId,editor:false} / Kajabi.currentSiteUser{id,type:'Guest',contactId} verbatim. (4) kjb-settings-id count 59 (glendz) / 66 (idolcourses) matches. (5) footer__ classes, data-dynamic-sections/data-section-id/data-content-for-index, theme asset path, csrf-param meta all present. (6) Analytics rs-dp.kajabi.com + cdn.rudderlabs.com present; window.rudderanalytics real. (7) Cloudflare + session cookies confirmed in headers. (8) Badge exact on glendz (href app.kajabi.com/r/hp63ysLY?powered_by=true), absent on paid idolcourses — confirms badge-absence caveat.\n\nMINOR EDITS: (a) badgeHtmlPattern kept but noted that real markup contains indentation/newlines between <div> and <a> (cosmetic only — attributes identical). (b) Trimmed referenceUrls to the two I actually fetched raw (dropped mih.mykajabi.com, not re-checked this pass). (c) Enriched htmlSignatures with observed hit counts and added the x-frame-options/CSP header whitelist as a signature; also noted that whitelist additionally includes per-site custom domains (e.g. app.vibely.io, custom domain) beyond the kajabi.com entries. verifiedConfidence set to high."
+}

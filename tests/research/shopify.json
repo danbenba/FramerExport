@@ -1,0 +1,63 @@
+{
+  "platform": "shopify",
+  "displayName": "Shopify",
+  "category": "ecommerce",
+  "detectUrlRegex": "\\.myshopify\\.com",
+  "hostingDomains": [
+    ".myshopify.com"
+  ],
+  "cdnDomains": [
+    "cdn.shopify.com",
+    "fonts.shopifycdn.com",
+    "extensions.shopifycdn.com"
+  ],
+  "metaGenerator": "",
+  "badgePresent": true,
+  "badgeSelector": ".shopify-powered-by, [data-shopify=\"powered-by\"]",
+  "badgeHtmlPattern": "<span class=\"shopify-powered-by\" data-shopify=\"powered-by\"><a href=\"https://www.shopify.com?utm_campaign=poweredby&utm_medium=shopify&utm_source=onlinestore\" rel=\"nofollow\" target=\"_blank\" title=\"Create your own online store with Shopify\">Powered by Shopify</a></span>",
+  "badgeTargetUrl": "https://www.shopify.com?utm_campaign=poweredby&utm_medium=shopify&utm_source=onlinestore",
+  "analyticsScripts": [
+    "monorail-edge.shopifysvc.com"
+  ],
+  "jsGlobals": [
+    "window.Shopify",
+    "window.Shopify.shop",
+    "window.Shopify.locale",
+    "window.Shopify.currency",
+    "window.Shopify.country",
+    "window.Shopify.theme",
+    "window.Shopify.routes",
+    "window.Shopify.designMode",
+    "window.ShopifyAnalytics",
+    "window.trekkie",
+    "window.__st"
+  ],
+  "htmlSignatures": [
+    "Inline JS: Shopify.shop = \"<store>.myshopify.com\" (CONFIRMED live: weareallbirds.myshopify.com, deathwishcoffee.myshopify.com) — reveals canonical backend even on custom-domain stores",
+    "var Shopify = Shopify || {}; inline bootstrap block (CONFIRMED)",
+    "Shopify.locale, Shopify.currency={\"active\":\"USD\",...}, Shopify.theme={\"name\":...,\"id\":...,\"schema_name\":<theme>,\"schema_version\":...} inline (CONFIRMED). NOTE: schema_name varies per theme (e.g. \"allbirds-theme\"); \"Dawn\" is only the common default, not a fixed value",
+    "Asset path /cdn/shop/files/ and /cdn/shop/t/ served from the store's OWN domain (CONFIRMED: 161+180 on allbirds, 306 on deathwishcoffee)",
+    "Legacy/headless absolute path cdn.shopify.com/s/files/<shop_id>/... (CONFIRMED: 1132 refs on headless gymshark.com)",
+    "ShopifyAnalytics + trekkie/TREKKIE inline object with \"shopId\":<number> (CONFIRMED: \"shopId\":11044168 on allbirds)",
+    "monorail-edge.shopifysvc.com analytics beacon reference (CONFIRMED on allbirds + deathwishcoffee)",
+    "HTTP response header powered-by: Shopify (CONFIRMED on allbirds + deathwishcoffee) — strongest single header signal",
+    "data-shopify=\"powered-by\" / class=\"shopify-powered-by\" footer badge — OPTIONAL, merchant-removable, ABSENT on all 3 reference stores",
+    "Public /products.json and /collections/<h>/products.json endpoints return store catalog",
+    "NO <meta name=generator> on modern themes (CONFIRMED absent on all 3 stores) — do not rely on it"
+  ],
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": true,
+  "hydrationTimeoutMs": 3500,
+  "scrollStrategy": "standard",
+  "antiBot": "cloudflare",
+  "suggestedPriority": 80,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://www.allbirds.com/",
+    "https://www.deathwishcoffee.com/",
+    "https://www.gymshark.com/"
+  ],
+  "notes": "VERIFIED LIVE via raw curl + HTTP header inspection (Jul 2026), not guessed.\\n\\nSTRONGEST SIGNALS (all CONFIRMED live):\\n1. HTTP header `powered-by: Shopify` — present on allbirds.com and deathwishcoffee.com; single most reliable header signal. Standard storefronts fronted by `server: cloudflare`.\\n2. Inline JS bootstrap `var Shopify = Shopify || {};` then `Shopify.shop = \\\"<store>.myshopify.com\\\";` plus Shopify.locale, Shopify.currency, Shopify.theme{...schema_name...}. The Shopify.shop value reveals the canonical *.myshopify.com backend even on custom-domain stores — use it for detectUrlRegex/store-ID mapping.\\n3. Asset CDN: modern themes serve from the store's OWN domain under /cdn/shop/files/ and /cdn/shop/t/ (161+180 on allbirds, 306 on deathwishcoffee). Legacy/headless absolute form is cdn.shopify.com/s/files/... (1132 refs on gymshark). cdn.shopify.com OR same-origin /cdn/shop/ is a near-universal asset signal.\\n4. First-party ShopifyAnalytics + trekkie/TREKKIE inline objects carrying \\\"shopId\\\":<number> (verified \\\"shopId\\\":11044168 on allbirds), beaconing to monorail-edge.shopifysvc.com.\\n5. Public /products.json?limit=N returns full catalog JSON on virtually every storefront.\\n\\nRENDER: SSR-static Liquid — product/collection content IS in raw HTML, so direct HTML scraping works. EXCEPTION: headless Hydrogen/Oxygen storefronts (gymshark.com CONFIRMED served via CloudFront, not Cloudflare, with NO inline window.Shopify); for those, detection must lean on cdn.shopify.com/s/files/ asset refs rather than the window.Shopify global. Hence needsHydrationCheck=true.\\n\\nBADGE: The \\\"Powered by Shopify\\\" footer badge (span.shopify-powered-by[data-shopify=\\\"powered-by\\\"]) is the Liquid powered_by_link default but is trivially merchant-removable and was CONFIRMED ABSENT on all 3 reference stores. Weak/optional confirming signal only; exact markup is Shopify's Liquid default (medium confidence on markup, not a live capture).\\n\\nMETA GENERATOR: Do NOT rely on <meta name=\\\"generator\\\">; CONFIRMED absent on all 3 modern stores. Legacy-only.\\n\\nANTI-BOT: Standard storefronts sit behind Cloudflare (can issue challenges) but plain curl with a browser UA returned HTTP 200 + full HTML on both Cloudflare-fronted stores — no challenge hit during research. Aggressive scraping may trigger rate-limits.\\n\\nPRIORITY 80: .myshopify.com + inline Shopify.shop is an unambiguous dedicated backend subdomain; powered-by: Shopify header + cdn.shopify.com assets give high-reliability multi-signal confirmation even on custom domains.",
+  "corrections": "VERIFIED (unchanged, confirmed live Jul 2026): (a) detectUrlRegex \\\\.myshopify\\\\.com — confirmed via inline Shopify.shop=\\\"weareallbirds.myshopify.com\\\"/\\\"deathwishcoffee.myshopify.com\\\"/\\\"gymsharkusa.myshopify.com\\\". (b) powered-by: Shopify header + server: cloudflare — confirmed on allbirds + deathwishcoffee. (c) inline var Shopify bootstrap, Shopify.locale/currency/theme, ShopifyAnalytics, TREKKIE, \\\"shopId\\\":11044168, monorail-edge.shopifysvc.com — all confirmed on allbirds + deathwishcoffee. (d) cdn.shopify.com + /cdn/shop/files/ (161/306) + /cdn/shop/t/ (180) — confirmed. (e) headless exception: gymshark.com confirmed served via CloudFront (not Cloudflare) with NO inline window.Shopify and 1132 cdn.shopify.com/s/files refs. (f) metaGenerator empty — confirmed no <meta name=generator> on any of the 3 stores. (g) badge absent on all 3 stores — matches researcher's 'removable/weak' framing.\\n\\nCHANGED: (1) cdnDomains — REMOVED unconfirmed 'cdn.shopifycdn.net' (it DNS-resolves as a Shopify backend alias → imagery4.shopifynetwork.com/23.227.39.200 but was NOT observed serving assets in any storefront HTML, so it is not a matchable detection signal). Replaced with the ACTUALLY-OBSERVED 'fonts.shopifycdn.com' and 'extensions.shopifycdn.com' (found in live HTML), keeping the heavily-confirmed 'cdn.shopify.com'. (2) htmlSignatures — corrected the entry that hard-coded schema_name:\\\"Dawn\\\" as if fixed; the live value varies per theme (allbirds = \\\"allbirds-theme\\\"), Dawn is only the common default. Also annotated each signature with its live-confirmation status. (3) Fixed deathwishcoffee referenceUrl to canonical www. host. verifiedConfidence remains high: every core signal was reproduced live on multiple independent stores."
+}

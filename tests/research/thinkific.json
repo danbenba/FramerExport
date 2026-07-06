@@ -1,0 +1,59 @@
+{
+  "platform": "thinkific",
+  "displayName": "Thinkific",
+  "category": "course",
+  "detectUrlRegex": "\\.thinkific\\.com",
+  "hostingDomains": [
+    ".thinkific.com"
+  ],
+  "cdnDomains": [
+    "assets.thinkific.com",
+    "cdn.thinkific.com",
+    "cdn-themes.thinkific.com",
+    "import.cdn.thinkific.com",
+    "files.cdn.thinkific.com",
+    "s3.amazonaws.com"
+  ],
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "Inline bootstrap script: window.Thinkific = window.Thinkific || {}; followed by window.Thinkific.current_user = null (CONFIRMED on subdomain colormatters.thinkific.com and custom-domain courses.winefolly.com)",
+    "HTML comment ASCII-art banner ending with: Everything you need to create and launch courses on your own site [ https://www.thinkific.com ] (CONFIRMED)",
+    "div.footer__white-label wrapping the powered-by badge anchor (CONFIRMED)",
+    "meta[name=csrf-param][content=authenticity_token] and meta[name=csrf-token] (Rails backend) (CONFIRMED)",
+    "link stylesheet assets.thinkific.com/assets/custom_site_theme_required-<sha256>.css (CONFIRMED)",
+    "script assets.thinkific.com/assets/application-themes-v2-<sha256>.js (CONFIRMED)",
+    "cdn.thinkific.com/assets/toga-css/<ver>/fonts/toga-icons.css and toga-product-icons.css (CONFIRMED, e.g. toga-css/1.1.21)",
+    "CSS class prefix remote-sign-in__vendor-logins on sign-in widget (CONFIRMED)",
+    "data-* attributes: data-section-uid, data-preview-item, data-menu-style, data-menu-type, data-bundle, data-progress, data-qa (ALL CONFIRMED present)",
+    "#main-content skip-link anchor (CONFIRMED)",
+    "svg title element: <title id=\"thinkific_branding\">Teach online with Thinkific</title> (CONFIRMED)",
+    "custom JS event dispatched: thnc.current_user-initialized (CONFIRMED)"
+  ],
+  "jsGlobals": [
+    "window.Thinkific",
+    "window.Thinkific.current_user"
+  ],
+  "analyticsScripts": [
+    "fast.wistia.net",
+    "www.google.com/recaptcha"
+  ],
+  "badgePresent": true,
+  "badgeSelector": ".footer__white-label a[href*=\"utm_medium=powered-by\"]",
+  "badgeHtmlPattern": "<div class=\"footer__white-label\"><a href=\"//www.thinkific.com/?utm_source={subdomain}&utm_medium=powered-by&utm_campaign=Referral\" target=\"_blank\" rel=\"noopener\"><svg aria-labelledby=\"thinkific_branding\" role=\"img\" width=\"203px\" height=\"9px\" viewbox=\"0 0 203 9\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\"><title id=\"thinkific_branding\">Teach online with Thinkific</title>...</svg></a></div>",
+  "badgeTargetUrl": "//www.thinkific.com/?utm_source={subdomain}&utm_medium=powered-by&utm_campaign=Referral",
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "cloudflare",
+  "suggestedPriority": 82,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://colormatters.thinkific.com",
+    "https://sheilawraygregoire.thinkific.com",
+    "https://courses.winefolly.com"
+  ],
+  "notes": "Thinkific is a Ruby-on-Rails + Liquid course platform. Default tenant hosting is {subdomain}.thinkific.com; many production sites use custom domains (e.g. courses.winefolly.com) where the URL regex fails and you MUST fall back to HTML signatures. Strongest cross-domain signals (VERIFIED on both a subdomain and a custom-domain site): (1) inline window.Thinkific = window.Thinkific || {} bootstrap script; (2) Rails csrf meta tags (meta[name=csrf-param][content=authenticity_token]); (3) theme CSS/JS bundles from assets.thinkific.com (custom_site_theme_required-<sha256>.css, application-themes-v2-<sha256>.js); (4) toga-css icon fonts from cdn.thinkific.com. Pages are fully server-rendered (raw HTML contains all course cards, footer, copyright) — no JS hydration needed, so ssr-static, safe to mirror from raw HTML. Uploaded media on import.cdn.thinkific.com / files.cdn.thinkific.com (front S3); theme assets on assets.thinkific.com / cdn-themes.thinkific.com. The 'Powered by Thinkific' badge (div.footer__white-label with inline SVG titled 'Teach online with Thinkific' linking to www.thinkific.com with utm_medium=powered-by) is present by default but REMOVABLE on paid plans, so absence does not rule out Thinkific — do not rely on it alone. Anti-bot: Cloudflare present (window.__CF$cv$params rocket-loader injection observed) but all fetches returned HTTP 200 with no challenge/captcha, so scraping works with a normal browser User-Agent. NOTE: reference URL learn.codewithchris.com returned a 302 redirect on direct fetch (dropped from referenceUrls); substituted courses.winefolly.com which fully confirms all signatures. Route conventions: /courses/{slug}, /collections, /bundles, /users/sign_in, /enrollments. Video is typically Wistia (fast.wistia.net); sign-in uses Google reCAPTCHA. No meta generator tag is emitted (confirmed absent).",
+  "corrections": "Independently verified by fetching raw HTML (not markdown) from colormatters.thinkific.com (subdomain, HTTP 200, 336KB) and courses.winefolly.com (custom domain, HTTP 200, 304KB). CONFIRMED verbatim: the window.Thinkific = window.Thinkific || {} bootstrap plus window.Thinkific.current_user; both csrf meta tags with content=\"authenticity_token\"; absence of any meta[name=generator] (metaGenerator correctly empty); ALL six cdnDomains actually referenced (cdn.thinkific.com x12, import.cdn x4, files.cdn x4, assets.thinkific.com x2, cdn-themes.thinkific.com x1, s3.amazonaws.com x1); the ASCII-art HTML comment banner ending 'Everything you need to create and launch courses on your own site [ https://www.thinkific.com ]'; the toga-css/1.1.21 toga-icons.css + toga-product-icons.css from cdn.thinkific.com; custom_site_theme_required-<sha256>.css and application-themes-v2-<sha256>.js from assets.thinkific.com; remote-sign-in__vendor-logins; #main-content; svg <title id=\"thinkific_branding\">Teach online with Thinkific</title>; thnc.current_user-initialized event; wistia + recaptcha; and Cloudflare __CF$cv$params. ALL claimed data-* attributes verified present (data-section-uid, data-preview-item, data-menu-style, data-menu-type, data-bundle, data-progress, data-qa). The badge markup matches EXACTLY, including div.footer__white-label > a[href=//www.thinkific.com/?utm_source={subdomain}&utm_medium=powered-by&utm_campaign=Referral] target=_blank rel=noopener wrapping the inline SVG (width 203px height 9px viewbox 0 0 203 9). Nothing was invented or hallucinated. Changes made: (1) removed reference URL learn.codewithchris.com because it returned HTTP 302 (redirect, empty body) on direct fetch — replaced with courses.winefolly.com which is a live custom-domain Thinkific site confirming every cross-domain signal; (2) annotated htmlSignatures with CONFIRMED tags. verifiedConfidence set to high — the researcher output was accurate on every checkable field."
+}

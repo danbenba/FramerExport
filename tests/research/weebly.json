@@ -1,0 +1,62 @@
+{
+  "platform": "weebly",
+  "displayName": "Weebly",
+  "category": "builder",
+  "detectUrlRegex": "\\.weebly\\.com",
+  "hostingDomains": [
+    ".weebly.com"
+  ],
+  "cdnDomains": [
+    "cdn1.editmysite.com",
+    "cdn2.editmysite.com",
+    "cdn11.editmysite.com",
+    "editmysite.com"
+  ],
+  "metaGenerator": "",
+  "badgePresent": true,
+  "badgeSelector": "#weebly-footer-signup-container-v3",
+  "badgeTargetUrl": "https://www.weebly.com/signup?utm_source=internal&utm_medium=footer",
+  "badgeHtmlPattern": "<div id=\"weebly-footer-signup-container-v3\"> is present but empty in raw HTML; populated client-side by cdn11.editmysite.com/js/site/footerSignup.js via Weebly.footer.setupContainer('cdn11.editmysite.com', ...). Rendered anchor: <a href=\"https://www.weebly.com/signup?utm_source=internal&utm_medium=footer\">Create your own unique website with customizable templates. Get Started</a> with img //cdn11.editmysite.com/images/site/footer/footer-toast-published-image-1.png",
+  "htmlSignatures": [
+    "<link rel=\"stylesheet\" href=\"//cdn2.editmysite.com/css/sites.css\"> (the id=\"wsite-base-style\" attribute appears on newer templates only; the sites.css link on cdn2.editmysite.com is universal)",
+    "wsite- class/id prefix, ubiquitous: wsite-content, wsite-elements, wsite-footer, wsite-not-footer, wsite-header-elements, wsite-form-field, wsite-menu, wsite-menu-item",
+    "body class contains wsite-theme-light and wsite-page-<slug>",
+    "id=\"wsite-content\"",
+    "id=\"wsite-title\"",
+    "<link ... href=\"/files/main_style.css\" title=\"wsite-theme-css\"> (title attr on newer templates)",
+    "div id=\"weebly-footer-signup-container-v3\"",
+    "Weebly.footer.setupContainer('cdn11.editmysite.com', ...)",
+    "theme assets served path-relative under /files/ (main_style.css, theme/plugins.js, theme/custom.js)"
+  ],
+  "jsGlobals": [
+    "window._W",
+    "_W.Analytics",
+    "_W.jQuery",
+    "_W.relinquish",
+    "Weebly.footer.setupContainer",
+    "_W.themePlugins (newer templates)",
+    "_W.recaptchaUrl (newer templates)",
+    "_W.isEUUser (newer templates)",
+    "_W.configDomain = \"www.weebly.com\" (newer templates only; absent on older sites)"
+  ],
+  "analyticsScripts": [
+    "www.google-analytics.com/ga.js (legacy _gaq; Weebly platform property UA-7870337-1)",
+    "cdn2.editmysite.com/js/site/main.js (Weebly _W.Analytics trackers)",
+    "cdn2.editmysite.com/js/lang/en/stl.js"
+  ],
+  "renderStrategy": "ssr-static",
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "suggestedPriority": 82,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://computertutorofmarin.weebly.com/how-to-create-a-website.html",
+    "https://thegirldownriver.weebly.com/",
+    "https://example.weebly.com/"
+  ],
+  "notes": "Verified against RAW HTML of 2 live Weebly sites (curl, HTTP 200, 26-32 KB). RENDER: ssr-static confirmed - full nav/content/meta present in raw HTML; JS only enhances (badge injection, analytics, forms). DETECTION: strong Weebly-specific signals confirmed on both sites: (1) default hosting subdomain <name>.weebly.com; (2) content signatures that persist on custom domains - ubiquitous wsite- CSS class/id prefix, window._W config object, Weebly.footer.setupContainer, and assets on cdn1/cdn2/cdn11.editmysite.com. NON-SIGNAL CONFIRMED: no <meta name=\"generator\"> on either site - do NOT rely on generator meta. VERSION VARIANCE: id=\"wsite-base-style\" and _W.configDomain=\"www.weebly.com\" appear on newer templates but were ABSENT on an older-template site (buildTime 2014) - use them as positive-when-present signals, not required. Universal globals: window._W, _W.Analytics, _W.jQuery, _W.relinquish, Weebly.footer.setupContainer. ASSET HOSTING: platform CSS/JS/images on cdn1/cdn2/cdn11.editmysite.com; per-site theme + uploads served path-relative under /files/ and /uploads/. DISAMBIGUATION: editmysite.com CDN is shared with Square Online - disambiguate Weebly via wsite- prefix + window._W/Weebly.footer globals. ANTI-BOT: none (all fetches 200 with normal desktop UA); some individual sites may front with Cloudflare email obfuscation but content is fully served.",
+  "corrections": "Independently verified via raw HTML (curl) of computertutorofmarin.weebly.com and thegirldownriver.weebly.com, plus WebFetch of the first. CONFIRMED and kept unchanged: cdnDomains cdn1/cdn2/cdn11.editmysite.com (all appear on both sites), metaGenerator empty (no generator tag on either site - non-signal correctly noted), badgeSelector #weebly-footer-signup-container-v3 and badgeTargetUrl weebly.com/signup?utm_source=internal&utm_medium=footer, Weebly.footer.setupContainer('cdn11.editmysite.com', ...), window._W, wsite- prefix (wsite-content/elements/footer/not-footer/form-field/menu), body wsite-theme-light + wsite-page-<slug>, /files/main_style.css + /files/theme/plugins.js + custom.js, footerSignup.js on cdn11, google-analytics ga.js with UA-7870337-1, main.js/stl.js on cdn2, ssr-static render, antiBot none. CHANGES: (1) In htmlSignatures, downgraded the id=\\\"wsite-base-style\\\" claim - the id attribute was present on one site but ABSENT on the older-template site (whose sites.css link omits it); rewrote the entry so the universal signal is the //cdn2.editmysite.com/css/sites.css stylesheet link, with the id noted as newer-template-only. Also flagged the title=\\\"wsite-theme-css\\\" attribute as newer-template-only. (2) In jsGlobals, reordered to put the universally-observed globals first (window._W, _W.Analytics, _W.jQuery, _W.relinquish, Weebly.footer.setupContainer) and annotated _W.configDomain=\\\"www.weebly.com\\\", _W.themePlugins, _W.recaptchaUrl, _W.isEUUser as newer-template-only since _W.configDomain was absent on the older site. (3) Trimmed analyticsScripts to the three actually observed on-page (ga.js, cdn2 main.js, cdn2 stl.js); removed the unverified separate ssl.google-analytics.com/ga.js entry (only google-analytics.com/ga.js was seen). (4) Reordered referenceUrls to put the two fully raw-HTML-verified sites first (example.weebly.com only yielded rendered markdown via WebFetch). No fabricated CDNs, badge markup, or data-* attributes were found - all researcher claims corroborated; only over-broad universality claims were qualified. verifiedConfidence: high."
+}

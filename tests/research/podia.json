@@ -1,0 +1,61 @@
+{
+  "platform": "podia",
+  "displayName": "Podia",
+  "category": "course",
+  "detectUrlRegex": "\\.podia\\.com",
+  "hostingDomains": [
+    ".podia.com",
+    "sites.podia.com"
+  ],
+  "cdnDomains": [
+    "cdn.podia.com"
+  ],
+  "metaGenerator": "",
+  "badgePresent": true,
+  "badgeSelector": "#page_footer a[href*=\"utm_medium=poweredby\"]",
+  "badgeTargetUrl": "https://www.podia.com?utm_medium=poweredby&utm_source=footer",
+  "badgeHtmlPattern": "\"showBranding\":true,\"branding\":{\"preStrapline\":\"Powered by\",\"url\":\"https://www.podia.com?utm_medium=poweredby&utm_source=footer\"}",
+  "analyticsScripts": [
+    "www.googletagmanager.com"
+  ],
+  "jsGlobals": [
+    "window.dataLayer"
+  ],
+  "htmlSignatures": [
+    "class=\"react-page-section\"",
+    "class=\"react-page-header\"",
+    "class=\"react-page-footer\"",
+    "id=\"page_header\"",
+    "id=\"page_footer\"",
+    "data-react-component=\"creator_ui/section_adapters/Footer\"",
+    "data-react-component=\"creator_ui/section_adapters/Header\"",
+    "data-react-component=\"creator_ui/section_adapters/Text\"",
+    "data-react-component=\"creator_ui/section_adapters/Grid\"",
+    "data-react-component=\"creator_ui/section_adapters/Featured\"",
+    "data-react-component=\"creator_ui/section_adapters/Image\"",
+    "data-controller=\"editor--page-section\"",
+    "<meta name=\"action-cable-url\" content=\"wss://<domain>/cable\"",
+    "<meta name=\"turnstile-site-key\" content=\"0x4AAAAAAAJ5kwYW6AH1ybLx\">",
+    "<meta name=\"csrf-param\" content=\"authenticity_token\">",
+    "<meta name=\"turbo-prefetch\" content=\"false\">",
+    "cdn.podia.com/assets/storefront-<hash>.css",
+    "cdn.podia.com/assets/storefront-<hash>.js",
+    "cdn.podia.com/assets/user-site-<hash>.js",
+    "/content-assets/public/<JWT>"
+  ],
+  "renderStrategy": "react-hydration",
+  "needsHydrationCheck": true,
+  "hydrationTimeoutMs": 4000,
+  "scrollStrategy": "standard",
+  "antiBot": "cloudflare",
+  "suggestedPriority": 80,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://demo.podia.com/",
+    "https://examples.podia.com/",
+    "https://www.thecreativebodega.com/"
+  ],
+  "notes": "Podia is a Ruby-on-Rails + Hotwire (Turbo/Stimulus) storefront hosted on Heroku (Via: heroku-router) and fronted by Cloudflare. Page sections render as React islands: empty `<div class=\"react-page-section\" data-react-component=\"creator_ui/section_adapters/{Header|Footer|Text|Grid|Featured|Image|Bio|Categories|Products}\" data-props=\"{HTML-entity-escaped JSON}\">`. Raw HTML contains ZERO rendered <h1>/<h2>/<p> tags — all copy, colors, links and media URLs live inside the escaped data-props JSON, hydrated client-side. A mirror tool must run JS OR parse/unescape data-props. No <meta name=\"generator\">.\\n\\nVERIFIED cross-domain (demo.podia.com, examples.podia.com, custom domain thecreativebodega.com), STRONGEST signatures:\\n1. cdn.podia.com/assets/ serving storefront-<64hex>.css, storefront-<hash>.js, user-site-<hash>.js — IDENTICAL hashes across all three sites and also emitted as Link: rel=preload response headers. Host-independent framework assets.\\n2. <meta name=\\\"turnstile-site-key\\\" content=\\\"0x4AAAAAAAJ5kwYW6AH1ybLx\\\"> — CONSTANT across every Podia site including the custom domain. Near-unique fingerprint.\\n3. <meta name=\\\"action-cable-url\\\" content=\\\"wss://<site-domain>/cable\\\"> plus csrf-param=authenticity_token and turbo-prefetch meta (Rails ActionCable/Hotwire).\\n4. react-page-section/header/footer classes, #page_header/#page_footer ids, data-controller=\\\"editor--page-section\\\".\\n\\nASSET MAPPING: user-uploaded media (images, favicon, og:image, downloads) served from the SITE'S OWN domain under /content-assets/public/<JWT> (HS256 token; NOT cdn.podia.com). Framework CSS/JS come from cdn.podia.com. Video via Cloudflare Stream (embed.cloudflarestream.com); payments via js.stripe.com and www.paypalobjects.com. All script hosts confirmed in raw HTML: cdn.podia.com, challenges.cloudflare.com, embed.cloudflarestream.com, js.stripe.com, www.paypalobjects.com, www.googletagmanager.com.\\n\\nBADGE: \\\"Powered by Podia\\\" is React-rendered in the footer (removable on paid plans). Not a static anchor in raw HTML; its data lives in the Footer data-props JSON as showBranding:true with url https://www.podia.com?utm_medium=poweredby&utm_source=footer (appears entity-escaped as \" and \\\\u0026 in raw HTML). Post-hydration selector: #page_footer a[href*=\\\"utm_medium=poweredby\\\"]. Verified exact string on all three sites.\\n\\nHOSTING/ANTI-BOT: free subdomains name.podia.com; custom domains CNAME to sites.podia.com. Server: cloudflare on all; a plain GET returned HTTP 200 with NO \\\"Just a moment\\\" interstitial on all three tested sites — page HTML is fetchable; Turnstile (challenges.cloudflare.com) only gates form/checkout submissions. Default analytics is Google Tag Manager (window.dataLayer) — CONFIRMED on all three.\\n\\nCORRECTION: static.cloudflareinsights.com was NOT present on any of the three tested sites; it is an opt-in Cloudflare Web Analytics beacon, not a Podia default, so it was removed from analyticsScripts. detectUrlRegex \\\\.podia\\\\.com is a coarse URL hint (also matches app/cdn/www.podia.com) so must be combined with HTML signatures; custom domains are only detectable via the cdn.podia.com + Turnstile-key + react-page-section combo. Priority 80 retained.",
+  "corrections": "Fetched and grepped RAW HTML (not just markdown) of three Podia sites: demo.podia.com, examples.podia.com, and custom-domain thecreativebodega.com. CONFIRMED exactly: cdnDomains (cdn.podia.com/assets/storefront-<hash>.css/.js + user-site-<hash>.js — identical hashes on all three, also in Link:preload headers); empty metaGenerator (no <meta name=generator> on any site); the turnstile-site-key 0x4AAAAAAAJ5kwYW6AH1ybLx (constant across all three incl. custom domain); react-page-section/header/footer classes; #page_header/#page_footer ids; data-controller=editor--page-section; data-react-component=creator_ui/section_adapters/{Header,Footer,Text,Grid,Featured,Image,...}; action-cable-url wss://<domain>/cable; csrf-param=authenticity_token; turbo-prefetch meta; /content-assets/public/<JWT> media; Server: cloudflare + Via: heroku-router; and the badge JSON verbatim (showBranding:true, preStrapline:\\\"Powered by\\\", url https://www.podia.com?utm_medium=poweredby&utm_source=footer). CHANGES: (1) Removed static.cloudflareinsights.com from analyticsScripts — it did NOT appear on any of the three sites; it is an opt-in Cloudflare Web Analytics beacon, not a Podia default. Kept www.googletagmanager.com (confirmed on all three). (2) Added the confirmed <meta name=\\\"turbo-prefetch\\\" content=\\\"false\\\"> and the Image section adapter to htmlSignatures (both observed in raw HTML). No fabricated/hallucinated signatures found — all remaining researcher values corroborated. verifiedConfidence set to high."
+}

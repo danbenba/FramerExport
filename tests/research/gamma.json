@@ -1,0 +1,59 @@
+{
+  "platform": "gamma",
+  "category": "ai",
+  "displayName": "Gamma",
+  "detectUrlRegex": "\\.gamma\\.site",
+  "hostingDomains": [
+    ".gamma.site"
+  ],
+  "cdnDomains": [
+    "cdn.gamma.app",
+    "imgproxy.gamma.app",
+    "assets.gammahosted.com",
+    "assets.api.gamma.app"
+  ],
+  "metaGenerator": "",
+  "badgePresent": false,
+  "badgeSelector": "",
+  "badgeHtmlPattern": "",
+  "badgeTargetUrl": "",
+  "analyticsScripts": [],
+  "jsGlobals": [
+    "window.__NEXT_DATA__"
+  ],
+  "htmlSignatures": [
+    "HTTP response header: X-Super-Powered-By: gamma (strongest; present on curl of both sites, works on custom domains too)",
+    "<div id=\"__next\">",
+    "<script id=\"__NEXT_DATA__\" type=\"application/json\">",
+    "JS/CSS chunks served from assets.gammahosted.com/<siteId>/_next/static/ (css + chunks)",
+    "Next.js route: pages/published/[docId] (found in __NEXT_DATA__)",
+    "class=\"gamma-moveable-wrapper\"",
+    "data-node-view-wrapper",
+    "data-node-view-content-inner",
+    "data-content-reference",
+    "data-card-id",
+    "data-spotlight-parent",
+    "data-media-node-wrapper / data-image-node-element",
+    "data-selection-ring / data-selection-background",
+    "external links wrapped as https://gamma.app/external-link?url=[<encoded-url>] (confirmed live in hydrated DOM)",
+    "images proxied via https://imgproxy.gamma.app/resize/quality:80/resizing_type:fit/width:.../https://cdn.gamma.app/... ",
+    "OG/twitter preview images on assets.api.gamma.app/<siteId>/screenshots/...",
+    "favicon https://gamma.app/favicons/favicon-192.svg (default; absent on sites with custom favicon)",
+    "Chakra UI + emotion classes on rendered elements (chakra-link, chakra-button, chakra-text, css-*)"
+  ],
+  "renderStrategy": "hybrid",
+  "needsHydrationCheck": true,
+  "hydrationTimeoutMs": 8000,
+  "scrollStrategy": "standard",
+  "antiBot": "cloudflare",
+  "suggestedPriority": 85,
+  "confidence": "high",
+  "referenceUrls": [
+    "https://design.gamma.site/",
+    "https://complete-consciousness-gyz0ycj.gamma.site/",
+    "https://universal-recognition-y5gboaw.gamma.site/"
+  ],
+  "notes": "Verified live on 2026-07-06 via raw curl (headers + HTML) of design.gamma.site and complete-consciousness-gyz0ycj.gamma.site, plus full browser hydration of two free-tier *.gamma.site pages. STRONGEST signal: HTTP header X-Super-Powered-By: gamma (present on both; works on Pro custom domains where the .gamma.site regex won't match). Sites are Next.js SSR apps (content is server-rendered ProseMirror/TipTap node-view markup, then React/Chakra-UI hydrated -> hybrid). No <meta name=generator>. JS/CSS from assets.gammahosted.com/<siteId>/_next/static/; images from cdn.gamma.app wrapped through imgproxy.gamma.app (resize/quality:80/resizing_type:fit/width:.../https://cdn.gamma.app/...); OG images on assets.api.gamma.app/<siteId>/screenshots/. External links rewritten to https://gamma.app/external-link?url=[...]. Served behind Cloudflare (Server: cloudflare, Nel/Report-To) but no CAPTCHA/challenge on a normal UA. BADGE DOWNGRADED: no 'Made with Gamma' badge was found on either fully-hydrated free-tier site; the only raw-HTML 'badge' token is the pdf-gamma-badge feature flag (a PDF/PPTX export watermark). The badge is optional (toggle 'Hide Made by Gamma' in Advanced Settings, removed on paid plans) and thus NOT a reliable web-site signature. Detect via: .gamma.site URL OR X-Super-Powered-By: gamma header OR assets.gammahosted.com asset host to also catch Pro custom-domain sites.",
+  "verifiedConfidence": "high",
+  "corrections": "CONFIRMED (unchanged): detectUrlRegex \\.gamma\\.site (both refs are *.gamma.site); all 4 cdnDomains present in raw HTML (assets.gammahosted.com/_next/static, cdn.gamma.app/.../original|optimized, imgproxy.gamma.app/resize/... , assets.api.gamma.app/.../screenshots); metaGenerator empty (no generator tag); jsGlobals window.__NEXT_DATA__ (id=__next + __NEXT_DATA__ script); antiBot cloudflare (Server: cloudflare, no challenge); renderStrategy hybrid (SSR content + React hydration). All data-* attrs and gamma-moveable-wrapper, external-link?url= wrapping, published/[docId] route, favicon-192.svg, and the X-Super-Powered-By: gamma header were directly observed. CHANGED: (1) badgePresent true -> false and badgeTargetUrl 'https://gamma.app' -> '' — I could not corroborate any 'Made with Gamma' site badge on two fully-hydrated live free-tier sites; the only badge reference in HTML is the pdf-gamma-badge export-watermark feature flag, and web docs confirm the badge is toggleable/export-focused, so it is not a dependable detection signal. (2) Added observed signatures: assets.gammahosted.com _next/static path detail, Chakra-UI/emotion class names (chakra-link/chakra-button/chakra-text/css-*), and clarified the exact imgproxy + external-link formats. (3) Noted favicon-192.svg is the default and is absent when a site sets a custom favicon. verifiedConfidence: high — every core signal was independently reproduced; only the (removed) badge was unverifiable."
+}

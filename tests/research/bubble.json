@@ -1,0 +1,70 @@
+{
+  "platform": "bubble",
+  "displayName": "Bubble",
+  "category": "builder",
+  "detectUrlRegex": "\\.bubbleapps\\.io",
+  "hostingDomains": [
+    ".bubbleapps.io"
+  ],
+  "cdnDomains": [
+    "cdn.bubble.io",
+    "meta.cdn.bubble.io",
+    "meta-q.cdn.bubble.io",
+    "meta-fonts.cdn.bubble.io",
+    "d3dqmih97rcqmh.cloudfront.net",
+    "d1muf25xaso8hp.cloudfront.net"
+  ],
+  "metaGenerator": "",
+  "renderStrategy": "spa",
+  "scrollStrategy": "standard",
+  "needsHydrationCheck": true,
+  "hydrationTimeoutMs": 8000,
+  "htmlSignatures": [
+    "/package/run_js/",
+    "/package/early_js/",
+    "/package/dynamic_js/",
+    "/package/static_js/",
+    "/package/run_css/",
+    "/package/pre_run_jquery_js/",
+    "/api/1.1/init/data",
+    "<meta name=\"fragment\" content=\"!\">",
+    "window.appquery = make_proxy(",
+    "window.bubble_session_uid =",
+    "window._bubble_page_load_data",
+    "window._p = '{\"id\":",
+    "window.bubble_plp_token",
+    "window.headers_source_maps"
+  ],
+  "jsGlobals": [
+    "window.appquery",
+    "window.bubble_session_uid",
+    "window.bubble_page_load_id",
+    "window.bubble_page_name",
+    "window.bubble_plp_token",
+    "window.bubble_is_leanjs",
+    "window.bubble_shim_modules",
+    "window._bubble_page_load_data",
+    "window.__bubble_module_mode",
+    "window.Lib",
+    "window._p",
+    "window.headers_source_maps",
+    "window.gm_key"
+  ],
+  "analyticsScripts": [
+    "pluginpul.se"
+  ],
+  "antiBot": "none",
+  "badgePresent": true,
+  "badgeSelector": "",
+  "badgeTargetUrl": "https://bubble.io",
+  "badgeHtmlPattern": "",
+  "referenceUrls": [
+    "https://demo-app-72f8k.bubbleapps.io/",
+    "https://bubble.io/"
+  ],
+  "suggestedPriority": 85,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "corrections": "Independently verified by fetching RAW HTML (not markdown) of https://bubble.io/ (HTTP 200, 51,910 bytes) and https://demo-app-72f8k.bubbleapps.io/ (HTTP 200, 15,761 bytes) with a desktop Chrome UA, then grepping for each claimed signature.\n\nCHANGED (2 fake/wrong CDN subdomains removed):\n- Removed \"q.cdn.bubble.io\" -> the actual observed subdomain is \"meta-q.cdn.bubble.io\" (12 hits on bubble.io; the bare \"q.cdn.bubble.io\" appears ZERO times). Replaced accordingly.\n- Removed \"fonts.cdn.bubble.io\" -> the actual observed subdomain is \"meta-fonts.cdn.bubble.io\" (3 hits on bubble.io; bare \"fonts.cdn.bubble.io\" appears ZERO times). Replaced accordingly.\n- Trimmed referenceUrls to the two I actually inspected and confirmed live (bubble.io, demo-app-72f8k.bubbleapps.io). Dropped near-bubble.bubbleapps.io/version-test and testimonial-demo.bubbleapps.io which I did not fetch.\n\nCONFIRMED verbatim in raw HTML:\n- metaGenerator=\"\" correct: NO <meta name=\"generator\"> is emitted (0 hits on both pages).\n- <meta name=\"fragment\" content=\"!\"> present on BOTH pages; og:site_name=\"Bubble\" present on BOTH.\n- All 13 jsGlobals present on bubble.io (window.appquery x3, bubble_session_uid, bubble_page_load_id, bubble_page_name, bubble_plp_token, bubble_is_leanjs, bubble_shim_modules, _bubble_page_load_data x42, __bubble_module_mode, Lib x4, _p, headers_source_maps, gm_key). Demo app also carries appquery, _p, bubble_page_name, bubble_plp_token, bubble_is_leanjs, _bubble_page_load_data.\n- All 6 /package/... script paths (run_js, early_js, dynamic_js, static_js, run_css, pre_run_jquery_js) present on BOTH pages.\n- \"window.appquery = make_proxy(\" present verbatim (make_proxy({...); on both.\n- window._p JSON confirmed with branding+custom_domain flags: demo = '{\"id\":\"template_app\",\"no_branding\":false,...,\"custom_domain\":false}'; bubble.io = '{\"id\":\"app_enterprise_mobile_web_2025\",\"no_branding\":true,...,\"custom_domain\":true}'. no_branding=false on the free/template demo (badge shown) vs true on Bubble's enterprise homepage -> matches the documented badge-gating logic.\n- /api/1.1/init/data present on BOTH.\n- Per-app <32-hex-hash>.cdn.bubble.io confirmed on demo (81fa65be84244351060425d3031f170f.cdn.bubble.io, 5 hits) -> keeps base \"cdn.bubble.io\". meta.cdn.bubble.io (5 hits) confirmed. Both CloudFront distros d3dqmih97rcqmh.cloudfront.net and d1muf25xaso8hp.cloudfront.net present on BOTH pages. WebFont.load confirmed (Google WebFont loader).\n- analyticsScripts pluginpul.se confirmed on the demo app (initialize.min.js x3 and /js/script.js). Not present on bubble.io's enterprise homepage (expected: no_branding/enterprise), but confirmed on a real Bubble app so retained.\n- antiBot=none confirmed: both URLs returned plain 200 HTML to a standard UA, no Cloudflare/challenge.\n- BADGE: correctly left as runtime-only. \"Made with Bubble\" text and any href=\"https://bubble.io\" badge markup appear ZERO times in raw HTML of either page (injected by run.js at runtime, gated by _p.no_branding). badgeSelector/badgeHtmlPattern kept empty; badgePresent/badgeTargetUrl retained as a documented runtime feature, not a static signature.\n\nNet: all high-confidence static signatures corroborated verbatim; only the two mis-named CDN subdomains were wrong. Overall verifiedConfidence=high.",
+  "notes": "Verified against live raw HTML of bubble.io and demo-app-72f8k.bubbleapps.io (July 2026). PRIMARY URL SIGNAL: default hosting subdomain *.bubbleapps.io (unambiguous, priority 85); custom-domain Bubble apps (window._p custom_domain:true, e.g. bubble.io itself) must be caught by HTML/JS signatures. STRONGEST static markers (all confirmed inline in <head>): window.appquery = make_proxy(...); the window.bubble_* / window._bubble_page_load_data / window._p / window.headers_source_maps globals; the six /package/{early_js,run_js,dynamic_js,static_js,run_css,pre_run_jquery_js}/<hash>/... bundle paths; GET /api/1.1/init/data; <meta name=\"fragment\" content=\"!\"> and og:site_name=\"Bubble\"; and the explicit absence of any <meta name=\"generator\">. ASSETS: per-app <32-hex>.cdn.bubble.io for uploads/icons/og; platform assets on meta.cdn.bubble.io / meta-q.cdn.bubble.io / meta-fonts.cdn.bubble.io (S3-backed; NOTE the earlier draft's bare q.cdn.bubble.io and fonts.cdn.bubble.io are WRONG, they carry a meta- prefix); JS/CSS also via CloudFront d3dqmih97rcqmh / d1muf25xaso8hp; fonts via Google WebFont loader. RENDER=spa: raw <body> is essentially empty (JS error-fallback overlays only); a mirror MUST run a headless browser (needsHydrationCheck=true). Rendered DOM uses class \"bubble-element\" / root #main-page but these are runtime-only (not in static HTML). BADGE \"Made with Bubble\" is runtime-injected by run.js, gated by _p.no_branding=false, links to bubble.io -> no reliable static selector. Telemetry from pluginpul.se (Plausible-based) on standard-plan apps; window.gm_key (Google Maps) inline. antiBot none."
+}

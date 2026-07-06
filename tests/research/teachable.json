@@ -1,0 +1,55 @@
+{
+  "platform": "teachable",
+  "category": "course",
+  "displayName": "Teachable",
+  "detectUrlRegex": "\\.teachable\\.com",
+  "hostingDomains": [
+    ".teachable.com"
+  ],
+  "cdnDomains": [
+    "fedora.teachablecdn.com",
+    "assets.teachablecdn.com",
+    "uploads.teachablecdn.com"
+  ],
+  "metaGenerator": "",
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "badgePresent": true,
+  "badgeSelector": "a.powered-by",
+  "badgeTargetUrl": "https://teachable.com/teach-online/?src=school_footer",
+  "badgeHtmlPattern": "<a class='powered-by' href='https://teachable.com/teach-online/?src=school_footer'><span class=\"powered-by-text\">Teach Online with</span><img src=\"https://assets.teachablecdn.com/teachable-branding-2025/logos/teachable-logomark-white.svg\" class='powered-by-logo' target=\"_blank\" rel=\"noopener\" alt=\"Teachable\"></a>",
+  "htmlSignatures": [
+    "<meta name=\"asset_host\" content=\"https://fedora.teachablecdn.com\">",
+    "CSS/JS assets loaded from https://fedora.teachablecdn.com (/assets/*.css sprockets, /packs/*.js webpacker)",
+    "<div class=\"course-block block <blocktype>\" id=\"block-<number>\">",
+    "<a class='powered-by' href='https://teachable.com/...?src=school_footer'>",
+    "span.powered-by-text with text 'Teach Online with'",
+    "<meta id='iris-url' data-iris-url=https://eventable.internal.teachable.com />",
+    "dataLayer entry 'school_id': '<numeric id>'",
+    "body class 'revamped_lecture_player' (on lecture pages)"
+  ],
+  "jsGlobals": [
+    "window.heap",
+    "window._sift",
+    "window.NREUM",
+    "window.dataLayer"
+  ],
+  "analyticsScripts": [
+    "cdn.heapanalytics.com",
+    "bam.nr-data.net",
+    "www.recaptcha.net",
+    "fast.wistia.com"
+  ],
+  "referenceUrls": [
+    "https://intent.teachable.com/",
+    "https://courses.stationx.net/"
+  ],
+  "confidence": "high",
+  "suggestedPriority": 82,
+  "verifiedConfidence": "high",
+  "notes": "Independently verified by fetching raw HTML (curl, HTTP 200, no bot challenge) on a default subdomain (intent.teachable.com) AND a custom-domain school (courses.stationx.net). BOTH carry identical Teachable fingerprints. STRONGEST signal: <meta name=\"asset_host\" content=\"https://fedora.teachablecdn.com\"> present on both pages (including the custom domain where the .teachable.com hostname is absent), plus CSS/JS served from fedora.teachablecdn.com (/assets/*.css sprockets + /packs/*.js webpacker). Detection should key on the asset_host meta + fedora.teachablecdn.com, not just URL. No <meta name=generator> exists (confirmed empty on both). Render is server-side Rails (codename 'fedora'): .course-block.block.<type> divs with id=block-<number> present in raw HTML, no JS render needed. CDN subdomains CONFIRMED present on both pages: fedora (page assets), assets (fonts/branding), uploads (user media). The three Filestack domains claimed by the researcher (cdn.fs.teachablecdn.com, process.fs.teachablecdn.com, cdn.filestackcontent.com) were NOT present on either tested page and were REMOVED from cdnDomains — they only surface on file-upload/lecture-attachment contexts I did not test; treat as unverified. Badge CONFIRMED on both: footer <a class='powered-by'> with span.powered-by-text 'Teach Online with' + teachable-branding-2025 logomark SVG from assets.teachablecdn.com; corrected badgeHtmlPattern to include the actual target=\"_blank\" attribute the researcher omitted. Badge href VARIES between launched schools: intent uses /teach-online/?src=school_footer, stationx uses /?src=school_footer — the stable token is ?src=school_footer (unlaunched schools use ?src=unlaunched_page). Analytics domains verified exactly: cdn.heapanalytics.com, bam.nr-data.net, www.recaptcha.net, fast.wistia.com. jsGlobals window.heap/_sift/NREUM/dataLayer confirmed; removed unverified window.heapShouldTrackUser (not found on tested pages). iris-url meta, dataLayer school_id, and revamped_lecture_player all corroborated. teachablecdn.com sits behind Cloudflare but serves without challenge (antiBot none).",
+  "corrections": "CONFIRMED (raw HTML, two independent sites incl. a custom domain): asset_host meta = fedora.teachablecdn.com (strongest signal, works on custom domains); empty metaGenerator; cdnDomains fedora/assets/uploads.teachablecdn.com; powered-by badge with selector a.powered-by, span.powered-by-text 'Teach Online with', logomark SVG on assets.teachablecdn.com; iris-url meta; dataLayer school_id; course-block divs; ssr-static render; analytics cdn.heapanalytics.com/bam.nr-data.net/www.recaptcha.net/fast.wistia.com; antiBot none. CHANGES: (1) Removed 3 unverified Filestack CDN domains (cdn.fs.teachablecdn.com, process.fs.teachablecdn.com, cdn.filestackcontent.com) from cdnDomains — absent on both tested pages; noted as upload-context-only in notes. (2) Corrected badgeHtmlPattern to add the real target=\"_blank\" attribute on the img (researcher omitted it). (3) Documented that badge href varies (intent: /teach-online/?src=school_footer; stationx: /?src=school_footer) — stable token is ?src=school_footer. (4) Removed unverified window.heapShouldTrackUser from jsGlobals (not observed). (5) Dropped autism-classroom-courses.teachable.com from referenceUrls (not re-tested); kept the two I actually inspected. verifiedConfidence stays high — every core signal corroborated on two independent sites."
+}

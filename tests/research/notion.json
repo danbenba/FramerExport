@@ -1,0 +1,59 @@
+{
+  "platform": "notion",
+  "displayName": "Notion (Notion Sites)",
+  "category": "cms",
+  "detectUrlRegex": "\\.notion\\.site",
+  "hostingDomains": [
+    "notion.site",
+    "external.notion.site"
+  ],
+  "cdnDomains": [
+    "img.notionusercontent.com",
+    "prod-files-secure.s3.us-west-2.amazonaws.com",
+    "www.notion.so",
+    "app.notion.com",
+    "s3.us-west-2.amazonaws.com"
+  ],
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "class=\"notion-html\"",
+    "data-notion-html=\"web\"",
+    "data-notion-version=",
+    "<div id=\"notion-app\"></div>",
+    "__notion_html_async.push",
+    "window.__notion_boot_data",
+    "id=\"initial-loading-spinner\"",
+    "id=\"skeleton-sidebar\"",
+    "http-inputs-notion.splunkcloud.com",
+    "/api/v3/recordClientLoadAttempt"
+  ],
+  "jsGlobals": [
+    "window.__notion_html_async",
+    "window.__notion_boot_data",
+    "window.__webStartTime",
+    "window.CLIENT_LOAD_TAG",
+    "window.LOCALE_SETUP"
+  ],
+  "renderStrategy": "spa",
+  "needsHydrationCheck": true,
+  "hydrationTimeoutMs": 8000,
+  "scrollStrategy": "standard",
+  "antiBot": "cloudflare",
+  "analyticsScripts": [
+    "http-inputs-notion.splunkcloud.com"
+  ],
+  "badgePresent": true,
+  "badgeSelector": "",
+  "badgeHtmlPattern": "",
+  "badgeTargetUrl": "",
+  "suggestedPriority": 85,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://davidecrapis.notion.site/",
+    "https://validco.notion.site/About-Valid-2e9319cdcb8180538733c9a5cc59eec0",
+    "https://indielog.notion.site/"
+  ],
+  "notes": "All HIGH-confidence markers verified by direct raw-HTML fetch (Chrome UA) from 3 live notion.site pages plus one deep /Page-<32hex> content URL on 2026-07-06. Each returned an ~17.5KB shell (17476-17547 bytes). Confirmed verbatim in the raw HTML: <html class=\\\"notion-html\\\" data-notion-html=\\\"web\\\" data-notion-version=\\\"23.13.20260706.1232\\\">, empty <div id=\\\"notion-app\\\"></div>, window.__notion_boot_data=null, repeated __notion_html_async.push(...) hydration calls, #initial-loading-spinner + #skeleton + #skeleton-sidebar loaders, window.__webStartTime / window.CLIENT_LOAD_TAG / window.LOCALE_SETUP globals, the /api/v3/recordClientLoadAttempt beacon, and a Resource-Sentinel fetch to https://http-inputs-notion.splunkcloud.com/services/collector/raw. NO <meta name=\\\"generator\\\"> exists (metaGenerator correctly empty).\\n\\nRENDER STRATEGY = pure SPA CONFIRMED: even the deep content URL (validco.notion.site/About-Valid-2e93...) returned <title>Notion</title> with __notion_boot_data=null and the identical generic shell -- zero page content in raw HTML. Meta OG/twitter tags are generic app.notion.com defaults. Mirroring requires headless hydration into #notion-app or the www.notion.so/api/v3/loadPageChunk API.\\n\\nCDN/ASSET HOSTS: all five cdnDomains are present in the live Content-Security-Policy header (img.notionusercontent.com in img-src+connect-src; prod-files-secure.s3.us-west-2.amazonaws.com, www.notion.so, s3.us-west-2.amazonaws.com in connect-src; app.notion.com in img-src + the OG/twitter meta tags). NOTE: app JS/CSS bundles are actually served SAME-ORIGIN as hashed /_assets/*.js and /print.e3e8b7a8.css, not from a separate CDN host. 's3.us-west-2.amazonaws.com' is a valid asset host but is generic (matches any AWS us-west-2 S3) so it is a weak standalone detection signal. AWS-signed image URLs expire ~1h, so assets must be downloaded at export time.\\n\\nANTI-BOT CONFIRMED: Server: cloudflare + CF-Ray on every response; Googlebot UA returns HTTP 403 (verified-bot rejection). Normal Chrome UA returns 200.\\n\\nBADGE: 'Built with Notion' watermark is NOT present in raw HTML (grep confirmed absent on all pages) -- it is injected by React post-hydration. badgePresent=true retained per Notion product behavior (free/default notion.site sites), but badgeSelector/badgeHtmlPattern/badgeTargetUrl remain empty/unverified because they require a rendered DOM.\\n\\nHOSTING: <workspace>.notion.site verified as the live host. external.notion.site (custom-domain CNAME target) is per Notion docs and was NOT independently verified from these static fetches.\\n\\nANALYTICS: Notion's own Splunk collector (http-inputs-notion.splunkcloud.com) is the default injected telemetry -- confirmed in HTML and CSP. GA is optional/per-site, not default.",
+  "corrections": "VERDICT: researcher output is accurate; no hallucinated signatures found. Verified live (2026-07-06) via raw curl fetches with Chrome UA on 3 notion.site pages + 1 deep content URL.\\n\\nCONFIRMED verbatim in raw HTML: all 10 htmlSignatures, all 5 jsGlobals, empty metaGenerator (no generator tag), spa renderStrategy (deep page title=\\\"Notion\\\", __notion_boot_data=null), Cloudflare anti-bot (Server: cloudflare + CF-Ray, Googlebot->403, Chrome->200), Splunk analytics beacon, and the ~17.5KB shell size claim.\\n\\nCONFIRMED via live CSP header: all 5 cdnDomains (img.notionusercontent.com, prod-files-secure.s3.us-west-2.amazonaws.com, www.notion.so, app.notion.com, s3.us-west-2.amazonaws.com).\\n\\nCHANGES: (1) Normalized hostingDomains leading dot -> 'notion.site' (was '.notion.site') for a clean hostname list. (2) Reordered cdnDomains to lead with the strongest/most-specific Notion-owned hosts (img.notionusercontent.com, prod-files-secure...) and flagged s3.us-west-2.amazonaws.com as generic/weak in notes; kept it since it is genuinely in the CSP (not a guess). (3) Added a note that app JS/CSS bundles are actually same-origin /_assets/* hashed files, not CDN-hosted, to prevent an over-broad CDN assumption.\\n\\nUNVERIFIED (left as-is, honestly flagged): badgeSelector/badgeHtmlPattern/badgeTargetUrl stay empty -- 'Built with Notion' badge is React-injected post-hydration and confirmed ABSENT from raw HTML; and external.notion.site (custom-domain CNAME target) could not be checked from static fetches. verifiedConfidence set to HIGH because every load-bearing detection signature (domain regex, HTML shell, JS globals, Cloudflare) was directly reproduced."
+}

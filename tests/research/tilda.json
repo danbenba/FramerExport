@@ -1,0 +1,61 @@
+{
+  "platform": "tilda",
+  "displayName": "Tilda",
+  "category": "builder",
+  "detectUrlRegex": "\\.tilda\\.ws",
+  "hostingDomains": [
+    ".tilda.ws"
+  ],
+  "cdnDomains": [
+    "static.tildacdn.com",
+    "ws.tildacdn.com",
+    "thb.tildacdn.com",
+    "neo.tildacdn.com",
+    "static.tildacdn.pro",
+    "thb.tildacdn.pro"
+  ],
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "body class=\"t-body\"",
+    "div id=\"allrecords\" class=\"t-records\" data-hook=\"blocks-collection-content-node\"",
+    "data-tilda-project-id",
+    "data-tilda-page-id",
+    "data-tilda-formskey",
+    "data-tilda-lazy=\"yes\"",
+    "div id=\"recNNNNNN\" class=\"r t-rec\" (older sites: class=\"r\")",
+    "data-record-type (numeric block type e.g. 396, 168)",
+    "class t396 / t396__artboard / t396__carrier (Zero Block)",
+    "div id=\"tildacopy\" class=\"t-tildalabel\" data-tilda-sign=\"PROJECTID#PAGEID\" (Made on Tilda badge, free plan only)",
+    "data-original (lazy-load image src)"
+  ],
+  "jsGlobals": [
+    "window.dataLayer",
+    "window.mainTracker",
+    "jQuery / $ (bundled jquery-1.10.2.min.js)"
+  ],
+  "analyticsScripts": [
+    "www.google-analytics.com/analytics.js",
+    "static.tildacdn.com/js/tilda-stat-1.0.min.js"
+  ],
+  "badgePresent": true,
+  "badgeSelector": "#tildacopy, .t-tildalabel",
+  "badgeHtmlPattern": "<div class=\"t-tildalabel\" id=\"tildacopy\" data-tilda-sign=\"87822#304571\"><a href=\"https://tilda.cc/?upm=87822\" class=\"t-tildalabel__link\"><div class=\"t-tildalabel__wrapper\"><div class=\"t-tildalabel__txtleft\">Made on </div><div class=\"t-tildalabel__wrapimg\"><img src=\"https://static.tildacdn.com/img/tildacopy.png\" class=\"t-tildalabel__img\"></div><div class=\"t-tildalabel__txtright\">Tilda</div></div></a></div>",
+  "badgeTargetUrl": "https://tilda.cc/?upm=<projectId>",
+  "suggestedPriority": 80,
+  "confidence": "high",
+  "referenceUrls": [
+    "https://raw.githubusercontent.com/StepicOrg/tilda-backup/master/bioinf.me/index.html",
+    "https://raw.githubusercontent.com/untu/spbnodejs.org/master/index.html",
+    "https://github.com/StepicOrg/tilda-backup/blob/master/bioinf.me/index.html",
+    "https://project4144036.tilda.ws/",
+    "https://examples.tilda.ws/"
+  ],
+  "verifiedConfidence": "high",
+  "notes": "Verified against two independent real Tilda HTML sources. bioinf.me backup (project 29135) confirmed verbatim: no <meta name=\"generator\">; <body class=\"t-body\">; <div id=\"allrecords\" class=\"t-records\" data-hook=\"blocks-collection-content-node\" data-tilda-project-id=\"29135\" data-tilda-page-id=\"286539\" data-tilda-formskey=\"...\" data-tilda-lazy=\"yes\">; record divs as <div id=\"rec12980966\" class=\"r t-rec\" ... data-record-type=\"396\">; CDN hosts static.tildacdn.com, ws.tildacdn.com, neo.tildacdn.com; Zero Block t396__artboard/t396__carrier; jquery-1.10.2.min.js; Tilda stat script; data-original lazy attrs. spbnodejs.org backup (project 87822) confirmed the badge markup (commented out on HTML export): <div class=\"t-tildalabel \" id=\"tildacopy\" data-tilda-sign=\"87822#304571\"><a href=\"https://tilda.cc/?upm=87822\">, confirming badge selector, data-tilda-sign=PROJECTID#PAGEID, and target https://tilda.cc/?upm=<projectId>. Badge is present on live free-plan sites, removed on white-label/paid plans, and auto-commented on HTML export. Live-render of a .pro-hosted site confirmed the static.tildacdn.pro and thb.tildacdn.pro CDN variants. Detection: unambiguous *.tilda.ws free-hosting subdomains (priority 80); paid custom-domain sites are identifiable only by tildacdn assets + t-body/allrecords markup.",
+  "corrections": "Independently verified against bioinf.me and spbnodejs.org GitHub backups plus a live .pro-host render. Nearly all signatures CONFIRMED verbatim: metaGenerator empty (no generator tag), body class=\"t-body\", allrecords/t-records with data-hook=\"blocks-collection-content-node\" + data-tilda-project-id + data-tilda-page-id + data-tilda-formskey + data-tilda-lazy=\"yes\", numeric data-record-type (saw 396 and 168), t396/t396__artboard/t396__carrier Zero Block, jquery-1.10.2.min.js, Tilda stat script, data-original lazy attrs; CDN hosts static.tildacdn.com, ws.tildacdn.com, neo.tildacdn.com confirmed and static.tildacdn.pro/thb.tildacdn.pro confirmed on a live render. Badge markup CONFIRMED (id=tildacopy, .t-tildalabel, data-tilda-sign=PROJECTID#PAGEID, href https://tilda.cc/?upm=<projectId>) — appeared commented-out in an exported backup and absent on a white-label paid site, matching the note that it is free-plan-only. Corrections/refinements: (1) refined the record-div signature from class=\"t-rec\" to class=\"r t-rec\" (older/legacy sites use just class=\"r\") to match observed markup; (2) added data-tilda-formskey, data-tilda-lazy=\"yes\", and data-original as confirmed htmlSignatures (they were only in prose notes before); (3) thb.tildacdn.com was NOT directly observed (only thb.tildacdn.pro was seen), but it is a real Tilda thumbnail host consistent with the confirmed pattern, so it was kept rather than removed. No signature was found to be invented or hallucinated. verifiedConfidence: high."
+}

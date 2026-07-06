@@ -1,0 +1,55 @@
+{
+  "platform": "duda",
+  "displayName": "Duda",
+  "category": "builder",
+  "detectUrlRegex": "\\.multiscreensite\\.com",
+  "hostingDomains": [
+    ".multiscreensite.com",
+    ".dudaone.com"
+  ],
+  "cdnDomains": [
+    "irp.cdn-website.com",
+    "lirp.cdn-website.com",
+    "static.cdn-website.com",
+    "ms-cdn.multiscreensite.com",
+    "irp-cdn.multiscreensite.com"
+  ],
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "<body id=\"dmRoot\" data-page-alias=\"...\" class=\"dmRoot fix-mobile-scrolling flex-site\"> (reseller/DudaPro sites append \"dmResellerSite\")",
+    "<html ... class=\"ios-preview-native-scroll\">",
+    "class=\"dmBody u_dmStyle_template_<pagealias> dm-home-page\" (template token is page-specific e.g. _home, _advanced)",
+    "id=\"dm_content\"",
+    "id=\"dmFirstContainer\"",
+    "id=\"dmFlexHeaderContainer\" (present only when a flex header exists; not universal)",
+    "id=\"dmStyle_outerContainer\" / id=\"dmStyle_innerContainer\"",
+    "JS config strings: NavbarSelector: '#dmNav:has(a)', NavbarSelector: '#subnav_main', BlockContainerSelector '.dmBody'",
+    "SiteType: atob('RFVEQU9ORQ==')  (base64 -> 'DUDAONE')",
+    "SystemID: 'US_DIRECT_PRODUCTION', productId: 'DM_DIRECT', SiteAlias: '<8-hex>', ThemeVersion, isFlexSite",
+    "inline tracking scripts id=\"d_track_campaign\", id=\"d_track_personalization\", id=\"d_track_sp\""
+  ],
+  "jsGlobals": [
+    "window.Parameters",
+    "window._currentDevice",
+    "window.dmAPI"
+  ],
+  "analyticsScripts": [],
+  "badgePresent": true,
+  "badgeSelector": "a[href*=\"duda.co/inspiration\"]",
+  "badgeHtmlPattern": "<a href=\"https://www.duda.co/inspiration\" target=\"_parent\" runtime_url=\"https://www.duda.co/inspiration\" type=\"url\" class=\"font-size-17 t-font-size-16 m-font-size-14\">Made with Duda</a>",
+  "badgeTargetUrl": "https://www.duda.co/inspiration",
+  "referenceUrls": [
+    "https://duda-u-v3.multiscreensite.com/",
+    "https://general-implementation-guide.multiscreensite.com/advanced"
+  ],
+  "suggestedPriority": 82,
+  "verifiedConfidence": "high",
+  "confidence": "high",
+  "notes": "STRONGEST SIGNAL (works on custom domains): inline script `window.Parameters = window.Parameters || { ... SiteType: atob('RFVEQU9ORQ==') ... }` where the base64 decodes to literal 'DUDAONE'; alongside SystemID:'US_DIRECT_PRODUCTION', productId:'DM_DIRECT', SiteAlias:'<8 hex>', ThemeVersion, isFlexSite, window._currentDevice='desktop'. Confirmed verbatim on both live sites. Secondary DOM markers: body id=\"dmRoot\" (+dmResellerSite on reseller/DudaPro), html class=\"ios-preview-native-scroll\", dmBody wrapper, dm_content/dmFirstContainer/dmStyle_outer|innerContainer containers, and first-party tracking scripts d_track_campaign/personalization/sp. No <meta generator>. ssr-static: full ~200KB page in raw HTML with all content, so needsHydrationCheck=false. Badge (Made with Duda -> duda.co/inspiration) appears on free/reseller-tier sites only (present on duda-u-v3, absent on general-implementation-guide) — absence does NOT rule out Duda, fall back to window.Parameters/DUDAONE. Custom domains are common, so URL regex alone is insufficient; primary key is the window.Parameters/dmRoot signatures.",
+  "corrections": "Independently fetched raw HTML (curl, real UA) from both referenceUrls: HTTP 200, ~199KB and ~223KB, no Cloudflare/captcha/WAF — antiBot=none confirmed. Verified EVERY major signature verbatim; nothing was invented or hallucinated.\n\nCONFIRMED verbatim on both sites: window.Parameters with SystemID:'US_DIRECT_PRODUCTION', productId:'DM_DIRECT', SiteAlias:'7d1a6986' (8-hex), SiteType: atob('RFVEQU9ORQ==') (decodes to DUDAONE); window._currentDevice='desktop'; window.dmAPI; html class=\"ios-preview-native-scroll\"; body id=\"dmRoot\" ... class=\"dmRoot fix-mobile-scrolling flex-site dmResellerSite\"; class=\"dmBody u_dmStyle_template_* dm-home-page\"; id=dm_content/dmFirstContainer/dmStyle_outerContainer/dmStyle_innerContainer; NavbarSelector '#dmNav:has(a)' and '#subnav_main' (present as JS config strings, not as literal element IDs); tracking scripts id=\"d_track_campaign\"/\"d_track_personalization\"/\"d_track_sp\"; no <meta name=generator> (metaGenerator correctly empty).\n\nCDN domains ALL confirmed real (none removed): irp.cdn-website.com (46/15 hits), lirp.cdn-website.com (21/4), static.cdn-website.com (10/7) on both sites; ms-cdn.multiscreensite.com on site1 only; irp-cdn.multiscreensite.com on site2 only — the two multiscreensite CDN variants each appeared on one of the two sites, so both are legitimate.\n\nBADGE confirmed on the reseller site (duda-u-v3): actual anchor is `<a href=\"https://www.duda.co/inspiration\" target=\"_parent\" runtime_url=\"https://www.duda.co/inspiration\" type=\"url\" style=\"text-decoration:none;color:rgb(201,202,205);display:initial;\" class=\"font-size-17 t-font-size-16 m-font-size-14\" m-font-size-set=\"true\">Made with Duda</a>`. Researcher's badgeHtmlPattern is accurate but omitted a site-specific inline style/attr; the font-size-* classes are per-site and NOT reliable — kept badgeSelector a[href*=\"duda.co/inspiration\"] as the robust matcher. Badge absent on the paid/implementation-guide site, consistent with badgePresent being tier-dependent.\n\nDOWNGRADED/CLARIFIED (kept, with caveats): (1) dmFlexHeaderContainer present on site1 but ABSENT on site2 — header-container-specific, not universal; annotated. (2) dmBody template class token is page-specific (u_dmStyle_template_home vs _advanced) — generalized the signature. (3) .dudaone.com hosting domain could NOT be corroborated (0 occurrences in either page and detectUrlRegex does not key off it) — kept as documented legacy DudaPro preview domain but treat as UNVERIFIED; detection safely relies only on .multiscreensite.com. detectUrlRegex simplified to clean source \\.multiscreensite\\.com. verifiedConfidence=high: the DUDAONE/window.Parameters + dmRoot + d_track cluster is unambiguous and confirmed on two independent live Duda sites. Priority 82 retained."
+}

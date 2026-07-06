@@ -1,0 +1,58 @@
+{
+  "platform": "instapage",
+  "displayName": "Instapage",
+  "category": "landing",
+  "detectUrlRegex": "\\.pagedemo\\.co",
+  "hostingDomains": [
+    ".pagedemo.co",
+    "secure.pageserve.co",
+    ".pageserve.co"
+  ],
+  "cdnDomains": [
+    "fastcdn.co",
+    "v.fastcdn.co",
+    "c.fastcdn.co",
+    "d.fastcdn.co",
+    "d3mwhxgzltpnyp.cloudfront.net"
+  ],
+  "analyticsScripts": [
+    "anthill.instapage.com",
+    "cdn.instapagemetrics.com",
+    "heatmap-events-collector.instapage.com",
+    "heatmap.services"
+  ],
+  "jsGlobals": [
+    "instapageSp",
+    "_instapageSnowplow"
+  ],
+  "htmlSignatures": [
+    "script src to c.fastcdn.co/.../pageserver.page2.es5.<hash>.bundle.js (main page runtime bundle) — confirmed verbatim on www.linktek.com: pageserver.page2.es5.ef023caa4c1542c75018.bundle.js",
+    "images served from v.fastcdn.co/u/<accountHash>/<assetId>-... (confirmed: //v.fastcdn.co/u/561e92de/64024583-0-jeff-logo-icon.png)",
+    "hidden iframe / local-storage helper from d3mwhxgzltpnyp.cloudfront.net (local-storage/index.html) — confirmed as a frame request",
+    "cookies set: instapage-variant-<pageId> and instapage-visit-<pageId> (urlscan reports Instapage variant tracking cookies)",
+    "form submission endpoint on d.fastcdn.co (d.fastcdn.co present in pagedemo raw HTML)",
+    "beacon requests to anthill.instapage.com — confirmed on 3 sites"
+  ],
+  "metaGenerator": "",
+  "badgePresent": false,
+  "badgeSelector": "",
+  "badgeHtmlPattern": "",
+  "badgeTargetUrl": "",
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "confidence": "high",
+  "suggestedPriority": 82,
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://injurylaw.pagedemo.co/",
+    "https://urlscan.io/result/3e82d427-e889-47d3-bcb4-b8f42c7921b0/",
+    "https://urlscan.io/result/4cf7f61f-6b0a-4241-9030-f2c479ceece0/",
+    "https://solutions.docbyte.com/",
+    "https://www.linktek.com/"
+  ],
+  "notes": "Detection: Instapage emits NO <meta name=\"generator\"> (verified none in the raw HTML of injurylaw.pagedemo.co) and has NO \"Made with Instapage\" badge (verified absent), so URL + asset-domain + JS-global fingerprinting is required. Default hosting is a subdomain of pagedemo.co; that is the only case where the URL itself is a giveaway (detectUrlRegex \\.pagedemo\\.co). Most production sites run on the customer's own custom domain (CNAME to secure.pageserve.co), where the URL reveals nothing — rely on the asset/analytics signatures below, verified on 3 independent live sites (injurylaw.pagedemo.co, solutions.docbyte.com, www.linktek.com).\n\nVerified cross-site signatures: (a) assets on *.fastcdn.co — images from v.fastcdn.co/u/<accountHash>/... (confirmed), CSS/JS bundles from c.fastcdn.co with filename pageserver.page2.es5.<hash>.bundle.js (confirmed verbatim: pageserver.page2.es5.ef023caa4c1542c75018.bundle.js on linktek), form-related host d.fastcdn.co (present in pagedemo HTML); (b) CloudFront distribution d3mwhxgzltpnyp.cloudfront.net serving a local-storage helper iframe (confirmed as a frame request on 2 sites); (c) beacon traffic to anthill.instapage.com (confirmed on all 3); (d) metrics/heatmap hosts cdn.instapagemetrics.com and heatmap-events-collector.instapage.com (present in pagedemo raw HTML; also ec.instapagemetrics.com) plus heatmap.services (confirmed lib.js on docbyte); (e) inline JS globals instapageSp and _instapageSnowplow (confirmed present in raw HTML). Cookies instapage-variant-<pageId>/instapage-visit-<pageId> plausible (urlscan flags Instapage variant tracking cookies).\n\nRender strategy: full page content is present in the raw server HTML (122KB fetched from pagedemo) — content extraction works from a plain fetch. Treated as ssr-static; no headless hydration needed.\n\nAnti-bot: none imposed by Instapage by default; no Cloudflare/CAPTCHA on published pages. Caveats: (1) pagedemo.co adds noindex,nofollow and rate-limits per IP — throttle; (2) some custom-domain customers front with their own Cloudflare — confirmed www.linktek.com returns Wappalyzer CloudFlare — so expect occasional customer-side WAF unrelated to Instapage. Mirror asset mapping: rewrite v.fastcdn.co (images), c.fastcdn.co (CSS/JS bundles), d3mwhxgzltpnyp.cloudfront.net helper; drop anthill.instapage.com, cdn.instapagemetrics.com, heatmap-events-collector.instapage.com, heatmap.services and the d.fastcdn.co form endpoint.",
+  "corrections": "CONFIRMED (independently verified on live sites): (1) detectUrlRegex \\.pagedemo\\.co — injurylaw.pagedemo.co is live and returns 122KB of server-rendered HTML. (2) metaGenerator empty — grep of the raw HTML found no <meta generator>. (3) badgePresent false — no \"Made with Instapage\" text/badge in the HTML. (4) All 5 cdnDomains: v.fastcdn.co (images, verbatim path //v.fastcdn.co/u/561e92de/...), c.fastcdn.co (CSS/JS, 10 requests on linktek), d.fastcdn.co (present in pagedemo HTML), fastcdn.co (apex), d3mwhxgzltpnyp.cloudfront.net (local-storage iframe on 2 sites). (5) All 4 analyticsScripts: anthill.instapage.com (3 sites), cdn.instapagemetrics.com + heatmap-events-collector.instapage.com (in pagedemo HTML), heatmap.services (lib.js on docbyte). (6) Bundle filename pattern pageserver.page2.es5.<hash>.bundle.js — confirmed verbatim (pageserver.page2.es5.ef023caa4c1542c75018.bundle.js). (7) renderStrategy ssr-static — full content in raw HTML. (8) Customer-side Cloudflare caveat verified on linktek.com.\n\nCHANGED: Removed 3 unverifiable jsGlobals — InstapageFormController, InstapageLocalStorage, InstapageUniqueVisit — because they do not appear in any inspected page's inline HTML (they would only exist inside the minified external .bundle.js, which cannot be corroborated); kept only the two globals actually observed inline (instapageSp, _instapageSnowplow). Annotated htmlSignatures with the verbatim evidence. Kept hostingDomains pageserve.co entries unchanged (documented CNAME targets, not directly observable in resolved requests) and left suggestedPriority at 82. verifiedConfidence set to high — the core URL, CDN, analytics, bundle, and render-strategy signatures were all independently confirmed across three sites."
+}

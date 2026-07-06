@@ -1,0 +1,50 @@
+{
+  "platform": "systemeio",
+  "displayName": "Systeme.io",
+  "category": "landing",
+  "detectUrlRegex": "\\.systeme\\.io",
+  "hostingDomains": [
+    ".systeme.io"
+  ],
+  "cdnDomains": [
+    "d3fit27i5nzkqh.cloudfront.net",
+    "d1yei2z3i6k35z.cloudfront.net",
+    "d2543nuuc0wvdg.cloudfront.net",
+    "d3syewzhvzylbl.cloudfront.net"
+  ],
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "<!-- Created with https://systeme.io --> (immediately after <!DOCTYPE html> on every page, custom domains too)",
+    "data-react-helmet=\"true\" (on title/meta tags)",
+    "data-styled data-styled-version (styled-components SSR; confirmed 6.1.13 and 6.3.11 on the two live pages; hashed classnames are NOT stable)",
+    "window.__PRELOADED_STATE__={\"page\":{...\"type\":\"squeeze\"...}}",
+    "script src=\"https://d3fit27i5nzkqh.cloudfront.net/default/runtime.*.js\" (also page.*.js, vendors.*.js)",
+    "self-hosted Google Fonts under https://d3syewzhvzylbl.cloudfront.net/fonts/google-fonts/*.woff2",
+    "a[href*=\"systeme.io/?sa=\"] affiliate credit/badge link"
+  ],
+  "jsGlobals": [
+    "window.__PRELOADED_STATE__",
+    "window.initialLanguage",
+    "window.initialI18nStore"
+  ],
+  "analyticsScripts": [
+    "log.systeme.io"
+  ],
+  "badgePresent": true,
+  "badgeSelector": "a[href*=\"systeme.io/?sa=\"]",
+  "badgeHtmlPattern": "<a href=\"https://systeme.io/?sa=sa01594109653e895aca5ca68ca8ceb1aa3eb97e83\" style=\"cursor: pointer \"><span style=\"color: rgb(0, 0, 0)\">SITE CREDIT</span></a>",
+  "badgeTargetUrl": "https://systeme.io/?sa=<affiliate-code>",
+  "renderStrategy": "hybrid",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "suggestedPriority": 80,
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://risefunnels.systeme.io/izzy/free",
+    "https://freetemplates.systeme.io/landing-page"
+  ],
+  "notes": "Independently verified against RAW HTML (curl, custom UA) of two live systeme.io pages: risefunnels.systeme.io/izzy/free and freetemplates.systeme.io/landing-page. Both returned HTTP 200 with no anti-bot / Cloudflare challenge. STRONGEST signal confirmed byte-for-byte: `<!-- Created with https://systeme.io -->` sits immediately after `<!DOCTYPE html>` on both pages. NO `<meta name=\"generator\">` tag exists (metaGenerator correctly empty). Tech stack confirmed: React SSR + react-helmet (`data-react-helmet=\"true\"` on title/meta) + styled-components server-rendered `<style data-styled data-styled-version=\"6.x\">` (saw 6.1.13 and 6.3.11 — versions vary, classnames like .dHbILQ are hashed and NOT stable). Hydrates via `window.__PRELOADED_STATE__` (contains `\"type\":\"squeeze\"`), `window.initialLanguage`, `window.initialI18nStore`, and webpack bundles runtime/page/vendors.*.js under /default/ on d3fit27i5nzkqh.cloudfront.net (exact filenames e.g. runtime.7640cd7de1dd9a8b.js confirmed). ASSET/CDN MAPPING confirmed: d3fit27i5nzkqh.cloudfront.net = JS/CSS bundles; d1yei2z3i6k35z.cloudfront.net = user-uploaded images/favicons; d2543nuuc0wvdg.cloudfront.net = system assets (served /favicon.ico); d3syewzhvzylbl.cloudfront.net = self-hosted Google Fonts (/fonts/google-fonts/*.woff2) — this 4th CDN was MISSING from the researcher list and has been ADDED. BADGE confirmed exactly as claimed: inline footer credit anchor `<a href=\"https://systeme.io/?sa=sa01594109653e895aca5ca68ca8ceb1aa3eb97e83\" style=\"cursor: pointer \"><span style=\"color: rgb(0, 0, 0)\">SITE CREDIT</span></a>` — match on the `systeme.io/?sa=` href affiliate param, NOT the visible label (owner-editable). log.systeme.io first-party click/funnel tracking confirmed on the freetemplates page. Custom domains via CNAME are common; for those rely on the `Created with https://systeme.io` comment + cloudfront hosts rather than the URL regex.",
+  "corrections": "Fetched and inspected RAW HTML (not markdown) of both referenceUrls via curl; both HTTP 200, no anti-bot. CONFIRMED every researcher signature: the `<!-- Created with https://systeme.io -->` comment right after DOCTYPE (both pages), absence of meta generator, data-react-helmet=\"true\", data-styled-version (6.1.13 on rise, 6.3.11 on free — exactly the two versions claimed), window.__PRELOADED_STATE__ with \"type\":\"squeeze\", window.initialLanguage, window.initialI18nStore, the three original cdnDomains (d3fit27i5nzkqh = /default/runtime|page|vendors.*.js bundles, d1yei2z3i6k35z = images/favicons, d2543nuuc0wvdg = /favicon.ico), log.systeme.io tracking, and the badge markup byte-for-byte including affiliate code sa01594109653e895aca5ca68ca8ceb1aa3eb97e83. ONE CORRECTION: added a 4th platform CDN the researcher missed — d3syewzhvzylbl.cloudfront.net, which serves self-hosted Google Fonts (/fonts/google-fonts/*.woff2) and appears on both pages; added a corresponding htmlSignature. Nothing was invented, outdated, or wrong — no signature needed removal or downgrade. verifiedConfidence remains high; detectUrlRegex kept as \\.systeme\\.io (both live sites are first-party *.systeme.io subdomains)."
+}

@@ -1,0 +1,46 @@
+{
+  "platform": "carrd",
+  "displayName": "Carrd",
+  "category": "builder",
+  "detectUrlRegex": "\\.carrd\\.co",
+  "hostingDomains": [
+    ".carrd.co",
+    ".demo.carrd.co"
+  ],
+  "cdnDomains": [
+    "fonts.googleapis.com"
+  ],
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "class=\"site-wrapper\" (root) > div.site-main > div.inner on current-gen sites; older sites omit site-wrapper but keep inner/runtime",
+    "component classes with -component suffix confirmed live: text-component, image-component, container-component, buttons-component, icons-component, divider-component, links-component (list/table-component are content-dependent, not seen in sample)",
+    "badge element is <p id=\"credits\"> directly (id on the <p>, NO class=\"credits\"), containing <a href=\"https://carrd.co\">( Made with Carrd )</a> on free plan",
+    "inline <style> CSS reset with @keyframes loading-spinner and .deferred fade-in spinner on current-gen sites (older sites use variant keyframe names)",
+    "single inline <script> IIFE runtime, hallmark: $inner = $('.inner')",
+    "relative assets referenced as assets/images/imageNN.jpg?v=<8hexhash> (also assets/css/, assets/js/)",
+    "no <meta name=\"generator\"> tag emitted (confirmed absent on all sampled sites)"
+  ],
+  "jsGlobals": [],
+  "analyticsScripts": [],
+  "badgePresent": true,
+  "badgeSelector": "#credits",
+  "badgeHtmlPattern": "<p id=\"credits\"><a href=\"https://carrd.co\">( Made with Carrd )</a></p>",
+  "badgeTargetUrl": "https://carrd.co",
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "cloudflare",
+  "confidence": "high",
+  "suggestedPriority": 85,
+  "referenceUrls": [
+    "https://themakingof.carrd.co/",
+    "https://freewebsitebuilder.carrd.co/",
+    "https://jun.carrd.co/",
+    "https://lilsnamepage.carrd.co/",
+    "https://a84a69b56861a8c6.demo.carrd.co/"
+  ],
+  "notes": "DETECTION: primary = hosting host matching \\.carrd\\.co (covers *.carrd.co and *.demo.carrd.co; both verified live HTTP 200; unambiguous, priority 85). Carrd emits NO <meta name=\"generator\"> (confirmed absent on all 5 sampled), so Pro sites on custom domains detect via HTML structure: .site-wrapper > .site-main > .inner (current-gen) plus the *-component class suffix, plus the inline IIFE runtime containing $inner = $('.inner') (present on every site including older ones). RENDER: ssr-static — full text/headings/images are in raw HTML (356KB for themakingof.carrd.co); a .deferred class + @keyframes loading-spinner only fades content in, so no hydration wait needed. ASSETS: no dedicated asset CDN — images/css/js are SAME-ORIGIN relative paths under assets/images|css|js/ with ?v=<hash> cache-busting (e.g. assets/images/image001.jpg?v=e20c52bb); a mirror tool should rewrite relative assets/ paths against the page host. FONTS: fonts.googleapis.com appears in a <link> tag ONLY on sites using non-system fonts (present on jun/lilsnamepage, absent on themakingof/freewebsitebuilder); fonts.gstatic.com does NOT appear in any raw HTML (it is fetched only at runtime by the Google Fonts CSS @font-face) so it was removed as a static signature. BADGE: free plan shows <p id=\"credits\"> (the id is on the <p> itself — there is NO wrapping div and NO class=\"credits\"; class=\"credits\" appears 0 times across all sites) containing <a href=\"https://carrd.co\">( Made with Carrd )</a>; removed on paid plans. Older Carrd sites (jun.carrd.co) predate the -component scheme and site-wrapper but still use #credits and the inline runtime. ANTI-BOT: entirely Cloudflare-fronted (Server: cloudflare, CF-RAY on every response), but plain GET with a normal UA returned full HTML with no challenge; expect possible Cloudflare interstitials under aggressive crawling. No third-party analytics injected by default.",
+  "verifiedConfidence": "high",
+  "corrections": "Fetched raw HTML (curl, HTTP 200) for all 5 reference sites and cross-checked every signature. CONFIRMED as-is: detectUrlRegex \\.carrd\\.co (both carrd.co and demo.carrd.co hosts live), metaGenerator \"\" (no generator meta on any site), .site-wrapper>.site-main>.inner, the -component class suffix, inline IIFE $inner=$('.inner'), relative assets/...?v=<hash>, @keyframes loading-spinner + .deferred spinner, ssr-static render, Cloudflare fronting (no challenge on plain GET), badge selector #credits, badge text \"( Made with Carrd )\", badge target https://carrd.co. CORRECTED (1) badgeHtmlPattern: researcher had <p class=\"credits\"> inside an id=\"credits\" container — this is wrong/invented. Actual markup is <p id=\"credits\"><a href=\"https://carrd.co\">( Made with Carrd )</a></p>: the id sits directly on the <p>, and class=\"credits\" occurs 0 times across all sampled sites. Fixed badgeHtmlPattern and the corresponding htmlSignature. CORRECTED (2) cdnDomains: removed fonts.gstatic.com — it never appears in raw HTML (only fetched at runtime by the Google Fonts stylesheet's @font-face). Kept fonts.googleapis.com, which is confirmed in a <link> tag but only on sites using non-system fonts (conditional, not universal). Also softened htmlSignatures wording to reflect that site-wrapper and loading-spinner are current-gen (older sites vary) and that list/table-component were not observed in the sample. All other fields unchanged."
+}

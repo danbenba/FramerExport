@@ -1,0 +1,63 @@
+{
+  "platform": "clickfunnels",
+  "displayName": "ClickFunnels (2.0 / \"CF2\")",
+  "category": "landing",
+  "detectUrlRegex": "\\.myclickfunnels\\.com",
+  "hostingDomains": [
+    ".myclickfunnels.com"
+  ],
+  "cdnDomains": [
+    "statics.myclickfunnels.com",
+    "images.clickfunnels.com"
+  ],
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "attr:data-page-element (e.g. data-page-element=\"ContentNode\") — pervasive, 655 occurrences on academy, 1772 on www.clickfunnels.com",
+    "script id=\"cf-head-scripts\"",
+    "script id=\"cf-head-scripts-polyfills\"",
+    "script id=\"cf-lander-font-families\"",
+    "script id=\"cf-lander-serialized-custom-fonts\"",
+    "script id=\"cf-lander-serialized-style-guide-animation-node\"",
+    "class \"pageRoot\" on root ContentNode div",
+    "class \"elPageContentWrapper\" / \"elPageContent\" (elPageContent ~121x)",
+    "class \"elBTN\" (button element, 32-47x)",
+    "element id pattern class=\"id-<token>\" where token is either 8-hex (academy, e.g. id-9e653f57) OR a base62-style slug (www.clickfunnels.com, e.g. id-6Z-7JejWL-0) — match id-<alnum/dash> not strictly 8-hex",
+    "data-slot-name, data-liquid-replace, data-style-guide-headline/subheadline, data-cf-form-field, data-show-button-ids, data-hide-button-ids attributes (all confirmed present)",
+    "meta name=\"csrf-token\" (Rails app, UUID value)"
+  ],
+  "jsGlobals": [
+    "window.cfRootDomain (= \"myclickfunnels.com\")",
+    "window.eventsApiURL (= \"https://events.myclickfunnels.com/api/v1\")",
+    "window.turnstileSiteKey",
+    "window.disableTracking",
+    "window.cfVisitorData (server-side geo JSON)",
+    "window.getSSRDynamicStoreData",
+    "window.globalResourceData",
+    "window.sessionData",
+    "window.registerProductsIndexes"
+  ],
+  "renderStrategy": "ssr-static",
+  "scrollStrategy": "standard",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "badgePresent": true,
+  "badgeSelector": "",
+  "badgeHtmlPattern": "",
+  "badgeTargetUrl": "",
+  "analyticsScripts": [
+    "New Relic browser agent (NREUM; bam.nr-data.net + js-agent.newrelic.com) injected by default — confirmed",
+    "first-party events beacon to events.myclickfunnels.com/api/v1 — confirmed",
+    "Cloudflare Turnstile (window.turnstileSiteKey, e.g. 0x4AAAAAAA_w1VrQrDgTqIfj) present on forms only — confirmed",
+    "third-party libs from cdnjs.cloudflare.com, code.jquery.com, use.fontawesome.com — confirmed; NO Google Analytics/GTM/Facebook Pixel by default"
+  ],
+  "antiBot": "none",
+  "suggestedPriority": 82,
+  "confidence": "high",
+  "referenceUrls": [
+    "https://academy.myclickfunnels.com/",
+    "https://www.clickfunnels.com/"
+  ],
+  "verifiedConfidence": "high",
+  "corrections": "Independently verified against raw curl HTML of academy.myclickfunnels.com (200 OK, 463 KB) and www.clickfunnels.com (200 OK, 758 KB) with a browser UA — no anti-bot interstitial, full content present, confirming antiBot=none and renderStrategy=ssr-static.\n\nCONFIRMED verbatim on BOTH sites: all five cf-* script ids (cf-head-scripts, cf-head-scripts-polyfills, cf-lander-font-families, cf-lander-serialized-custom-fonts, cf-lander-serialized-style-guide-animation-node); window.cfRootDomain=\"myclickfunnels.com\"; window.eventsApiURL=\"https://events.myclickfunnels.com/api/v1\"; window.turnstileSiteKey; disableTracking, cfVisitorData, getSSRDynamicStoreData, globalResourceData, sessionData, registerProductsIndexes; pervasive data-page-element (655 academy / 1772 www); classes pageRoot, elPageContentWrapper, elPageContent, elBTN; data-slot-name/data-liquid-replace/data-style-guide-headline/data-cf-form-field/data-show-button-ids/data-hide-button-ids; meta name=\"csrf-token\"; CDN hosts statics.myclickfunnels.com (259/172 refs) and images.clickfunnels.com (241/62 refs) incl. the statics.myclickfunnels.com/image/<id>/file/<md5>.<ext> pattern; New Relic (NREUM + bam.nr-data.net + js-agent.newrelic.com); third-party libs on cdnjs.cloudflare.com/code.jquery.com/use.fontawesome.com. Confirmed NO <meta name=generator> on either page (metaGenerator correctly empty).\n\nCORRECTION 1 (CDN): Removed events.myclickfunnels.com from cdnDomains — it is the events beacon API endpoint (events.myclickfunnels.com/api/v1, 1 occurrence), NOT an asset-hosting CDN; it serves no images/css/js/fonts. It remains referenced in jsGlobals (eventsApiURL) and analyticsScripts. cdnDomains is now only the two real asset hosts.\n\nCORRECTION 2 (id pattern): The htmlSignature \"class=id-<8-hex>\" is WRONG as a strict rule — 8-hex holds on academy (id-9e653f57) but www.clickfunnels.com uses base62-style slugs (id-6Z-7JejWL-0, id-6Z-edaMb-37, id-6Z-gjZXM7-179). Generalized the signature to class=\"id-<token>\" (hex OR base62/dash slug) so a matcher does not miss CF2 sites; this is a low-weight signature anyway (root is better identified by class=\"pageRoot id-...\").\n\nCORRECTION 3 (minor): Updated the data-page-element example count for www from 916 to the actual 1772; the point (pervasive, one per element) stands.\n\nBADGE: Kept badgePresent=true (ClickFunnels default per official docs) but note it could NOT be observed in live HTML — the \"Powered by ClickFunnels\" badge was toggled OFF/HIDDEN on both inspected pages (0 occurrences), so badgeSelector/badgeHtmlPattern/badgeTargetUrl remain empty (not guessed). Treat badgePresent as \"default-on, unverified from these samples.\"\n\nDETECT REGEX: \\.myclickfunnels\\.com is correct and matches default workspace subdomains (academy.myclickfunnels.com); it will NOT catch custom-domain funnels, which must rely on the HTML/JS signatures. Priority 82 and verifiedConfidence=high are justified — the cf-head-scripts + cfRootDomain + cf-lander-* signature cluster is unambiguous and reproduces identically across both sites.",
+  "notes": "ClickFunnels 2.0 (\"CF2\"), server-rendered Rails/Shakapacker app. All detection signatures verified directly in raw curl HTML on academy.myclickfunnels.com and www.clickfunnels.com (both 200 OK, no JS needed, no Cloudflare interstitial). Strongest detection (in order): (1) inline script id=\"cf-head-scripts\" containing window.cfRootDomain=\"myclickfunnels.com\" + window.eventsApiURL=\"https://events.myclickfunnels.com/api/v1\"; (2) the cf-lander-* serialized script ids; (3) pervasive data-page-element attribute; (4) root div class=\"pageRoot id-<token>\" inside elPageContentWrapper > elPageContent. Assets on statics.myclickfunnels.com + images.clickfunnels.com (localize these); third-party libs via cdnjs/code.jquery/fontawesome (vendor or keep). Turnstile guards form submits only, not page delivery. Badge is default-on per docs but was hidden on both samples so its markup is uncaptured."
+}

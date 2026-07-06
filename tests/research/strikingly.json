@@ -1,0 +1,66 @@
+{
+  "platform": "strikingly",
+  "displayName": "Strikingly",
+  "category": "builder",
+  "detectUrlRegex": "\\.mystrikingly\\.com",
+  "hostingDomains": [
+    ".mystrikingly.com"
+  ],
+  "cdnDomains": [
+    "static-assets.strikinglycdn.com",
+    "static-fonts-css.strikinglycdn.com",
+    "user-images.strikinglycdn.com",
+    "uploads.strikinglycdn.com",
+    "custom-images.strikinglycdn.com",
+    "strikinglycdn.com",
+    "cdnjs.cloudflare.com"
+  ],
+  "metaGenerator": "",
+  "badgePresent": true,
+  "badgeSelector": "#s-footer-section-container .show-strikingly-logo",
+  "badgeHtmlPattern": "<div id=\"s-footer-section-container\" class=\"\"><div class=\"lazyload s-no-bg s-footer-section s-section show-strikingly-logo ... background-image\" data-react-style=\"{}\"> ... </div></div> — the visible \"Powered by Strikingly\" anchor (href https://www.strikingly.com/?ref=logo&permalink=SITE&custom_domain=&utm_campaign=footer_pbs&utm_content=...&utm_medium=user_page&utm_source=...&utm_term=pbs_b) is hydration-rendered from inline LogoSeoData JSON and is NOT present as static anchor text in the raw HTML; only the show-strikingly-logo footer class + the ref=logo LogoSeoData URL are in the raw HTML.",
+  "badgeTargetUrl": "https://www.strikingly.com/?ref=logo&utm_campaign=footer_pbs&utm_medium=user_page",
+  "htmlSignatures": [
+    "<meta name=\"strikingly-host-suffix\" content=\"strikingly.com\" />",
+    "<meta name=\"asset-url\" content=\"https://static-assets.strikinglycdn.com\" />",
+    "<meta name=\"support-helper\" content=\"{\"permalink\":...,\"id\":...}\" />",
+    "<body ... id='user_sites' theme_name='...'>",
+    "id=\"s-page-client-container\"",
+    "id=\"s-content\" class=\"s-variation-default ... s-template-<theme> ... s-site-page-content\"",
+    "id=\"s-footer-section-container\"",
+    "id='s-support-widget-container'",
+    "data-hypernova-key=\"SiteBootstrapper\"",
+    "data-hypernova-id / data-hypernova-emotion-id",
+    "data-emotion / data-react-style attributes",
+    "s- prefixed section classes (s-section, s-footer-section, show-strikingly-logo)"
+  ],
+  "jsGlobals": [
+    "window.$S",
+    "window.$B",
+    "window.siteConfigSrc",
+    "window.ssrIsLoaded",
+    "window.ssrScrollListener",
+    "window.cachedScrollData",
+    "window.Bugsnag",
+    "window.pingpp",
+    "window.afterBundleLoadTrack"
+  ],
+  "analyticsScripts": [
+    "google-analytics.com",
+    "bugsnag (error monitoring)"
+  ],
+  "renderStrategy": "react-hydration",
+  "scrollStrategy": "standard",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 3000,
+  "antiBot": "waf",
+  "suggestedPriority": 85,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://quinntonharris.mystrikingly.com/",
+    "https://becomepresent.mystrikingly.com/"
+  ],
+  "notes": "VERIFIED 2026-07-06 against raw HTML of becomepresent.mystrikingly.com (582KB, fetched via Wayback Machine id_ raw endpoint to bypass the live WAF) plus live CloudFront/WAF behavior of quinntonharris.mystrikingly.com via curl. DETECTION (all confirmed in raw HTML): (1) hosting subdomain *.mystrikingly.com. (2) NO <meta name=generator> (empty is correct). (3) meta tags: <meta name=\"strikingly-host-suffix\" content=\"strikingly.com\">, <meta name=\"asset-url\" content=\"https://static-assets.strikinglycdn.com\">, <meta name=\"support-helper\" content='{\"permalink\":\"becomepresent\",\"id\":12431891}'>. (4) <body class='show locale-en' id='user_sites' theme_name='s5-theme'>. (5) containers id=\"s-page-client-container\", id=\"s-content\" (class \"s-variation-default ... s-template-s5-theme ... s-site-page-content\"), id=\"s-footer-section-container\", id='s-support-widget-container'. (6) Hypernova SSR: data-hypernova-key=\"SiteBootstrapper\", data-hypernova-id, data-hypernova-emotion-id, plus data-emotion + data-react-style. RENDER: React server-rendered via Airbnb Hypernova + Emotion, then hydrated; full page content is in the raw HTML so a mirror can scrape without JS (needsHydrationCheck=false). jQuery 3.7.1 loaded from cdnjs.cloudflare.com; Strikingly bundles under static-assets.strikinglycdn.com/webpack use hashed names (detectIE-<hash>.js, i18n-<hash>.js, page-site-bundle.<hash>.js, lightBoostedPage-site-bundle.<hash>.js). ASSETS: all five strikinglycdn.com subdomains confirmed present (custom-images, uploads, user-images = user assets; static-assets = JS/CSS; static-fonts-css = fonts). BADGE: 'Powered by Strikingly' is a Pro-removable footer feature; in raw HTML it appears only as (a) the footer <div class=\"... s-footer-section s-section show-strikingly-logo ...\">, and (b) an inline LogoSeoData URL www.strikingly.com/?ref=logo&...&utm_campaign=footer_pbs&utm_medium=user_page&utm_term=pbs_b — the visible anchor is rendered on hydration, NOT static. badgeSelector #s-footer-section-container .show-strikingly-logo confirmed valid. ANTI-BOT: served via AWS CloudFront with an AWS WAF JS challenge (response 202, header x-amzn-waf-action: challenge, body loads awswaf.com/.../challenge.js and calls AwsWafIntegration.getToken()). A realistic browser UA does NOT reliably return 200 — it only passes intermittently on a CloudFront cache hit; a proper fetch must execute the WAF challenge JS / carry the aws-waf-token cookie. (Researcher's claim that a desktop UA returns 200 is only partly true.) Response headers Strikingly-Cache* and Set-Cookie __strk_* were NOT observable on the challenge responses, so treat them as plausible-but-unverified HTTP hints. Priority 85: *.mystrikingly.com is unambiguous dedicated hosting; for Pro custom domains, fall back to the strikingly meta tags + s-page-client-container/Hypernova SiteBootstrapper signatures.",
+  "corrections": "Verified nearly every signature against a real Strikingly site's raw HTML (becomepresent.mystrikingly.com via Wayback id_ raw endpoint) and live WAF behavior (quinntonharris via curl). CONFIRMED unchanged: hosting *.mystrikingly.com; empty metaGenerator; all three meta tags (strikingly-host-suffix, asset-url, support-helper); body id='user_sites' theme_name='s5-theme'; containers s-page-client-container / s-content / s-footer-section-container / s-support-widget-container; s-content classes (s-variation-default, s-template-s5-theme, s-site-page-content); Hypernova markers (SiteBootstrapper, data-hypernova-id, data-hypernova-emotion-id, data-emotion, data-react-style); ALL five strikinglycdn.com subdomains (custom-images, uploads, user-images, static-assets, static-fonts-css) plus cdnjs.cloudflare.com jQuery 3.7.1; webpack hashed bundles detectIE/i18n/page-site-bundle; globals $S, $B, siteConfigSrc, ssrIsLoaded, ssrScrollListener, cachedScrollData, Bugsnag, pingpp; analytics google-analytics.com + bugsnag; badge show-strikingly-logo footer class + ref=logo/footer_pbs/user_page LogoSeoData; render react-hydration; content-in-raw-HTML so needsHydrationCheck=false. CHANGES: (1) jsGlobals — replaced window.afterBundleLoadHitLandingPageTracking (0 occurrences, hallucinated/outdated) with the actual global window.afterBundleLoadTrack (found). (2) htmlSignatures + badgeHtmlPattern — removed the class 's-new-footer-section' (0 occurrences); the real footer div classes are 'lazyload s-no-bg s-footer-section s-section show-strikingly-logo background-image'. (3) badgeHtmlPattern reworded: the literal '<a ...>Powered by Strikingly</a>' anchor is NOT static in the raw HTML (the only literal 'Powered by Strikingly' strings are build comments); it is hydration-rendered from inline LogoSeoData, while raw HTML carries the show-strikingly-logo class + the ref=logo URL. badgePresent stays true; badgeSelector confirmed valid. (4) antiBot note corrected: it is an AWS WAF JS challenge (x-amzn-waf-action: challenge, awswaf.com challenge.js), so a browser UA alone does NOT reliably return 200 (only intermittent CloudFront cache hits); antiBot enum 'waf' kept. (5) Downgraded the Strikingly-Cache*/__strk_* response-header/cookie hints to plausible-but-unverified (not observable on challenge responses). verifiedConfidence: high."
+}

@@ -1,0 +1,63 @@
+{
+  "platform": "wordpress",
+  "displayName": "WordPress",
+  "category": "cms",
+  "detectUrlRegex": "\\.wordpress\\.com|/wp-(content|includes|json)/",
+  "hostingDomains": [
+    ".wordpress.com",
+    "public-api.wordpress.com"
+  ],
+  "cdnDomains": [
+    "i0.wp.com",
+    "i1.wp.com",
+    "i2.wp.com",
+    "s0.wp.com",
+    "s1.wp.com",
+    "s2.wp.com",
+    "c0.wp.com",
+    "s.w.org",
+    "fonts.wp.com",
+    "gravatar.com",
+    "secure.gravatar.com"
+  ],
+  "analyticsScripts": [
+    "stats.wp.com",
+    "pixel.wp.com"
+  ],
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "metaGenerator": "WordPress 6.9.4",
+  "badgePresent": false,
+  "badgeSelector": "",
+  "badgeHtmlPattern": "",
+  "badgeTargetUrl": "",
+  "htmlSignatures": [
+    "link[rel=\"https://api.w.org/\"] pointing at /wp-json/ (present in HTML head since WP 4.4; also sent as an HTTP 'Link: <.../wp-json/>; rel=\"https://api.w.org/\"' response header on WP VIP and WordPress.com, though the header may be absent on some self-hosted Apache setups — the HTML <link> is the more reliable cross-site form)",
+    "meta[name=\"generator\"] content starts with 'WordPress ' (self-hosted, e.g. 'WordPress 6.9.4', 'WordPress 7.1-alpha-62638') or is exactly 'WordPress.com' (hosted)",
+    "asset paths /wp-content/, /wp-includes/, /wp-content/themes/<theme>/, /wp-content/plugins/<plugin>/",
+    "REST API root /wp-json/ and RSS at /feed/",
+    "body class tokens: wp-embed-responsive, wp-theme-<slug>, wp-custom-logo",
+    "Gutenberg block CSS classes: wp-block-*, wp-container-*, has-*-color, has-*-background-color",
+    "emoji loader: /wp-includes/js/wp-emoji-release.min.js, inline var _wpemojiSettings, 'concatemoji', s.w.org/images/core/emoji/<ver>/",
+    "XML-RPC pingback: HTTP header X-Pingback and /xmlrpc.php reference (not present on every install)",
+    "Automattic/WP.com/VIP-only response headers: X-Powered-By: WordPress VIP, X-hacker (join.a8c.com), Host-Header: WordPress.com, Server-Timing: a8c-cdn, Link: <https://wp.me/...>; rel=shortlink"
+  ],
+  "jsGlobals": [
+    "window._wpemojiSettings",
+    "window.wp",
+    "window.wpApiSettings"
+  ],
+  "referenceUrls": [
+    "https://ma.tt/",
+    "https://techcrunch.com/",
+    "https://en.blog.wordpress.com/"
+  ],
+  "suggestedPriority": 40,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "corrections": "Independently verified by curling raw HTML + HTTP headers (not the WebFetch summarizer, which conflated data) on three live sites covering both deployment shapes. DIRECTLY CONFIRMED: (a) ma.tt self-hosted: generator 'WordPress 7.1-alpha-62638', link rel=api.w.org -> https://ma.tt/wp-json/, /wp-content/ + /wp-includes/, i0.wp.com (147x), s.w.org/images/core/emoji/17.0.2/, secure.gravatar.com, stats.wp.com (3x), _wpemojiSettings + wp-emoji-release.min.js + concatemoji, body class 'wp-embed-responsive wp-theme-twentythirteen', footer 'Proudly powered by WordPress' -> wordpress.org (theme text, not a core badge). (b) techcrunch.com (WordPress VIP): generator exactly 'WordPress 6.9.4' (matches claimed metaGenerator verbatim), HTTP 'Link: <https://techcrunch.com/wp-json/>; rel=\\\"https://api.w.org/\\\"', X-Powered-By: WordPress VIP, X-hacker join.a8c.com/viphacker, /wp-content/ (1010x); HTTP 200 to a normal browser UA with no Cloudflare gate. (c) wordpress.com/blog (=en.blog.wordpress.com, WP.com hosted): generator exactly 'WordPress.com', Host-Header: WordPress.com, Server-Timing: a8c-cdn, Link: <https://wp.me/f2B5>; rel=shortlink, REST via public-api.wordpress.com, and s0.wp.com/s1.wp.com/s2.wp.com/fonts.wp.com asset hosts. CHANGES: (1) Removed jsGlobal 'window.wpemojiSettings' (no leading underscore) as a likely hallucinated duplicate — the real, observed global is 'window._wpemojiSettings' with the underscore; kept window.wp and window.wpApiSettings (present when block/REST scripts are enqueued, not guaranteed on every page). (2) Kept cdnDomains i1.wp.com/i2.wp.com/c0.wp.com and analytics pixel.wp.com but note they were NOT directly observed on the sampled pages (only i0.wp.com and stats.wp.com appeared statically) — they are legitimate known Photon/WP.com rotating-CDN and Jetpack runtime-pixel hosts, so retained rather than invented. (3) Annotated the api.w.org HTTP Link header as config-dependent (present on VIP/WP.com, absent from ma.tt's Apache response) and flagged X-Pingback as not universally present. No fake CDN domains, fake badge markup, or invented data-* attributes were found; the researcher output is accurate. antiBot=none, renderStrategy=ssr-static (full content in first-byte HTML: 188KB/446KB/228KB), badgePresent=false, detectUrlRegex, and priority=40 all confirmed reasonable.",
+  "notes": "WordPress is server-rendered PHP: full page content (nav, articles, footer) is in the raw HTML on first byte, so no JS hydration is needed to mirror content. Detection is generator/path-based rather than a single hosting domain, hence mid-range priority (~40). TWO DEPLOYMENT SHAPES verified: (1) Self-hosted (custom domain, e.g. techcrunch.com on WordPress VIP, ma.tt): generator 'WordPress <version>'; assets same-origin under /wp-content/ and /wp-includes/; strongest cross-version tell is link rel=api.w.org -> /wp-json/. (2) WordPress.com hosted: generator exactly 'WordPress.com'; free/subdomain sites at <name>.wordpress.com; static assets proxied via s0/s1/s2.wp.com, fonts via fonts.wp.com, REST via public-api.wordpress.com; headers Host-Header: WordPress.com and Server-Timing: a8c-cdn. ASSET/CDN MAPPING: Jetpack Photon rewrites images to i0/i1/i2.wp.com/<origin-domain>/<path>?fit=WxH&ssl=1 (or ?resize=..); strip the i{0,1,2}.wp.com/ prefix + query to recover https://<origin-domain>/<path> (confirmed on ma.tt). s.w.org hosts core shared assets (emoji sprites /images/core/emoji/<ver>/). gravatar.com/secure.gravatar.com host avatars. stats.wp.com (+ runtime pixel.wp.com) is the Jetpack/WP.com Stats tracker. BADGE: core injects no 'Made with WordPress' badge; only free-tier WordPress.com sites append a theme-dependent footer credit, so badgePresent=false at the platform level. ANTI-BOT: WordPress ships none; individual sites may front WP with Cloudflare/WAF (treat 'Just a moment' / 403-503 as a per-site possibility, not a default). CAVEATS: /wp-content/ can be renamed via WP_CONTENT_DIR (rare); /wp-includes/ is effectively never renamed and is the most reliable path marker. Page builders (Elementor, Divi, WPBakery) add asset paths under /wp-content/plugins|themes/ and are still WordPress underneath."
+}

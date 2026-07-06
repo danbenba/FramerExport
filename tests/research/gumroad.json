@@ -1,0 +1,55 @@
+{
+  "platform": "gumroad",
+  "displayName": "Gumroad",
+  "category": "ecommerce",
+  "detectUrlRegex": "\\.gumroad\\.com|\\bgum\\.co\\b",
+  "hostingDomains": [
+    ".gumroad.com",
+    "gum.co"
+  ],
+  "cdnDomains": [
+    "assets.gumroad.com",
+    "public-files.gumroad.com",
+    "static-2.gumroad.com"
+  ],
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "<meta name=\"action-cable-url\" content=\"wss://cable.gumroad.com/cable\" />",
+    "<head prefix=\"og: http://ogp.me/ns# fb: http://ogp.me/ns/fb# gumroad: http://ogp.me/ns/fb/gumroad#\">",
+    "<div id=\"app\" data-page=\"{...}\"> (Inertia.js root; empty DOM, full JSON props HTML-entity-encoded in data-page attribute; contains \"component\":\"Products/Show\" (or \"Users/Show\") and \"app_domain\":\"gumroad.com\")",
+    "<body id=\"product_page\" class=\"group/body\"> (product pages)",
+    "<body id=\"user_page\" class=\"group/body custom-domain\"> (creator profile pages)",
+    "<div id=\"design-settings\" data-settings=...> and <div id=\"user-agent-info\" data-settings=...>",
+    "<meta property=\"og:site_name\" content=\"Gumroad\">",
+    "<meta property=\"og:type\" content=\"gumroad:product\">",
+    "gr:environment / gr:page:type / gr:google_analytics:enabled / gr:fb_pixel:enabled / gr:tiktok_pixel:enabled / gr:logged_in_user:id meta properties (each carries an inertia=\"meta-property-gr-...\" attribute)",
+    "<link rel=\"shortcut icon\" href=\"https://assets.gumroad.com/images/pink-icon.png\">",
+    "<meta property=\"stripe:pk\" value=\"pk_live_...\"> and <link rel=\"dns-prefetch\" href=\"//assets.gumroad.com|//static-2.gumroad.com|//public-files.gumroad.com\">",
+    "stylesheet+scripts under https://assets.gumroad.com/vite/assets/entrypoints/ (design-*.css, base.ts-*.js, inertia.js-*.js) - Vite build"
+  ],
+  "jsGlobals": [],
+  "badgePresent": false,
+  "badgeSelector": "",
+  "badgeHtmlPattern": "",
+  "badgeTargetUrl": "",
+  "analyticsScripts": [
+    "gumroad-analytics.com",
+    "www.googletagmanager.com",
+    "connect.facebook.net",
+    "analytics.tiktok.com"
+  ],
+  "renderStrategy": "react-hydration",
+  "needsHydrationCheck": true,
+  "hydrationTimeoutMs": 8000,
+  "scrollStrategy": "standard",
+  "antiBot": "cloudflare",
+  "referenceUrls": [
+    "https://zephyrhq.gumroad.com/l/digitalproduct",
+    "https://zephyrhq.gumroad.com/"
+  ],
+  "suggestedPriority": 80,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "notes": "All signatures verified directly in raw HTML (curl, HTTP 200, desktop UA) from 2 live Gumroad pages on 2026-07-06: zephyrhq.gumroad.com/l/digitalproduct (product, body id=product_page, component Products/Show) and zephyrhq.gumroad.com/ (creator profile, body id=user_page class \\\"group/body custom-domain\\\", component Users/Show). Stack = Ruby on Rails + Inertia.js + Vite + React, fronted by Cloudflare (Server: cloudflare header, rocket-loader.min.js, data-cf-settings present).\\n\\nEXPORTER TIP: <div id=\\\"app\\\"> is empty of rendered DOM; full page content (product name, description_html, covers, seller/profile, price, ratings, refund policy, sections, all SEO meta) is HTML-entity-encoded JSON in the data-page attribute. Parse data-page JSON directly (JSON.parse of decoded attribute) rather than running headless JS. domain_settings in props gives {app_domain: gumroad.com, root_domain: gumroad.com, short_domain: gum.co, discover_domain: gumroad.com, third_party_analytics_domain: gumroad-analytics.com, api_domain: api.gumroad.com} - all confirmed in raw JSON. Inertia component name is in data-page.component.\\n\\nURL/HOSTING: default storefronts <creator>.gumroad.com; products <creator>.gumroad.com/l/<permalink>; short links gum.co/<slug>. Custom domains supported (profile body carries class \\\"custom-domain\\\") - on a custom domain the URL regex fails; rely on HTML signatures. Drop priority to ~40 when only HTML signatures match on a custom domain.\\n\\nCDN/ASSETS: assets.gumroad.com CONFIRMED (17 refs on product page: Vite JS/CSS under /vite/assets/entrypoints/, fonts /fonts/ABCFavorit-Regular.woff2, favicon /images/pink-icon.png). public-files.gumroad.com CONFIRMED (6 refs: og:image, twitter:image, second shortcut-icon, user uploads). static-2.gumroad.com appears ONLY as <link rel=\\\"dns-prefetch\\\"> - a real Gumroad host but NOT observed actively serving assets on sampled pages; keep as a weak/secondary CDN hint. cable.gumroad.com (ActionCable wss) and api.gumroad.com are also referenced but are not asset CDNs.\\n\\nBADGE: no server-rendered \\\"Powered by Gumroad\\\" in raw HTML (grep returned nothing) - badgePresent=false confirmed. Any footer attribution is client-side React.\\n\\nMETA GENERATOR: none - no <meta name=\\\"generator\\\"> found. Confirmed empty.\\n\\nANALYTICS: gumroad-analytics.com CONFIRMED as first-party proxy (domain_settings.third_party_analytics_domain). GA/FB Pixel/TikTok Pixel injected client-side only when creator enables them; gr:google_analytics:enabled / gr:fb_pixel:enabled / gr:tiktok_pixel:enabled were all \\\"true\\\" on the sampled product page. analytics.tiktok.com and the facebook/googletagmanager hosts appear in the page CSP allow-list. Stripe publishable key exposed via <meta property=\\\"stripe:pk\\\" value=\\\"pk_live_...\\\"> - confirmed.\\n\\nANTI-BOT: Cloudflare confirmed; desktop UA got HTTP 200 with no JS challenge on both product and profile pages. Retry logic still recommended (researcher noted intermittent 502s on some homepages).",
+  "corrections": "Independently fetched raw HTML (curl, not markdown) from 2 live Gumroad pages on 2026-07-06 and confirmed EVERY signature in the researcher output - no fabrications or hallucinations found. Confirmed verbatim: action-cable-url meta = wss://cable.gumroad.com/cable; head prefix attribute exactly as claimed; <div id=\\\"app\\\" data-page> Inertia root with component Products/Show and app_domain gumroad.com; <body id=\\\"product_page\\\" class=\\\"group/body\\\"> on product and <body id=\\\"user_page\\\" class=\\\"group/body custom-domain\\\"> on profile (component Users/Show); design-settings and user-agent-info divs; og:site_name=Gumroad; og:type=gumroad:product; all six gr: meta properties (each also carries an inertia=\\\"meta-property-gr-...\\\" attribute, a cosmetic detail the researcher omitted); shortcut icon assets.gumroad.com/images/pink-icon.png; Vite bundles under assets.gumroad.com/vite/assets/entrypoints/ (design-*.css, base.ts-*.js, plus inertia.js-*.js); stripe:pk pk_live_ meta; gumroad-analytics.com as third_party_analytics_domain; Cloudflare (Server: cloudflare, rocket-loader, cf-settings). CDN domains: assets.gumroad.com (17 refs) and public-files.gumroad.com (6 refs) confirmed as active asset hosts. CHANGES: (1) static-2.gumroad.com is real but appears ONLY in <link rel=\\\"dns-prefetch\\\"> - not observed actively serving assets on either sampled page, so I flagged it in notes as a weak/secondary hint rather than a confirmed asset CDN (kept in cdnDomains but downgraded in confidence). (2) Trimmed referenceUrls to the 2 pages I actually re-fetched and verified (dropped productivesetups/listloom which I did not personally re-check). No values were wrong. verifiedConfidence=high: this output is unusually accurate."
+}

@@ -1,0 +1,48 @@
+{
+  "platform": "ghost",
+  "displayName": "Ghost",
+  "category": "cms",
+  "detectUrlRegex": "\\.ghost\\.io",
+  "hostingDomains": [
+    ".ghost.io"
+  ],
+  "cdnDomains": [
+    "cdn.jsdelivr.net",
+    "storage.ghost.io"
+  ],
+  "metaGenerator": "Ghost 6.51",
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "paginated",
+  "antiBot": "none",
+  "badgePresent": true,
+  "badgeSelector": ".gh-powered-by a",
+  "badgeHtmlPattern": "<div class=\"gh-powered-by\"><a href=\"https://ghost.org/\" target=\"_blank\" rel=\"noopener\">Powered by Ghost</a></div>",
+  "badgeTargetUrl": "https://ghost.org/",
+  "htmlSignatures": [
+    "meta name=\"generator\" content=\"Ghost [0-9.]+\" (version varies per site; observed 6.51 and 6.39)",
+    "link href=/assets/built/screen.css?v=<hash>",
+    "link href=/public/cards.min.css?v=<hash>",
+    "script src=/public/member-attribution.min.js",
+    "script src=/public/ghost-stats.min.js (first-party analytics; tb_site_uuid attr present)",
+    "div.gh-powered-by footer badge linking to https://ghost.org/",
+    "gh-head-actions / gh-head-brand / gh-head-inner / gh-head-logo / gh-head-menu classes",
+    "body.home-template (home) / body.post-template (single post)",
+    "article/section with class post-card (SSR post feed)",
+    "cdn.jsdelivr.net/ghost/portal@~X/umd/portal.min.js with data-ghost + data-api=/ghost/api/content/ + data-key",
+    "cdn.jsdelivr.net/ghost/sodo-search@~X/umd/sodo-search.min.js with data-sodo-search attribute",
+    "links to #/portal/signin and /portal/"
+  ],
+  "jsGlobals": [],
+  "analyticsScripts": [],
+  "suggestedPriority": 78,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://demo.ghost.io/",
+    "https://spreadprivacy.com/"
+  ],
+  "notes": "Every signature was independently verified against live raw HTML (curl, HTTP 200, no anti-bot) from two Ghost sites: demo.ghost.io (Ghost Pro, Casper theme, generator \"Ghost 6.51\") and self-hosted spreadprivacy.com (DuckDuckGo blog, generator \"Ghost 6.39\").\n\nCONFIRMED byte-for-byte on demo.ghost.io:\n- <meta name=\"generator\" content=\"Ghost 6.51\">\n- <script src=\"https://cdn.jsdelivr.net/ghost/portal@~2.69/umd/portal.min.js\"> with data-ghost=\"https://demo.ghost.io/\", data-api=\"https://demo.ghost.io/ghost/api/content/\", data-key\n- <script src=\"https://cdn.jsdelivr.net/ghost/sodo-search@~1.8/umd/sodo-search.min.js\"> with data-sodo-search\n- Badge exactly: <div class=\"gh-powered-by\"><a href=\"https://ghost.org/\" target=\"_blank\" rel=\"noopener\">Powered by Ghost</a></div>\n- /assets/built/screen.css, /assets/built/casper.js, /public/cards.min.css, /public/member-attribution.min.js, /public/ghost-stats.min.js (tb_site_uuid present)\n- body class=\"home-template ...\", class=\"post-card ...\", gh-head-actions/brand/inner/logo/menu, #/portal/signin, /portal/, /ghost/api/content/\n- Images from storage.ghost.io\n\nCONFIRMED on spreadprivacy.com (self-hosted): generator \"Ghost 6.39\", /assets/built/screen.css + /assets/built/<theme>.css, /public/cards.min.css, infinitescroll-min.js, images under own /content/images/YYYY/MM/. Membership Portal/sodo-search/gh-powered-by badge were absent here — consistent with those being optional add-ons; do not rely on Portal script or badge alone.\n\nPRIMARY DETECTION: generator string \"Ghost X.Y\" plus the cdn.jsdelivr.net/ghost/ script path is an unambiguous combined fingerprint. detectUrlRegex \\.ghost\\.io covers default hosting subdomains and storage.ghost.io image URLs. metaGenerator field holds the exact string observed on demo.ghost.io (\"Ghost 6.51\") but the version varies per site — detection should match /Ghost [0-9.]+/, not the literal version.\n\nRENDER: ssr-static confirmed (full post-card feed and article bodies present in ~50KB server HTML; Portal/search/comments/stats are deferred progressive add-ons in iframes that do not gate content). ANALYTICS: first-party /public/ghost-stats.min.js (Tinybird-backed, POSTs to own /.ghost/analytics/); no third-party analytics domain injected, so analyticsScripts empty. ANTI-BOT: none inherent (both returned complete HTML to a normal UA); individual operators may front with Cloudflare.",
+  "corrections": "Verified every field against live raw HTML from both reference sites; nothing was removed and no hallucinated signature was found — this fingerprint is unusually accurate. All researcher claims confirmed exactly: metaGenerator \"Ghost 6.51\" (demo.ghost.io), both cdnDomains (cdn.jsdelivr.net for portal+sodo-search scripts, storage.ghost.io for Ghost Pro images), the badge HTML/selector/target byte-for-byte, and the portal data-ghost/data-api/data-key + data-sodo-search attributes. Refinements only: (1) rewrote htmlSignatures into a clearer verified list and generalized the generator signature to \"Ghost [0-9.]+\" since the literal version drifts (observed 6.51 and 6.39); (2) added a note in metaGenerator/notes that \"Ghost 6.51\" is the exact string seen on demo.ghost.io but detection must match the version pattern, not the literal; (3) documented that the Portal script and gh-powered-by badge are optional (absent on self-hosted spreadprivacy.com when membership is off) so they must not be sole detectors. verifiedConfidence: high — combined generator + cdn.jsdelivr.net/ghost/ path is definitive."
+}

@@ -1,0 +1,53 @@
+{
+  "platform": "squarespace",
+  "displayName": "Squarespace",
+  "category": "builder",
+  "detectUrlRegex": "\\.squarespace\\.com",
+  "hostingDomains": [
+    ".squarespace.com"
+  ],
+  "cdnDomains": [
+    "images.squarespace-cdn.com",
+    "static1.squarespace.com",
+    "assets.squarespace.com",
+    "definitions.sqspcdn.com",
+    "file.squarespace-cdn.com"
+  ],
+  "metaGenerator": "",
+  "htmlSignatures": [
+    "<!-- This is Squarespace. -->",
+    "<!-- End of Squarespace Headers -->",
+    "Static.SQUARESPACE_CONTEXT = {",
+    "body id=\"collection-<24hexchars>\"",
+    "class contains sqs-block / sqs-block-content / sqs-seven-one",
+    "tweak-* body class names",
+    "squarespace-announcement-bar",
+    "\"templateVersion\":\"7.1\"",
+    "\"templateId\":\"<hex24>\""
+  ],
+  "jsGlobals": [
+    "Static.SQUARESPACE_CONTEXT",
+    "Static"
+  ],
+  "badgePresent": false,
+  "badgeSelector": "",
+  "badgeTargetUrl": "",
+  "badgeHtmlPattern": "",
+  "analyticsScripts": [],
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 3000,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "suggestedPriority": 82,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://nerine-floral.squarespace.com",
+    "https://www.samfresquez.com",
+    "https://www.notcrispyenough.com",
+    "https://www.squarespace.com/showcase"
+  ],
+  "notes": "Verified by curling raw HTML (HTTP 200, Chrome UA) from three live Squarespace 7.1 sites: nerine-floral.squarespace.com (default subdomain), samfresquez.com and notcrispyenough.com (both on CUSTOM domains). All primary signatures reproduced on all three, proving they survive custom-domain hosting.\n\nDETECTION (most reliable first):\n1. `<!-- This is Squarespace. -->` is emitted inside <head> as effectively the first Squarespace-injected bytes, immediately followed by `<!-- <site-slug> -->` (e.g. `<!-- nerine-floral -->`, `<!-- coral-tunny-jcnj -->`). Closed by `<!-- End of Squarespace Headers -->`. This is the single most robust signal and works on custom domains, so match it in the raw HTML rather than trusting the URL. CONFIRMED on all 3 sites.\n2. Inline JS global `Static.SQUARESPACE_CONTEXT = { ... }` (window.Static.SQUARESPACE_CONTEXT). JSON carries `templateId` (24-hex, e.g. 5c5a519771c10ba3470d8101), `templateVersion` (\"7.1\" observed on all inspected), `website`, `collection`, `pageType`, etc. CONFIRMED on all 3.\n3. `<body id=\"collection-<24hex>\">` plus many `tweak-*` classes and `sqs-*` classes (sqs-block, sqs-block-content, sqs-seven-one). `squarespace-announcement-bar` element also present. CONFIRMED on all 3.\n\nMETA GENERATOR: NOT present on any inspected 7.1 site (grep for meta[name=generator] returned nothing). metaGenerator correctly left empty. Do NOT rely on a \"Squarespace\" generator meta tag.\n\nCDN / ASSET HOSTING (only domains actually observed are listed): images.squarespace-cdn.com (uploaded images; resizable via ?format=, request ?format=original for full-res), static1.squarespace.com (versioned-site-css / custom-css / static asset paths), assets.squarespace.com (shared framework CSS/JS bundles under /universal/...), definitions.sqspcdn.com (config/definition JSON), file.squarespace-cdn.com (file downloads, seen on notcrispyenough.com). Numbered static hosts static1..staticN are interchangeable edges but only static1 was observed.\n\nRENDER: Content fully server-rendered in raw HTML (190KB-2.1MB responses with og tags, body copy, image markup), then JS-enhanced. Treat as ssr-static; no headless render needed for basic mirroring, though blog/gallery templates lazy-load images so a scroll pass helps.\n\nANTI-BOT: none. Plain HTTP 200 with standard browser UA on all 3, no Cloudflare/captcha challenge. Squarespace fronts with its own CDN.\n\nBADGE: No persistent \"Made with Squarespace\" badge in DOM of paid/template sites (grep found none). badgePresent=false.\n\nANALYTICS: First-party analytics only; no default third-party GA/GTM domain injected unless owner adds one.\n\ndetectUrlRegex `\\.squarespace\\.com` matches only the default subdomain; the majority of real sites use custom domains, so ALWAYS pair URL detection with the raw-HTML `<!-- This is Squarespace. -->` + SQUARESPACE_CONTEXT check for coverage.",
+  "corrections": "VERIFIED against 3 live sites (nerine-floral.squarespace.com, samfresquez.com [custom domain], notcrispyenough.com [custom domain]) via raw curl. CONFIRMED verbatim: \"<!-- This is Squarespace. -->\", \"<!-- End of Squarespace Headers -->\", \"Static.SQUARESPACE_CONTEXT = {\", body id=\"collection-<24hex>\", tweak-* + sqs-block/sqs-block-content/sqs-seven-one classes, squarespace-announcement-bar, \"templateVersion\":\"7.1\", \"templateId\":\"<24hex>\", and CDN domains images.squarespace-cdn.com / static1.squarespace.com / assets.squarespace.com / definitions.sqspcdn.com. Confirmed metaGenerator is empty (no generator meta tag on any 7.1 site), badgePresent=false (no Made-with badge in DOM), antiBot=none (HTTP 200 direct), and ssr-static (full content in raw HTML).\n\nCHANGES: (1) Removed 3 unconfirmed CDN domains not seen on any inspected site: static.squarespace.com, static3.squarespace.com, and s3media.squarespace.com (s3media is legacy Squarespace-5 infrastructure, unlikely on modern 7.1). (2) Added file.squarespace-cdn.com, which was actually observed (notcrispyenough.com). (3) Removed \"window.Squarespace\" from jsGlobals — it is not present in static HTML and could not be corroborated (kept the two confirmed globals Static.SQUARESPACE_CONTEXT and Static). (4) Fixed one htmlSignature label from \"sqs-layout\" to the actually-observed \"sqs-block-content\" (sqs-block and sqs-seven-one confirmed; sqs-layout not observed on these 7.1 pages). (5) Left detectUrlRegex, priority 82, renderStrategy, antiBot, badge fields, and empty metaGenerator unchanged as all were verified correct. verifiedConfidence=high: every primary signature reproduced on all three sites including two custom domains."
+}

@@ -1,0 +1,52 @@
+{
+  "platform": "elementor",
+  "displayName": "Elementor",
+  "category": "landing",
+  "detectUrlRegex": "\\.elementor\\.cloud",
+  "hostingDomains": [
+    ".elementor.cloud"
+  ],
+  "cdnDomains": [],
+  "metaGenerator": "Elementor 3.31.3; features: additional_custom_breakpoints, e_element_cache; settings: css_print_method-external, google_font-enabled, font_display-auto",
+  "htmlSignatures": [
+    "meta[name=\"generator\"] with content starting \"Elementor \" + version + \"; features:...; settings: css_print_method-...\" — NOT necessarily the first generator tag; WordPress and plugins (e.g. Site Kit) emit their own generator meta, and on optimized sites Elementor's may be the only one. Detection must test EVERY generator meta content, not just querySelector first-match.",
+    "body class elementor-kit-{id} (confirmed elementor-kit-3 and elementor-kit-6)",
+    "body classes elementor-default / elementor-page / elementor-page-{id} / elementor-template-canvas / elementor-template-full-width (both canvas and full-width observed)",
+    "hello-elementor companion theme confirmed via asset path /wp-content/themes/hello-elementor/ (note: the literal body class wp-theme-hello-elementor was NOT present on the front end of brandonli.com even though it runs the Hello theme — the theme asset path is the reliable signal, the body class is not always emitted front-end)",
+    "div.elementor.elementor-{id} with data-elementor-type=\"wp-page\" data-elementor-id=\"{id}\" data-elementor-post-type=\"page\" (EXACT match on brandonli.com)",
+    "attributes data-elementor-type / data-elementor-id / data-elementor-post-type — also type=header|footer with post-type=elementor_library (confirmed header/10107/elementor_library on notarity.com)",
+    "universal element marker: class \"elementor-element elementor-element-{hash}\" with data-element_type=\"widget\"|\"column\"|\"section\"|\"container\" (present on both legacy section-based and new Flexbox-container sites)",
+    "Flexbox Container element: class \"elementor-element elementor-element-{hash} e-flex e-con-boxed e-con e-parent\" data-element_type=\"container\" (EXACT match on notarity.com; ONLY appears on sites using Elementor 3.6+ Flexbox containers — legacy sites like brandonli.com use elementor-section/elementor-column instead and have zero .e-con elements)",
+    "asset path /wp-content/plugins/elementor/assets/css/frontend.min.css (frontend-lite.min.css is the e_optimized_css_loading variant)",
+    "asset paths /wp-content/plugins/elementor/assets/js/webpack.runtime.min.js + frontend.min.js (+ frontend-modules.min.js)",
+    "asset path /wp-content/plugins/elementor/assets/lib/eicons/css/elementor-icons.min.css",
+    "per-page compiled CSS /wp-content/uploads/elementor/css/post-{id}.css (or /wp-content/uploads/sites/{n}/elementor/css/post-{id}.css on multisite — confirmed /wp-content/uploads/sites/5/elementor/css/post-3.css)",
+    "Elementor Pro assets under /wp-content/plugins/elementor-pro/assets/ (confirmed on brandonli.com)"
+  ],
+  "jsGlobals": [
+    "window.elementorFrontendConfig",
+    "window.ElementorProFrontendConfig",
+    "window.elementorFrontend",
+    "window.elementorModules"
+  ],
+  "analyticsScripts": [],
+  "badgePresent": false,
+  "badgeSelector": "",
+  "badgeTargetUrl": "",
+  "badgeHtmlPattern": "",
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "suggestedPriority": 42,
+  "confidence": "high",
+  "verifiedConfidence": "high",
+  "referenceUrls": [
+    "https://brandonli.com/",
+    "https://notarity.com/en/",
+    "https://distantjob.com/"
+  ],
+  "notes": "Elementor is a WordPress page-builder PLUGIN, not a hosting platform; sites run on the owner's own domain and serve ALL Elementor assets same-origin under /wp-content/plugins/elementor(-pro)/ and per-page CSS under /wp-content/uploads/elementor/. There is no front-end asset CDN, so cdnDomains is empty (mirror by rewriting the site's own /wp-content/ paths). Only default hosting subdomain is *.elementor.cloud (Elementor Cloud/Hosting product) which still serves WordPress assets same-origin — NOT independently fetched this session, medium confidence, retained from docs.\\n\\nDETECTION (verified priority): (1) Scan EVERY meta[name=generator] content for /^Elementor\\\\s+\\\\d+\\\\.\\\\d+/ — this is the single most reliable marker; do NOT assume it is the first generator tag. (2) Fallback when generator is stripped by optimization plugins: body-class /\\\\belementor-kit-\\\\d+\\\\b/ together with /\\\\belementor-page\\\\b/, plus root div class 'elementor elementor-{id}' with data-elementor-type/data-elementor-id/data-elementor-post-type. (3) Asset presence of /wp-content/plugins/elementor/assets/. (4) Universal element marker 'elementor-element elementor-element-{hash}' with data-element_type. Flexbox-container classes (e-con/e-parent) only appear on 3.6+ container-based sites, so treat them as corroborating not required.\\n\\nRENDER: fully server-rendered PHP/WordPress; full DOM present in raw HTML, so ssr-static, no hydration wait. Pro widgets bootstrap from inline window.elementorFrontendConfig/ElementorProFrontendConfig but core content is JS-independent.\\n\\nBADGE/ANALYTICS: verified NO 'Made with Elementor' badge and NO default analytics on the front end. Third-party hosts seen on samples (www.googletagmanager.com via Site Kit, cdn.usefathom.com) are site-owner additions.\\n\\nANTI-BOT: typically directly fetchable (brandonli.com and notarity.com returned HTTP 200). Individual sites may sit behind Cloudflare/WAF and WP Rocket caching, but this is per-site not a platform default.\\n\\nOBSERVED GENERATOR STRINGS (both confirmed byte-for-byte live): 'Elementor 3.31.3; features: additional_custom_breakpoints, e_element_cache; settings: css_print_method-external, google_font-enabled, font_display-auto' (brandonli.com, where it was the 3rd of 3 generator tags after WordPress 6.7.5 and Site Kit by Google 1.140.0); 'Elementor 3.21.6; features: e_optimized_assets_loading, e_optimized_css_loading, e_font_icon_svg, additional_custom_breakpoints, e_lazyload; settings: css_print_method-external, google_font-enabled, font_display-swap' (notarity.com, where it was the ONLY generator tag, WordPress's own having been stripped).\"",
+  "corrections": "Verified live against two reference sites via headless Chrome (raw DOM + asset hosts), since WebFetch's markdown conversion strips the head/scripts.\n\nCONFIRMED (byte-for-byte or exact-attribute matches):\n- metaGenerator: BOTH observed generator strings (3.31.3 on brandonli.com, 3.21.6 on notarity.com) match the researcher output exactly.\n- Root div: div.elementor.elementor-7 data-elementor-type=\"wp-page\" data-elementor-id=\"7\" data-elementor-post-type=\"page\" — exact. header variant confirmed on notarity.com: type=\"header\", post-type=\"elementor_library\".\n- Flexbox container class 'elementor-element elementor-element-{hash} e-flex e-con-boxed e-con e-parent' data-element_type=\"container\" — exact on notarity.com.\n- Body classes elementor-kit-{id}/elementor-default/elementor-page/elementor-page-{id} and both -template-canvas and -template-full-width variants.\n- Asset paths (frontend.min.css, eicons elementor-icons.min.css, webpack.runtime.min.js, frontend.min.js, elementor-pro/assets/, multisite /uploads/sites/5/elementor/css/post-3.css) — all present.\n- All four jsGlobals (elementorFrontendConfig, ElementorProFrontendConfig, elementorFrontend, elementorModules) resolve to objects.\n- cdnDomains=[] CONFIRMED: every Elementor asset is same-origin; only third-party hosts were site-owner analytics (googletagmanager, cdn.usefathom.com).\n- badgePresent=false CONFIRMED: no 'Made with Elementor' badge in body HTML on either site. analyticsScripts=[] correct as platform default. ssr-static/no-hydration confirmed (content in raw HTML).\n\nCORRECTIONS / CLARIFICATIONS (no invented signatures found; refinements to detection logic):\n1. The Elementor generator meta is NOT reliably the first generator tag — on brandonli.com it was the 3rd (after 'WordPress 6.7.5' and 'Site Kit by Google 1.140.0'). Detection must iterate ALL generator metas, not querySelector-first. Added this to htmlSignatures[0] and notes.\n2. body class 'wp-theme-hello-elementor' was NOT present on the front end of brandonli.com even though it runs the Hello theme; the reliable signal is the /wp-content/themes/hello-elementor/ asset path. Downgraded that signature's wording from a body class to a theme-asset-path signal.\n3. The e-con/e-parent Flexbox-container signature only appears on Elementor 3.6+ container-based sites; brandonli.com is legacy section/column-based (elementor-section/elementor-column, zero .e-con elements). Reworded so it's clearly corroborating-not-required and added the universal 'elementor-element elementor-element-{hash}' + data-element_type marker as the robust cross-version signature.\n4. Flagged that *.elementor.cloud hostingDomain was retained from docs but NOT independently fetched this session (medium confidence).\n\nAll other fields retained as-is. verifiedConfidence: high."
+}

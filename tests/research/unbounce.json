@@ -1,0 +1,54 @@
+{
+  "platform": "unbounce",
+  "displayName": "Unbounce",
+  "category": "landing",
+  "detectUrlRegex": "\\.(?:unbouncepages|ubpages)\\.com",
+  "hostingDomains": [
+    "unbouncepages.com",
+    "ubpages.com"
+  ],
+  "cdnDomains": [
+    "builder-assets.unbounce.com",
+    "d9hhrg4mnvzow.cloudfront.net",
+    "assets.ubembed.com",
+    "ubembed.com",
+    "assets.unbounce.com"
+  ],
+  "metaGenerator": "",
+  "renderStrategy": "ssr-static",
+  "needsHydrationCheck": false,
+  "hydrationTimeoutMs": 0,
+  "scrollStrategy": "standard",
+  "antiBot": "none",
+  "badgePresent": true,
+  "badgeSelector": "#lp-pom-root a[href*=\"unbounce.com\"]",
+  "badgeHtmlPattern": "<a href=\"https://unbounce.com\" ...>Made with Unbounce</a> (branded footer on free/trial pages; exact markup UNVERIFIED)",
+  "badgeTargetUrl": "https://unbounce.com",
+  "htmlSignatures": [
+    "div#lp-pom-root with class \"lp-element lp-pom-root\" (absolute-positioned root container present on every Classic-Builder page) — CONFIRMED on 3 independent real pages",
+    ".lp-pom-block / .lp-pom-button / .lp-pom-text / .lp-pom-image — CONFIRMED",
+    ".lp-pom-form / .lp-form-label — CONFIRMED",
+    "data-page-type attribute (observed values: main, main_desktop, main_mobile) — CONFIRMED",
+    "ub:clientsidedynamic, data-vimeo-id, data-params — present in the Unbounce page.js bundle (concept-confirmed; not on every static export)"
+  ],
+  "jsGlobals": [
+    "window.ub",
+    "window.ub.page",
+    "window.ub.page.variantId",
+    "window.ub.form",
+    "window.ub.hooks"
+  ],
+  "analyticsScripts": [],
+  "referenceUrls": [
+    "https://raw.githubusercontent.com/JovenneNaldreySapuay/landing-page/master/index.html",
+    "https://raw.githubusercontent.com/ToddLim/VoiceText-Communications/master/voicetext_unbouncepage.html",
+    "https://gist.github.com/lkuich/723cae307d8832406b222a410719b696",
+    "https://urlscan.io/result/33425327-eb54-4eb0-af72-c0c8f5251217",
+    "https://community.unbounce.com/uncategorized-1/images-on-cloudfront-tagged-as-malicious-content-by-content-filter-4444"
+  ],
+  "confidence": "high",
+  "suggestedPriority": 82,
+  "verifiedConfidence": "high",
+  "notes": "Detection is reliable via multiple INDEPENDENTLY CONFIRMED signals, verified across 3 real Unbounce Classic-Builder pages, a urlscan.io capture, and Unbounce's own community docs.\\n\\nPRIMARY (confirmed) signals: (1) root container <div id=\\\"lp-pom-root\\\" class=\\\"lp-element lp-pom-root\\\"> present on every Classic-Builder page, with all child blocks using absolute-positioned lp-pom-* classes; (2) inline window.ub global (window.ub.page{.id,.variantId,.usedAs,.name,.url}, window.ub.form, window.ub.hooks); (3) scripts served from builder-assets.unbounce.com (stable host: /modules/lp-block, /lp-image, /lp-form, /published/*.z.js). Any ONE of these plus a cloudfront/ubembed asset host is conclusive and works on CUSTOM domains.\\n\\nCORRECTION — metaGenerator: the researcher listed <meta name=\\\"generator\\\" content=\\\"Unbounce\\\"> as a PRIMARY signal, but it was NOT present on any of the 3 real full-HTML pages inspected. Removed (set empty). Do NOT rely on generator meta; use lp-pom-root + window.ub + builder-assets/ubembed instead.\\n\\nHOSTING: default free/trial pages live at <account>.unbouncepages.com; custom root domains use *.ubpages.com; most production pages run on the customer's own CNAME'd domain — so the URL regex catches only default-hosted pages, rely on HTML signatures for custom domains.\\n\\nASSETS/CDN: images/CSS/JS are served from Amazon CloudFront AND builder-assets.unbounce.com. The cloudfront SUBDOMAIN ROTATES per account/deploy — observed across sources: d9hhrg4mnvzow (confirmed by Unbounce docs + 3 sources), d2xxq4ijfwetlm, doug1izaerwt3, d34qb8suadcc4g. The researcher's other 3 specific subdomains (d226aj4ao1t61x, d3pkntwtp2ukl5, d1txbb0uvyzsb0) were NEVER observed — removed. MATCH on the *.cloudfront.net pattern plus builder-assets.unbounce.com rather than a fixed host. Popups/sticky-bars/convertables load from <hash>.js.ubembed.com and assets.ubembed.com (confirmed).\\n\\nRENDER: ssr-static — confirmed. Full positioned lp-pom-* content is present in the raw server HTML / exports; no client hydration needed.\\n\\nBADGE: free/trial pages carry an Unbounce-branded footer linking to unbounce.com (branding-on-free-plan confirmed via Unbounce pricing docs), but the EXACT markup/selector could not be corroborated on the pages inspected — treat badgeHtmlPattern as approximate. Paid plans and HTML-export tools strip it, so badge absence does NOT rule out Unbounce; fall back to lp-pom-root + window.ub.\\n\\nANTI-BOT: Unbounce's own serving platform imposes none. Some customers front their custom domain with a WAF/Cloudflare, so retain per-site 403/503 handling despite the platform default of 'none'.",
+  "corrections": "Verified against 3 independent real Unbounce pages (2 GitHub HTML exports, 1 gist page.js bundle), a urlscan.io capture, and Unbounce's own community docs. CONFIRMED: id=\\\"lp-pom-root\\\" root container (corrected its class from \\\"lp-pom-root\\\" to the actual \\\"lp-element lp-pom-root\\\"); lp-pom-block/button/text/image/form + lp-form-label classes; window.ub.page/.variantId/.form/.hooks globals; data-page-type / ub:clientsidedynamic / data-vimeo-id / data-params attributes; unbouncepages.com default hosting; ssr-static render. CHANGED cdnDomains: added the stable, heavily-used host builder-assets.unbounce.com (was missing) and assets.unbounce.com/assets.ubembed.com; kept d9hhrg4mnvzow.cloudfront.net (confirmed by Unbounce docs) but REMOVED the 3 unconfirmed cloudfront subdomains (d226aj4ao1t61x, d3pkntwtp2ukl5, d1txbb0uvyzsb0) that were never observed — the subdomain rotates, so matching must use the *.cloudfront.net pattern + builder-assets.unbounce.com. REMOVED metaGenerator \\\"Unbounce\\\": listed as a primary signal but NOT found in any of the 3 real full-HTML pages, so set to empty and de-emphasized. DOWNGRADED the badge: the branded footer is real on free/trial pages (confirmed via Unbounce pricing docs) but the literal <a>Made with Unbounce</a> markup and selector are UNVERIFIED, so badgeHtmlPattern is marked approximate. Replaced unreachable/no-longer-Unbounce referenceUrls (get.caroo.com no longer shows Unbounce markers; explore.gcu.edu HTML was not extractable) with the 5 sources actually inspected. Kept category=landing, ssr-static, antiBot=none, priority=82. verifiedConfidence=high because the surviving signals (lp-pom-root + window.ub + builder-assets.unbounce.com + cloudfront/ubembed) are robust and independently corroborated, even after removing the unconfirmed generator meta and CDN guesses."
+}
