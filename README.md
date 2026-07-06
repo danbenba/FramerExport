@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/Puppeteer-40B5A4?style=for-the-badge&logo=puppeteer&logoColor=white" alt="Puppeteer" />
-  <img src="https://img.shields.io/badge/version-4.0.1-blue?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/version-5.0.0--beta.1-blue?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License" />
 </p>
 
@@ -10,11 +10,11 @@
   <br />
   F-EXPORT
   <br />
-  <sub>Framer &middot; Webflow &middot; Wix Exporter</sub>
+  <sub>Multi-Platform Website Exporter &middot; 25+ platforms</sub>
 </h1>
 
 <p align="center">
-  <b>Export any Framer, Webflow, or Wix site into a fully working local mirror.</b><br/>
+  <b>Export 25+ website platforms into a fully working local mirror.</b><br/>
   All assets, animations, fonts, videos, and scripts — downloaded, rewritten, and pretty-printed.<br/>
   Badges and tracking removed. Ready to serve.
 </p>
@@ -35,7 +35,9 @@
 
 | Feature | Description |
 |---------|-------------|
-| **Multi-Platform** | Auto-detects Framer, Webflow, and Wix sites from the URL |
+| **Multi-Platform** | Auto-detects 25+ platforms (Framer, Webflow, Wix, Shopify, Notion, WordPress, Squarespace, Ghost, …) |
+| **One File Per Platform** | Each exporter is a self-contained handler — adding one never touches the others |
+| **Anti-Bot Aware** | Cloudflare / captcha challenges fail loudly with a clear message; never an empty export |
 | **Full Mirror** | Downloads HTML, CSS, JS, images, fonts, and videos |
 | **Badge Removal** | Strips "Made in Webflow", Wix ads banner, Framer badge |
 | **URL Rewriting** | All CDN URLs rewritten to local relative paths |
@@ -44,7 +46,7 @@
 | **SEO Optimization** | Injects canonical, OG tags, and robots meta if missing |
 | **Interactive Setup** | Arrow-key wizard with platform detection and progress animation |
 | **Cooking Animation** | Shimmer gradient progress indicator during export |
-| **Local Server** | Built-in serve.cjs with SPA fallback and CORS headers |
+| **Local Server** | Built-in serve.js with SPA fallback and CORS headers |
 | **Smart Naming** | Output folder auto-named from URL (e.g. `webflow-mysite/`) |
 
 ## &#x1F680; Quick Start
@@ -64,7 +66,7 @@ npm run dev -- https://mysite.webflow.io
 npm run dev -- https://user.wixsite.com/my-site
 
 # Serve the exported site
-cd webflow-mysite && node serve.cjs
+cd webflow-mysite && node serve.js
 ```
 
 ## &#x1F310; Platforms
@@ -138,7 +140,7 @@ npm run format    # Format with Prettier
 ```
 webflow-mysite/
 ├── index.html           # Main page (URLs rewritten, badges stripped)
-├── serve.cjs            # Local HTTP server with SPA fallback
+├── serve.js            # Local HTTP server with SPA fallback
 ├── styles/              # CSS files
 ├── scripts/
 │   ├── vendor/          # Platform JS modules (pretty-printed)
@@ -202,7 +204,7 @@ src/
 7. **Integrity Strip** - SHA integrity hashes and CORS attributes removed for local serving
 8. **URL Rewrite** - All CDN URLs in HTML, CSS, and JS rewritten to local paths
 9. **Pretty-Print** - Minified JS files reformatted with Prettier for readability
-10. **Output** - Clean `index.html` + `serve.cjs` written to output directory
+10. **Output** - Clean `index.html` + `serve.js` written to output directory
 
 ## &#x1F91D; Contributing
 
