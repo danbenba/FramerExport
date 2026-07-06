@@ -2,6 +2,7 @@ import puppeteer, { type Page } from 'puppeteer';
 import { CFG } from '../config/index.js';
 import { log, success, info } from '../logger/index.js';
 import { detectByDom } from '../platforms/index.js';
+import { detectAntiBotPage, AntiBotError } from './anti-bot.js';
 import type { ExporterContext } from '../types.js';
 
 export async function launchAndCapture(exporter: ExporterContext): Promise<void> {
@@ -75,17 +76,34 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     exporter.platform = domDetected;
   }
 
+  // Fail fast and loudly if a bot-protection challenge is blocking the page.
+  const antiBot = await detectAntiBotPage(exporter.page);
+  if (antiBot) {
+    throw new AntiBotError(antiBot, exporter.platform.displayName, exporter.siteUrl);
+  }
+
+  if (exporter.platform.preCapture) {
+    try {
+      exporter.cooking?.update('Preparing ' + exporter.platform.displayName + ' page...');
+      await exporter.platform.preCapture(exporter.page);
+      log('preCapture hook completed');
+    } catch (e) {
+      log('preCapture hook error (continuing): ' + (e as Error).message);
+    }
+  }
+
   exporter.cooking?.update('Waiting for ' + exporter.platform.displayName + ' hydration...');
 
   if (exporter.platform.needsHydrationCheck) {
-    log('Checking for #main element hydration...');
+    const sel: string = exporter.platform.hydrationSelector || '#main';
+    log('Checking for ' + sel + ' element hydration...');
     log('Hydration timeout: ' + exporter.platform.hydrationTimeout + 'ms');
     const timeout = exporter.platform.hydrationTimeout;
     await exporter.page.evaluate(`
       new Promise(function(r) {
         var start = Date.now();
         var tick = function() {
-          var m = document.getElementById('main') || document.body;
+          var m = document.querySelector(${JSON.stringify(sel)}) || document.body;
           if (m && m.children.length > 0) setTimeout(r, 2000);
           else if (Date.now() - start > ${timeout}) r();
           else setTimeout(tick, 200);
@@ -100,30 +118,41 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     success(exporter.platform.displayName + ' page rendered');
   }
 
-  exporter.cooking?.update('Scrolling page...');
-  log('Starting full-page scroll (step: ' + CFG.scrollStep + 'px, delay: ' + CFG.scrollDelay + 'ms)');
+  const scrollStrategy = exporter.platform.scrollStrategy || 'standard';
+  if (scrollStrategy === 'none') {
+    log('Scroll skipped (scrollStrategy: none)');
+  } else {
+    exporter.cooking?.update('Scrolling page...');
+    log('Starting full-page scroll (step: ' + CFG.scrollStep + 'px, delay: ' + CFG.scrollDelay + 'ms)');
 
-  const scrollStep = CFG.scrollStep;
-  const scrollDelay = CFG.scrollDelay;
+    const scrollStep = CFG.scrollStep;
+    const scrollDelay = CFG.scrollDelay;
 
-  const pageHeight: number = await exporter.page.evaluate(`
-    Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
-  `) as number;
-  log('Page height: ' + pageHeight + 'px (' + Math.ceil(pageHeight / scrollStep) + ' scroll steps)');
+    const pageHeight: number = (await exporter.page.evaluate(`
+      Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
+    `)) as number;
+    log('Page height: ' + pageHeight + 'px (' + Math.ceil(pageHeight / scrollStep) + ' scroll steps)');
 
-  await exporter.page.evaluate(`
-    new Promise(function(r) {
-      var y = 0;
-      var max = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-      var step = function() {
-        y += ${scrollStep};
-        window.scrollTo({ top: y, behavior: 'instant' });
-        y < max + 500 ? setTimeout(step, ${scrollDelay}) : (window.scrollTo(0, 0), r());
-      };
-      step();
-    })
-  `);
-  success('Full-page scroll complete');
+    const passes = scrollStrategy === 'infinite' ? 3 : 1;
+    for (let pass = 0; pass < passes; pass++) {
+      await exporter.page.evaluate(`
+        new Promise(function(r) {
+          var y = 0;
+          var max = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+          var step = function() {
+            y += ${scrollStep};
+            window.scrollTo({ top: y, behavior: 'instant' });
+            y < max + 500 ? setTimeout(step, ${scrollDelay}) : (window.scrollTo(0, 0), r());
+          };
+          step();
+        })
+      `);
+      if (scrollStrategy === 'infinite' && pass < passes - 1) {
+        await new Promise<void>((r) => setTimeout(r, 1000));
+      }
+    }
+    success('Full-page scroll complete');
+  }
 
   exporter.cooking?.update('Waiting for lazy resources...');
   log('Waiting 2s for lazy-loaded resources...');
@@ -135,6 +164,21 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     success('Network idle confirmed');
   } catch {
     log('Network idle timeout reached (continuing anyway)');
+  }
+
+  // SPA/React platforms have an empty SSR body — use the rendered DOM instead.
+  if (exporter.platform.captureRenderedDom) {
+    try {
+      const rendered: string = await exporter.page.evaluate(
+        () => '<!DOCTYPE html>\n' + document.documentElement.outerHTML
+      );
+      if (rendered && rendered.length > 200) {
+        exporter.ssrHTML = rendered;
+        log('Captured rendered DOM as HTML source (' + (rendered.length / 1024).toFixed(1) + ' KB)');
+      }
+    } catch (e) {
+      log('Rendered DOM capture failed (keeping SSR HTML): ' + (e as Error).message);
+    }
   }
 
   const totalCaptured: number = exporter.assets.buffers.size;
