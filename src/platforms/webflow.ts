@@ -33,10 +33,14 @@ export const webflow: PlatformHandler = {
     /<style>[^<]*\.w-webflow-badge[^<]*<\/style>/g,
     /Powered by <a[^>]*href="[^"]*webflow\.com"[^>]*>[^<]*<\/a>/g,
     /<!-- This site was created in Webflow\.[^>]*-->/g,
-    /<html([^>]*) data-wf-domain="[^"]*"/g,
-    /<html([^>]*) data-wf-page="[^"]*"/g,
-    /<html([^>]*) data-wf-site="[^"]*"/g,
-    /<html([^>]*) data-wf-status="[^"]*"/g,
+    // NOTE: stripPatterns is applied as replace(pattern, '') — capture groups
+    // are never reinserted. Any pattern containing "<html" therefore deletes
+    // the whole opening tag, not just the attribute. Match the attribute only.
+    /\sdata-wf-domain="[^"]*"/g,
+    /\sdata-wf-status="[^"]*"/g,
+    // data-wf-page and data-wf-site are deliberately NOT stripped: IX2 reads
+    // them off the <html> element to resolve which interactions to run.
+    // Removing them silently kills every page-load animation.
     /<meta[^>]*content="Webflow"[^>]*>/g,
   ],
 
