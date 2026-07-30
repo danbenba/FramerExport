@@ -58,6 +58,19 @@ export async function detectAntiBotPage(page: Page): Promise<AntiBotType | null>
     }
 
     const flagged: string = await page.evaluate(() => {
+      const body = document.body ? document.body.innerText || '' : '';
+      const outer = document.documentElement.outerHTML || '';
+
+      // A challenge page has no content — it is a waiting screen. If the real
+      // page is already here, nothing below indicates a block: those are just
+      // embedded widgets.
+      //
+      // Without this guard, any site embedding Cloudflare Turnstile or
+      // reCAPTCHA in a contact form is reported as "protected by a browser
+      // challenge" and the export aborts, even though the page rendered fully.
+      const HAS_REAL_CONTENT = body.trim().length >= 500;
+      if (HAS_REAL_CONTENT) return '';
+
       if (document.querySelector('iframe[src*="challenges.cloudflare.com"]')) return 'cloudflare';
       if (
         document.querySelector(
@@ -66,8 +79,6 @@ export async function detectAntiBotPage(page: Page): Promise<AntiBotType | null>
       ) {
         return 'captcha';
       }
-      const body = document.body ? document.body.innerText || '' : '';
-      const outer = document.documentElement.outerHTML || '';
       if (body.trim().length < 120 && /cf-chl|cloudflare|cf-browser-verification/i.test(outer)) {
         return 'cloudflare';
       }
