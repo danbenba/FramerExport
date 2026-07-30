@@ -11,6 +11,12 @@ export interface Config {
   concurrency: number;
   retries: number;
   dlTimeout: number;
+  /**
+   * Minimum characters of rendered body text for a page to count as "real
+   * content" rather than a challenge/waiting screen. Above it, embedded
+   * Turnstile/reCAPTCHA widgets are not treated as anti-bot blocks.
+   */
+  antiBotMinContentChars: number;
   sharedStripDomains: string[];
 }
 

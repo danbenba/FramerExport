@@ -8,6 +8,7 @@ export const CFG: Config = {
   concurrency: 12,
   retries: 3,
   dlTimeout: 30000,
+  antiBotMinContentChars: 500,
   sharedStripDomains: [
     'sentry.io', 'www.googletagmanager.com', 'connect.facebook.net',
     'stats.g.doubleclick.net',

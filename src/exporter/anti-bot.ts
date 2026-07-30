@@ -1,4 +1,5 @@
 import type { Page } from 'puppeteer';
+import { CFG } from '../config/index.js';
 import { ui } from '../cli/theme.js';
 
 export type AntiBotType = 'cloudflare' | 'captcha' | 'waf';
@@ -57,9 +58,8 @@ export async function detectAntiBotPage(page: Page): Promise<AntiBotType | null>
       return 'cloudflare';
     }
 
-    const flagged: string = await page.evaluate(() => {
+    const flagged: string = await page.evaluate((minContentChars: number) => {
       const body = document.body ? document.body.innerText || '' : '';
-      const outer = document.documentElement.outerHTML || '';
 
       // A challenge page has no content — it is a waiting screen. If the real
       // page is already here, nothing below indicates a block: those are just
@@ -68,8 +68,9 @@ export async function detectAntiBotPage(page: Page): Promise<AntiBotType | null>
       // Without this guard, any site embedding Cloudflare Turnstile or
       // reCAPTCHA in a contact form is reported as "protected by a browser
       // challenge" and the export aborts, even though the page rendered fully.
-      const HAS_REAL_CONTENT = body.trim().length >= 500;
-      if (HAS_REAL_CONTENT) return '';
+      if (body.trim().length >= minContentChars) return '';
+
+      const outer = document.documentElement.outerHTML || '';
 
       if (document.querySelector('iframe[src*="challenges.cloudflare.com"]')) return 'cloudflare';
       if (
@@ -83,7 +84,7 @@ export async function detectAntiBotPage(page: Page): Promise<AntiBotType | null>
         return 'cloudflare';
       }
       return '';
-    });
+    }, CFG.antiBotMinContentChars);
 
     return (flagged as AntiBotType) || null;
   } catch {
