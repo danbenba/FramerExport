@@ -62,11 +62,15 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
 
   exporter.cooking?.update('Navigating to site...');
   info('Navigating to ' + exporter.siteUrl);
+  // Sites with several streaming <video> elements never reach networkidle2 (it
+  // requires <=2 in-flight connections), so navigation used to hard-fail with a
+  // timeout. The settle steps below — hydration wait, scroll, and an explicit
+  // waitForNetworkIdle guarded by try/catch — already handle quiescence.
   await exporter.page.goto(exporter.siteUrl, {
-    waitUntil: 'networkidle2',
+    waitUntil: 'domcontentloaded',
     timeout: CFG.timeout,
   });
-  success('Page loaded (networkidle2)');
+  success('Page loaded (domcontentloaded)');
   log('Intercepted ' + intercepted + ' resources, blocked ' + blocked + ' tracking requests');
 
   log('Checking DOM-based platform detection...');
