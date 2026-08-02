@@ -45,8 +45,11 @@ const server = http.createServer((req, res) => {
   const serveFile = (pathToFile) => {
     fs.readFile(pathToFile, (err, data) => {
       if (err) {
-        // SPA Fallback: if it's not a file, serve index.html
         if (url !== '/index.html' && !path.extname(url)) {
+          // Route paths map to their exported sub-page, then fall back to the SPA shell.
+          const slug = url.replace(/^\\/+|\\/+$/g, '').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
+          const subpage = path.join(ROOT, 'subpages', slug + '.html');
+          if (slug && fs.existsSync(subpage)) return serveFile(subpage);
           return serveFile(path.join(ROOT, 'index.html'));
         }
         res.writeHead(404);

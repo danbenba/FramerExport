@@ -24,4 +24,6 @@ export interface ExporterContext {
   prettyPrint?: boolean;
   platform: PlatformHandler;
   cooking?: CookingSpinner;
+  /** Crawled sub-page URL -> filename inside subpages/. */
+  subpages: Map<string, string>;
 }

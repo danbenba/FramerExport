@@ -126,6 +126,79 @@ function stripSrcsetCdnUrls(html: string): string {
   return html;
 }
 
+/** Map crawled sub-page URLs to their exported filenames, keyed by pathname. */
+function subpageRoutes(exporter: ExporterContext): Map<string, string> {
+  const routes = new Map<string, string>();
+  for (const [url, filename] of exporter.subpages) {
+    try {
+      routes.set(new URL(url).pathname.replace(/\/+$/, ''), filename);
+    } catch {}
+  }
+  return routes;
+}
+
+/** Point internal links at the exported HTML files instead of live routes. */
+function rewriteInternalLinks(
+  html: string,
+  exporter: ExporterContext,
+  routes: Map<string, string>,
+  fromSubpages: boolean
+): string {
+  if (routes.size === 0) return html;
+
+  return html.replace(/href="([^"]+)"/g, (match: string, href: string) => {
+    if (/^(javascript:|mailto:|tel:|#|data:)/i.test(href)) return match;
+    let pathname: string;
+    try {
+      pathname = new URL(href, exporter.siteUrl).pathname.replace(/\/+$/, '');
+    } catch {
+      return match;
+    }
+    const filename = routes.get(pathname);
+    if (!filename) return match;
+    return `href="${fromSubpages ? filename : 'subpages/' + filename}"`;
+  });
+}
+
+async function buildSubpages(exporter: ExporterContext): Promise<void> {
+  if (exporter.subpages.size === 0) return;
+
+  const routes = subpageRoutes(exporter);
+  const rootPath: string = new URL(exporter.siteUrl).pathname.replace(/\/+$/, '') || '/';
+  let built = 0;
+
+  for (const filename of exporter.subpages.values()) {
+    const filePath: string = path.join(exporter.outDir, 'subpages', filename);
+    try {
+      let html: string = await fs.readFile(filePath, 'utf-8');
+      html = stripIntegrityAndCors(html);
+      for (const sel of exporter.platform.stripSelectors) html = stripBySelector(html, sel);
+      for (const pattern of exporter.platform.stripPatterns) {
+        html = html.replace(new RegExp(pattern.source, pattern.flags), '');
+      }
+      for (const pattern of exporter.platform.stripScripts || []) {
+        html = html.replace(new RegExp(pattern.source, pattern.flags), '');
+      }
+      html = exporter.assets.rewrite(html, 'subpages');
+      for (const { from, to } of exporter.platform.rewriteUrlPatterns || []) {
+        html = html.replace(new RegExp(from.source, from.flags), to);
+      }
+      html = stripSrcsetCdnUrls(html);
+      html = rewriteInternalLinks(html, exporter, routes, true);
+      html = html.replace(
+        new RegExp(`href="${escapeRegex(rootPath === '/' ? '/' : rootPath)}"`, 'g'),
+        'href="../index.html"'
+      );
+      await fs.writeFile(filePath, html, 'utf-8');
+      built++;
+    } catch (e) {
+      warn('Sub-page post-processing skipped: ' + filename + ' - ' + (e as Error).message);
+    }
+  }
+
+  success('Sub-pages linked to local assets: ' + built + '/' + exporter.subpages.size);
+}
+
 export async function buildOutput(exporter: ExporterContext): Promise<void> {
   exporter.cooking?.update('Stripping platform badges...');
   log('Starting HTML post-processing...');
@@ -207,7 +280,10 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   html = stripSrcsetCdnUrls(html);
   log('Cleaned remaining CDN URLs from srcset attributes');
 
+  html = rewriteInternalLinks(html, exporter, subpageRoutes(exporter), false);
+
   await rewriteDownloadedFiles(exporter);
+  await buildSubpages(exporter);
   success('All URLs rewritten to local paths');
 
   exporter.cooking?.update('Pretty-printing JS files...');
