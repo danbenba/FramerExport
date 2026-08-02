@@ -88,6 +88,8 @@ export interface PlatformHandler {
 
   // ── assets ────────────────────────────────────────────────────────────────
   mapAssetDir(host: string, pathname: string, ext: string): string | null;
+  /** Asset URLs that must never be mirrored (editor chrome, beacons). */
+  skipAssetUrls?: RegExp[];
   /** Extra string/regex URL rewrites applied to HTML and downloaded text files. */
   rewriteUrlPatterns?: Array<{ from: RegExp; to: string }>;
 

@@ -65,7 +65,10 @@ export class AssetMap {
     const sorted = [...this.entries.entries()].sort((a, b) => b[0].length - a[0].length);
     let out: string = text;
     for (const [url, { localPath }] of sorted) {
-      const rel: string = fromDir ? path.posix.relative(fromDir, localPath) : localPath;
+      let rel: string = fromDir ? path.posix.relative(fromDir, localPath) : localPath;
+      // A same-directory path must stay explicitly relative, or JS dynamic
+      // imports treat it as a bare module specifier and fail to resolve.
+      if (fromDir && !rel.startsWith('.')) rel = './' + rel;
       out = out.split(url).join(rel);
       if (url.includes('&')) {
         out = out.split(url.replace(/&/g, '&amp;')).join(rel);

@@ -51,6 +51,11 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
       return;
     }
 
+    if (exporter.platform.skipAssetUrls?.some((re) => re.test(url))) {
+      blocked++;
+      return;
+    }
+
     exporter.assets.localPathFor(url, exporter.platform);
     try {
       exporter.assets.buffers.set(url, await res.buffer());

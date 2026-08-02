@@ -31,11 +31,15 @@ export const framer: PlatformHandler = {
 
   stripPatterns: [
     /<div id="__framer-badge-container"[^>]*><\/div>/g,
-    /<script>try\{if\(localStorage\.get\("__framer_force_showing_editorbar_since"\)\)[^<]*<\/script>/g,
+    /<script>try\{if\(localStorage\.getItem\("__framer_force_showing_editorbar_since"\)\)[^<]*<\/script>/g,
   ],
 
   hydrationTimeout: 10000,
   needsHydrationCheck: true,
+
+  // The editor bar builds its iframe URL from import.meta.url, so a mirrored
+  // copy points at the export's own script directory and 404s in a loop.
+  skipAssetUrls: [/\/init\.mjs(\?|$)/, /\/editorbar\.[^/]*\.mjs/, /\/EditButton-[^/]*\.mjs/],
 
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('framerusercontent.com')) {
