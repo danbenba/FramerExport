@@ -126,6 +126,13 @@ function stripSrcsetCdnUrls(html: string): string {
   return html;
 }
 
+function applyRewritePatterns(text: string, exporter: ExporterContext): string {
+  for (const { from, to } of exporter.platform.rewritePatterns || []) {
+    text = text.replace(new RegExp(from.source, from.flags), to);
+  }
+  return text;
+}
+
 /** Map crawled sub-page URLs to their exported filenames, keyed by pathname. */
 function subpageRoutes(exporter: ExporterContext): Map<string, string> {
   const routes = new Map<string, string>();
@@ -148,15 +155,17 @@ function rewriteInternalLinks(
 
   return html.replace(/href="([^"]+)"/g, (match: string, href: string) => {
     if (/^(javascript:|mailto:|tel:|#|data:)/i.test(href)) return match;
-    let pathname: string;
+    let target: URL;
     try {
-      pathname = new URL(href, exporter.siteUrl).pathname.replace(/\/+$/, '');
+      target = new URL(href, exporter.siteUrl);
     } catch {
       return match;
     }
-    const filename = routes.get(pathname);
+    const filename = routes.get(target.pathname.replace(/\/+$/, ''));
     if (!filename) return match;
-    return `href="${fromSubpages ? filename : 'subpages/' + filename}"`;
+    // The hash selects a section on the destination page, so it has to survive.
+    const local: string = (fromSubpages ? filename : 'subpages/' + filename) + target.hash;
+    return `href="${local}"`;
   });
 }
 
@@ -180,9 +189,7 @@ async function buildSubpages(exporter: ExporterContext): Promise<void> {
         html = html.replace(new RegExp(pattern.source, pattern.flags), '');
       }
       html = exporter.assets.rewrite(html, 'subpages');
-      for (const { from, to } of exporter.platform.rewriteUrlPatterns || []) {
-        html = html.replace(new RegExp(from.source, from.flags), to);
-      }
+      html = applyRewritePatterns(html, exporter);
       html = stripSrcsetCdnUrls(html);
       html = rewriteInternalLinks(html, exporter, routes, true);
       html = html.replace(
@@ -269,11 +276,10 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   html = exporter.assets.rewrite(html, '');
   log('HTML rewrite delta: ' + (html.length - beforeRewrite) + ' chars');
 
-  if (exporter.platform.rewriteUrlPatterns && exporter.platform.rewriteUrlPatterns.length > 0) {
-    for (const { from, to } of exporter.platform.rewriteUrlPatterns) {
-      html = html.replace(new RegExp(from.source, from.flags), to);
-    }
-    log('Applied ' + exporter.platform.rewriteUrlPatterns.length + ' custom URL rewrites');
+  const patternCount: number = exporter.platform.rewritePatterns?.length || 0;
+  if (patternCount > 0) {
+    html = applyRewritePatterns(html, exporter);
+    log('Applied ' + patternCount + ' custom rewrites');
   }
 
   exporter.cooking?.update('Cleaning srcset references...');
@@ -326,6 +332,7 @@ async function rewriteDownloadedFiles(exporter: ExporterContext): Promise<void> 
         let content: string = await fs.readFile(filePath, 'utf-8');
         const before: string = content;
         content = exporter.assets.rewrite(content, dir);
+        content = applyRewritePatterns(content, exporter);
         if (content !== before) {
           await fs.writeFile(filePath, content);
           rewritten++;

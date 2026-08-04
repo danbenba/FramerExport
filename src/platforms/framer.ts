@@ -39,7 +39,27 @@ export const framer: PlatformHandler = {
 
   // The editor bar builds its iframe URL from import.meta.url, so a mirrored
   // copy points at the export's own script directory and 404s in a loop.
-  skipAssetUrls: [/\/init\.mjs(\?|$)/, /\/editorbar\.[^/]*\.mjs/, /\/EditButton-[^/]*\.mjs/],
+  skipAssetUrls: [
+    /^https:\/\/(?:www\.)?framer\.com\/edit(?:[/?]|$)/,
+    /\/init\.mjs(\?|$)/,
+    /\/editorbar\.[^/]*\.mjs/,
+    /\/EditButton-[^/]*\.mjs/,
+  ],
+
+  rewritePatterns: [
+    // The editor bar is Framer chrome, not site content: give the loader an
+    // inert module so a mirror never reaches back out to framer.com.
+    {
+      from: /https:\/\/(?:www\.)?framer\.com\/edit\/init\.mjs/g,
+      to: 'data:text/javascript,export%20const%20createEditorBar=()=>()=>null',
+    },
+    // The badge markup is stripped from the HTML, so its bootstrap would call
+    // hydrateRoot with a null container and kill the rest of the page scripts.
+    {
+      from: /\(function\(\)\{[\w$]+&&[\w$]+\(\(\)=>\{[\s\S]{0,200}?__framer-badge-container[\s\S]{0,300}?\}\)\}\)\(\)/g,
+      to: '',
+    },
+  ],
 
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('framerusercontent.com')) {
