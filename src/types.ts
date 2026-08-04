@@ -4,7 +4,7 @@ import type { PlatformHandler } from './platforms/types.js';
 import type { CookingSpinner } from './cli/cooking.js';
 
 export interface Config {
-  viewport: { width: number; height: number };
+  viewport: { width: number; height: number; deviceScaleFactor: number };
   timeout: number;
   scrollStep: number;
   scrollDelay: number;
