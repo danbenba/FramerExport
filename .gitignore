@@ -10,7 +10,10 @@ coverage/
 *.map
 tmp/
 
+.visor/
+
 # generated site exports (never commit)
+/out/
 /cooksite-export/
 /framer-*/
 /webflow-*/
