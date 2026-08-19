@@ -126,10 +126,23 @@ function stripSrcsetCdnUrls(html: string): string {
   return html;
 }
 
-function applyRewritePatterns(text: string, exporter: ExporterContext): string {
-  for (const { from, to } of exporter.platform.rewritePatterns || []) {
-    text = text.replace(new RegExp(from.source, from.flags), to);
-  }
+type RewritePattern = { from: RegExp; to: string };
+
+interface RewriteReport {
+  patterns: RewritePattern[];
+  matched: Set<number>;
+}
+
+function rewritePatterns(exporter: ExporterContext): RewritePattern[] {
+  return exporter.platform.rewritePatterns ?? exporter.platform.rewriteUrlPatterns ?? [];
+}
+
+function applyRewritePatterns(text: string, report: RewriteReport): string {
+  report.patterns.forEach(({ from, to }, index) => {
+    const pattern = new RegExp(from.source, from.flags);
+    if (new RegExp(from.source, from.flags).test(text)) report.matched.add(index);
+    text = text.replace(pattern, to);
+  });
   return text;
 }
 
@@ -145,57 +158,90 @@ function subpageRoutes(exporter: ExporterContext): Map<string, string> {
 }
 
 /** Point internal links at the exported HTML files instead of live routes. */
-function rewriteInternalLinks(
+export function rewriteInternalLinks(
   html: string,
-  exporter: ExporterContext,
+  siteUrl: string,
   routes: Map<string, string>,
   fromSubpages: boolean
 ): string {
-  if (routes.size === 0) return html;
+  const source = new URL(siteUrl);
+  const sourceHost = source.hostname.replace(/^www\./, '');
+  const rootPath = source.pathname.replace(/\/+$/, '') || '/';
 
-  return html.replace(/href="([^"]+)"/g, (match: string, href: string) => {
-    if (/^(javascript:|mailto:|tel:|#|data:)/i.test(href)) return match;
-    let target: URL;
-    try {
-      target = new URL(href, exporter.siteUrl);
-    } catch {
-      return match;
+  return html.replace(
+    /<(?!link\b)([^>]*?\bhref\s*=\s*)(["'])(.*?)\2/gi,
+    (match: string, prefix: string, quote: string, href: string) => {
+      if (/^(javascript:|mailto:|tel:|#|data:)/i.test(href)) return match;
+      let target: URL;
+      try {
+        target = new URL(href, siteUrl);
+      } catch {
+        return match;
+      }
+
+      if (target.hostname.replace(/^www\./, '') !== sourceHost) return match;
+
+      const targetPath = target.pathname.replace(/\/+$/, '') || '/';
+      if (fromSubpages && targetPath === rootPath) {
+        return `<${prefix}${quote}../index.html${target.hash}${quote}`;
+      }
+
+      const filename = routes.get(targetPath);
+      if (!filename) return match;
+      // The hash selects a section on the destination page, so it has to survive.
+      const local: string = (fromSubpages ? filename : 'subpages/' + filename) + target.hash;
+      return `<${prefix}${quote}${local}${quote}`;
     }
-    const filename = routes.get(target.pathname.replace(/\/+$/, ''));
-    if (!filename) return match;
-    // The hash selects a section on the destination page, so it has to survive.
-    const local: string = (fromSubpages ? filename : 'subpages/' + filename) + target.hash;
-    return `href="${local}"`;
-  });
+  );
 }
 
-async function buildSubpages(exporter: ExporterContext): Promise<void> {
+function processHtml(
+  html: string,
+  exporter: ExporterContext,
+  pageUrl: string,
+  fromDir: string,
+  routes: Map<string, string>,
+  fromSubpages: boolean,
+  report: RewriteReport
+): string {
+  html = stripIntegrityAndCors(html);
+  html = processSEO(html, pageUrl);
+  for (const sel of exporter.platform.stripSelectors) html = stripBySelector(html, sel);
+  for (const pattern of exporter.platform.stripPatterns) {
+    html = html.replace(new RegExp(pattern.source, pattern.flags), '');
+  }
+  for (const pattern of exporter.platform.stripScripts || []) {
+    html = html.replace(new RegExp(pattern.source, pattern.flags), '');
+  }
+
+  if (exporter.platform.postCapture) {
+    try {
+      html = exporter.platform.postCapture(html, exporter);
+    } catch (e) {
+      warn('postCapture hook failed for ' + pageUrl + ': ' + (e as Error).message);
+    }
+  }
+
+  html = exporter.assets.rewrite(html, fromDir);
+  html = applyRewritePatterns(html, report);
+  html = stripSrcsetCdnUrls(html);
+  return rewriteInternalLinks(html, exporter.siteUrl, routes, fromSubpages);
+}
+
+async function buildSubpages(
+  exporter: ExporterContext,
+  routes: Map<string, string>,
+  report: RewriteReport
+): Promise<void> {
   if (exporter.subpages.size === 0) return;
 
-  const routes = subpageRoutes(exporter);
-  const rootPath: string = new URL(exporter.siteUrl).pathname.replace(/\/+$/, '') || '/';
   let built = 0;
 
-  for (const filename of exporter.subpages.values()) {
+  for (const [pageUrl, filename] of exporter.subpages) {
     const filePath: string = path.join(exporter.outDir, 'subpages', filename);
     try {
       let html: string = await fs.readFile(filePath, 'utf-8');
-      html = stripIntegrityAndCors(html);
-      for (const sel of exporter.platform.stripSelectors) html = stripBySelector(html, sel);
-      for (const pattern of exporter.platform.stripPatterns) {
-        html = html.replace(new RegExp(pattern.source, pattern.flags), '');
-      }
-      for (const pattern of exporter.platform.stripScripts || []) {
-        html = html.replace(new RegExp(pattern.source, pattern.flags), '');
-      }
-      html = exporter.assets.rewrite(html, 'subpages');
-      html = applyRewritePatterns(html, exporter);
-      html = stripSrcsetCdnUrls(html);
-      html = rewriteInternalLinks(html, exporter, routes, true);
-      html = html.replace(
-        new RegExp(`href="${escapeRegex(rootPath === '/' ? '/' : rootPath)}"`, 'g'),
-        'href="../index.html"'
-      );
+      html = processHtml(html, exporter, pageUrl, 'subpages', routes, true, report);
       await fs.writeFile(filePath, html, 'utf-8');
       built++;
     } catch (e) {
@@ -217,79 +263,17 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
     return;
   }
 
-  exporter.cooking?.update('Removing integrity checks...');
-  const beforeIntegrity: number = html.length;
-  html = stripIntegrityAndCors(html);
-  log('Stripped integrity/crossorigin/preconnect (' + (beforeIntegrity - html.length) + ' chars)');
-  success('Integrity and CORS restrictions removed');
+  const routes = subpageRoutes(exporter);
+  const report: RewriteReport = { patterns: rewritePatterns(exporter), matched: new Set() };
+  exporter.cooking?.update('Processing exported HTML...');
+  html = processHtml(html, exporter, exporter.siteUrl, '', routes, false, report);
+  success('Index HTML pipeline complete');
 
-  if (typeof processSEO === 'function') {
-    exporter.cooking?.update('Optimizing SEO...');
-    html = processSEO(html, exporter.siteUrl);
-    success('SEO meta tags optimized');
-  }
-
-  log('Stripping ' + exporter.platform.stripSelectors.length + ' selectors:');
-  for (const sel of exporter.platform.stripSelectors) {
-    const before: number = html.length;
-    html = stripBySelector(html, sel);
-    const removed: number = before - html.length;
-    if (removed > 0) {
-      log('  Stripped ' + sel + ' (' + removed + ' chars removed)');
-    }
-  }
-
-  log('Applying ' + exporter.platform.stripPatterns.length + ' regex patterns...');
-  for (const pattern of exporter.platform.stripPatterns) {
-    const before: number = html.length;
-    html = html.replace(new RegExp(pattern.source, pattern.flags), '');
-    const removed: number = before - html.length;
-    if (removed > 0) {
-      log('  Pattern removed ' + removed + ' chars');
-    }
-  }
-  if (exporter.platform.stripScripts && exporter.platform.stripScripts.length > 0) {
-    log('Applying ' + exporter.platform.stripScripts.length + ' script-strip patterns...');
-    for (const pattern of exporter.platform.stripScripts) {
-      const before: number = html.length;
-      html = html.replace(new RegExp(pattern.source, pattern.flags), '');
-      const removed: number = before - html.length;
-      if (removed > 0) log('  Script pattern removed ' + removed + ' chars');
-    }
-  }
-
-  success('Platform badges and tracking stripped');
-
-  if (exporter.platform.postCapture) {
-    try {
-      const before: number = html.length;
-      html = exporter.platform.postCapture(html, exporter);
-      log('postCapture hook applied (delta ' + (html.length - before) + ' chars)');
-    } catch (e) {
-      warn('postCapture hook failed: ' + (e as Error).message);
-    }
-  }
-
-  exporter.cooking?.update('Rewriting asset URLs...');
-  log('Rewriting ' + exporter.assets.entries.size + ' CDN URLs to local paths...');
-  const beforeRewrite: number = html.length;
-  html = exporter.assets.rewrite(html, '');
-  log('HTML rewrite delta: ' + (html.length - beforeRewrite) + ' chars');
-
-  const patternCount: number = exporter.platform.rewritePatterns?.length || 0;
-  if (patternCount > 0) {
-    html = applyRewritePatterns(html, exporter);
-    log('Applied ' + patternCount + ' custom rewrites');
-  }
-
-  exporter.cooking?.update('Cleaning srcset references...');
-  html = stripSrcsetCdnUrls(html);
-  log('Cleaned remaining CDN URLs from srcset attributes');
-
-  html = rewriteInternalLinks(html, exporter, subpageRoutes(exporter), false);
-
-  await rewriteDownloadedFiles(exporter);
-  await buildSubpages(exporter);
+  await rewriteDownloadedFiles(exporter, report);
+  await buildSubpages(exporter, routes, report);
+  report.patterns.forEach(({ from }, index) => {
+    if (!report.matched.has(index)) warn('Rewrite pattern matched nothing: ' + from.toString());
+  });
   success('All URLs rewritten to local paths');
 
   exporter.cooking?.update('Pretty-printing JS files...');
@@ -310,7 +294,10 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   success('Output build complete');
 }
 
-async function rewriteDownloadedFiles(exporter: ExporterContext): Promise<void> {
+async function rewriteDownloadedFiles(
+  exporter: ExporterContext,
+  report: RewriteReport
+): Promise<void> {
   const dirs: string[] = ['scripts/vendor', 'scripts/modules', 'styles'];
   let rewritten = 0;
 
@@ -332,7 +319,7 @@ async function rewriteDownloadedFiles(exporter: ExporterContext): Promise<void> 
         let content: string = await fs.readFile(filePath, 'utf-8');
         const before: string = content;
         content = exporter.assets.rewrite(content, dir);
-        content = applyRewritePatterns(content, exporter);
+        content = applyRewritePatterns(content, report);
         if (content !== before) {
           await fs.writeFile(filePath, content);
           rewritten++;

@@ -16,8 +16,20 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
   success('Chromium launched');
 
   exporter.page = await exporter.browser.newPage();
-  await exporter.page.setViewport(CFG.viewport);
-  log('Viewport set to ' + CFG.viewport.width + 'x' + CFG.viewport.height);
+  const viewport = {
+    ...CFG.viewport,
+    deviceScaleFactor: exporter.deviceScaleFactor ?? CFG.viewport.deviceScaleFactor ?? 1,
+  };
+  await exporter.page.setViewport(viewport);
+  log(
+    'Viewport set to ' +
+      viewport.width +
+      'x' +
+      viewport.height +
+      ' at ' +
+      viewport.deviceScaleFactor +
+      'x DPR'
+  );
 
   await exporter.page.setUserAgent(
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -35,7 +47,8 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
   }
 
   let intercepted = 0;
-  let blocked = 0;
+  let trackingBlocked = 0;
+  let platformSkipped = 0;
 
   exporter.page.on('response', async (res) => {
     const url: string = res.url();
@@ -44,7 +57,7 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     try {
       const host: string = new URL(url).hostname;
       if (allStripDomains.some((d) => host.includes(d))) {
-        blocked++;
+        trackingBlocked++;
         return;
       }
     } catch {
@@ -52,7 +65,7 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     }
 
     if (exporter.platform.skipAssetUrls?.some((re) => re.test(url))) {
-      blocked++;
+      platformSkipped++;
       return;
     }
 
@@ -72,7 +85,15 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     timeout: CFG.timeout,
   });
   success('Page loaded (networkidle2)');
-  log('Intercepted ' + intercepted + ' resources, blocked ' + blocked + ' tracking requests');
+  log(
+    'Intercepted ' +
+      intercepted +
+      ' resources, blocked ' +
+      trackingBlocked +
+      ' tracking requests, skipped ' +
+      platformSkipped +
+      ' platform assets'
+  );
 
   log('Checking DOM-based platform detection...');
   const domDetected = await detectByDom(exporter.page);

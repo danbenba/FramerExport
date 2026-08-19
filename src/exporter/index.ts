@@ -66,9 +66,15 @@ export class FramerExporter implements ExporterContext {
   prettyPrint: boolean;
   platform: PlatformHandler;
   cooking?: CookingSpinner;
+  deviceScaleFactor?: number;
   subpages: Map<string, string> = new Map();
 
-  constructor(siteUrl: string, outDir: string, platformOverride?: PlatformType) {
+  constructor(
+    siteUrl: string,
+    outDir: string,
+    platformOverride?: PlatformType,
+    deviceScaleFactor?: number
+  ) {
     this.siteUrl = siteUrl;
     this.outDir = outDir;
     this.assets = new AssetMap();
@@ -76,6 +82,7 @@ export class FramerExporter implements ExporterContext {
     this.page = null;
     this.ssrHTML = '';
     this.prettyPrint = true;
+    this.deviceScaleFactor = deviceScaleFactor;
 
     if (platformOverride && platformOverride !== 'unknown') {
       this.platform = getPlatformByName(platformOverride);
@@ -91,6 +98,7 @@ export class FramerExporter implements ExporterContext {
     info('Source   : ' + chalk.underline(this.siteUrl));
     info('Output   : ' + ui.primary(this.outDir));
     info('Platform : ' + ui.primary(this.platform.displayName));
+    info('DPR      : ' + ui.primary(String(this.deviceScaleFactor || 1)));
     if (includeSubpages) {
       info('Subpages : ' + ui.success('enabled'));
     }

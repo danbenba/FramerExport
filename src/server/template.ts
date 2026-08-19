@@ -42,16 +42,10 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const serveFile = (pathToFile) => {
+  const serveFile = (pathToFile, onMissing) => {
     fs.readFile(pathToFile, (err, data) => {
       if (err) {
-        if (url !== '/index.html' && !path.extname(url)) {
-          // Route paths map to their exported sub-page, then fall back to the SPA shell.
-          const slug = url.replace(/^\\/+|\\/+$/g, '').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
-          const subpage = path.join(ROOT, 'subpages', slug + '.html');
-          if (slug && fs.existsSync(subpage)) return serveFile(subpage);
-          return serveFile(path.join(ROOT, 'index.html'));
-        }
+        if (onMissing) return onMissing();
         res.writeHead(404);
         res.end('Not found');
         return;
@@ -66,6 +60,16 @@ const server = http.createServer((req, res) => {
       res.end(data);
     });
   };
+
+  if (url !== '/index.html' && !path.extname(url)) {
+    // Route paths map to their exported sub-page, then fall back to the SPA shell.
+    const slug = url.replace(/^\\/+|\\/+$/g, '').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
+    const serveIndex = () => serveFile(path.join(ROOT, 'index.html'));
+    if (slug) {
+      return serveFile(path.join(ROOT, 'subpages', slug + '.html'), serveIndex);
+    }
+    return serveIndex();
+  }
 
   serveFile(filePath);
 });

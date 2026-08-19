@@ -13,7 +13,7 @@ interface AssetEntry {
  * `https://framer.com/edit/init.mjs`, and rewriting that one would point a live
  * module at a mirrored file that never had such a child.
  */
-function replaceUrl(text: string, url: string, rel: string): string {
+export function replaceUrl(text: string, url: string, rel: string): string {
   const parts: string[] = text.split(url);
   if (parts.length === 1) return text;
 

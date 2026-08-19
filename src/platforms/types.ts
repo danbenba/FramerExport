@@ -90,8 +90,12 @@ export interface PlatformHandler {
   mapAssetDir(host: string, pathname: string, ext: string): string | null;
   /** Asset URLs that must never be mirrored (editor chrome, beacons). */
   skipAssetUrls?: RegExp[];
+  /** Directories whose downloaded JS may reference unrequested sibling chunks. */
+  lazyChunkDirs?: string[];
   /** Extra regex rewrites applied to the exported HTML and to mirrored JS/CSS. */
   rewritePatterns?: Array<{ from: RegExp; to: string }>;
+  /** @deprecated Use rewritePatterns. */
+  rewriteUrlPatterns?: Array<{ from: RegExp; to: string }>;
 
   // ── lifecycle hooks (all optional, no-op for the frozen trio) ─────────────
   /** Runs on the live page before the hydration wait (e.g. dismiss overlays). */

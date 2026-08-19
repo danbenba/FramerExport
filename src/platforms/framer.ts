@@ -39,12 +39,15 @@ export const framer: PlatformHandler = {
 
   // The editor bar builds its iframe URL from import.meta.url, so a mirrored
   // copy points at the export's own script directory and 404s in a loop.
+  // Keep these regexes non-global because capture calls RegExp.test repeatedly.
   skipAssetUrls: [
     /^https:\/\/(?:www\.)?framer\.com\/edit(?:[/?]|$)/,
-    /\/init\.mjs(\?|$)/,
-    /\/editorbar\.[^/]*\.mjs/,
-    /\/EditButton-[^/]*\.mjs/,
+    /^https:\/\/(?:[^/]+\.)*(?:framer\.com|framerstatic\.com|framerusercontent\.com|framercanvas\.com)\/[^?]*\/init\.mjs(?:\?|$)/,
+    /^https:\/\/(?:[^/]+\.)*(?:framer\.com|framerstatic\.com|framerusercontent\.com|framercanvas\.com)\/[^?]*\/editorbar\.[^/]*\.mjs(?:\?|$)/,
+    /^https:\/\/(?:[^/]+\.)*(?:framer\.com|framerstatic\.com|framerusercontent\.com|framercanvas\.com)\/[^?]*\/EditButton-[^/]*\.mjs(?:\?|$)/,
   ],
+
+  lazyChunkDirs: ['scripts/vendor', 'scripts/modules'],
 
   rewritePatterns: [
     // The editor bar is Framer chrome, not site content: give the loader an
