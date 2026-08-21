@@ -1,7 +1,30 @@
 import readline from 'node:readline';
+import chalk from 'chalk';
 import { stdin, stdout } from 'node:process';
-import { maxWidth, panelBot, panelLine, panelSep, panelTop } from './box.js';
-import { centerText, stripAnsi, truncatePlain, ui } from './theme.js';
+import { maxWidth } from './box.js';
+import { centerText, stripAnsi, truncatePlain, THEME, ui } from './theme.js';
+
+/** One full-width row painted with the panel background (OpenCode-style card). */
+function panelRow(width: number, content: string = ''): string {
+  const visible = stripAnsi(content).length;
+  const pad = Math.max(0, width - visible);
+  return chalk.bgHex(THEME.panel)(content + ' '.repeat(pad));
+}
+
+/** The highlighted row: inverted, bold, foreground = theme background. */
+function selectedRow(width: number, content: string): string {
+  const visible = content.length;
+  const pad = Math.max(0, width - visible);
+  return chalk.bgHex(THEME.primary).hex(THEME.background).bold(content + ' '.repeat(pad));
+}
+
+function titleRow(width: number, title: string): string {
+  const left = `  ${ui.text.bold(title)}`;
+  const right = `${ui.muted('esc')}  `;
+  const visible = stripAnsi(left).length + stripAnsi(right).length;
+  const gap = Math.max(1, width - visible);
+  return chalk.bgHex(THEME.panel)(left + ' '.repeat(gap) + right);
+}
 
 export interface SelectOption {
   label: string;
@@ -59,12 +82,13 @@ async function arrowSelect(
 ): Promise<string> {
   const actions = config.actions ?? [];
   const headerLines = config.headerLines ?? [];
-  const width = Math.max(44, Math.min(maxWidth(), 72));
+  const width = Math.max(50, Math.min(maxWidth(), 64));
   const inner = width - 4;
-  const actionLineOffset = 2 + headerLines.length;
   const hasActions = actions.length > 0;
-  const optionStartOffset = 3 + headerLines.length + (hasActions ? 1 : 0);
-  const lineCount = options.length + 4 + headerLines.length + (hasActions ? 1 : 0);
+  const headerCount = headerLines.length;
+  const optionStartOffset = 3 + headerCount + (headerCount > 0 ? 1 : 0);
+  const actionLineOffset = optionStartOffset + options.length + 1;
+  const lineCount = actionLineOffset + (hasActions ? 2 : 1);
   const rows = process.stdout.rows || 24;
   const columns = process.stdout.columns || 80;
   const panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
@@ -93,38 +117,36 @@ async function arrowSelect(
         stdout.write('\x1B[2J');
       }
       const lines: string[] = [];
-      lines.push(panelTop(width));
-      lines.push(
-        panelLine(width, centerText(`${ui.primary('●')} ${ui.text.bold(question)}`, inner))
-      );
+      lines.push(panelRow(width));
+      lines.push(titleRow(width, question));
+      lines.push(panelRow(width));
       for (const header of headerLines) {
-        lines.push(panelLine(width, centerText(ui.muted(header), inner)));
+        lines.push(panelRow(width, `   ${ui.muted(truncatePlain(stripAnsi(header), inner))}`));
       }
-      if (hasActions) {
-        lines.push(
-          panelLine(width, centerText(renderActions(actions, selectedAction, inner), inner))
-        );
-      }
-      lines.push(panelSep(width));
+      if (headerCount > 0) lines.push(panelRow(width));
       for (let i = 0; i < options.length; i++) {
         lines.push(
-          panelLine(
+          renderOption(
+            options[i],
+            selectedAction === null && i === selected,
+            i === defaultIndex,
             width,
-            centerText(
-              renderOption(options[i], selectedAction === null && i === selected, inner),
-              inner
-            )
+            inner
           )
         );
       }
-      lines.push(panelBot(width));
+      lines.push(panelRow(width));
+      if (hasActions) {
+        lines.push(panelRow(width, renderActions(actions, selectedAction)));
+        lines.push(panelRow(width));
+      }
 
       lines.forEach((line, index) => writeAt(panelTopRow + index, panelLeftCol, line));
       writeAt(
         footerRow,
         panelLeftCol,
         centerText(
-          ui.muted(config.footer || '↑↓ move  ·  enter select  ·  mouse hover/click  ·  esc close'),
+          ui.muted(config.footer || '↑↓ move   enter select   mouse click   esc close'),
           width
         )
       );
@@ -309,9 +331,10 @@ function fullscreenInput(
   config: Omit<SelectConfig, 'actions'>
 ): Promise<string> {
   const headerLines = config.headerLines ?? [];
-  const width = Math.max(44, Math.min(maxWidth(), 72));
+  const width = Math.max(50, Math.min(maxWidth(), 64));
   const inner = width - 4;
-  const lineCount = 6 + headerLines.length;
+  const headerCount = headerLines.length;
+  const lineCount = 3 + headerCount + (headerCount > 0 ? 1 : 0) + 2;
   const rows = process.stdout.rows || 24;
   const columns = process.stdout.columns || 80;
   const panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
@@ -324,25 +347,28 @@ function fullscreenInput(
     const render = (): void => {
       stdout.write('\x1B[2J');
       const shown = value || '';
-      const clipped = truncatePlain(shown, Math.max(12, inner - 10));
-      const input = `${ui.primary('>')} ${ui.text(clipped)}${ui.primary('▌')}`;
-      const lines: string[] = [];
-      lines.push(panelTop(width));
-      lines.push(
-        panelLine(width, centerText(`${ui.primary('●')} ${ui.text.bold(question)}`, inner))
+      const clipped = truncatePlain(shown, Math.max(12, inner - 6));
+      const inputContent = ` ${chalk.hex(THEME.text)('▏')} ${chalk.hex(THEME.text)(clipped)}${chalk.hex(THEME.primary)('▌')}`;
+      const inputVisible = stripAnsi(inputContent).length;
+      const inputRow = chalk.bgHex(THEME.element)(
+        inputContent + ' '.repeat(Math.max(0, width - inputVisible))
       );
+      const lines: string[] = [];
+      lines.push(panelRow(width));
+      lines.push(titleRow(width, question));
+      lines.push(panelRow(width));
       for (const header of headerLines) {
-        lines.push(panelLine(width, centerText(ui.muted(header), inner)));
+        lines.push(panelRow(width, `   ${ui.muted(truncatePlain(stripAnsi(header), inner))}`));
       }
-      lines.push(panelSep(width));
-      lines.push(panelLine(width, centerText(input, inner)));
-      lines.push(panelBot(width));
+      if (headerCount > 0) lines.push(panelRow(width));
+      lines.push(inputRow);
+      lines.push(panelRow(width));
 
       lines.forEach((line, index) => writeAt(panelTopRow + index, panelLeftCol, line));
       writeAt(
         footerRow,
         panelLeftCol,
-        centerText(ui.muted(config.footer || 'type value  ·  enter confirm  ·  esc close'), width)
+        centerText(ui.muted(config.footer || 'type value   enter confirm   esc close'), width)
       );
     };
 
@@ -459,19 +485,17 @@ function readPipedLine(): Promise<string> {
   return pipedLinesPromise.then((lines) => lines[pipedLineIndex++] ?? '');
 }
 
-function renderActions(actions: SelectAction[], active: number | null, width: number): string {
-  return actions
+function renderActions(actions: SelectAction[], active: number | null): string {
+  const rendered = actions
     .map((action, index) => {
-      const label = truncatePlain(
-        stripAnsi(action.label),
-        Math.max(8, Math.floor(width / actions.length) - 8)
-      );
-      if (action.disabled) return `${ui.border('[')} ${ui.muted(label)} ${ui.border(']')}`;
+      const label = stripAnsi(action.label);
+      if (action.disabled) return ui.muted(label);
       if (active === index)
-        return `${ui.primary('›')} ${ui.primary('[')} ${ui.text.bold(label)} ${ui.primary(']')} ${ui.primary('‹')}`;
-      return `${ui.border('[')} ${ui.primary(label)} ${ui.border(']')}`;
+        return chalk.bgHex(THEME.primary).hex(THEME.background).bold(` ${label} `);
+      return ui.text(label);
     })
-    .join(` ${ui.muted('·')} `);
+    .join('   ');
+  return `   ${rendered}`;
 }
 
 function actionIndexAtX(
@@ -501,15 +525,24 @@ type MouseEventInfo =
   | { kind: 'wheel-up'; x: number; y: number }
   | { kind: 'wheel-down'; x: number; y: number };
 
-function renderOption(option: SelectOption, selected: boolean, width: number): string {
-  const plain = truncatePlain(stripAnsi(option.label), Math.max(10, width - 12));
+function renderOption(
+  option: SelectOption,
+  isSelected: boolean,
+  isDefault: boolean,
+  width: number,
+  inner: number
+): string {
+  const plain = truncatePlain(stripAnsi(option.label), Math.max(10, inner - 2));
+  if (isSelected && !option.disabled) {
+    return selectedRow(width, ` ${isDefault ? '●' : ' '} ${plain}`);
+  }
   if (option.disabled) {
-    return `${ui.border('[')} ${ui.muted(plain)} ${ui.border(']')}`;
+    return panelRow(width, `   ${ui.muted(plain)}`);
   }
-  if (selected) {
-    return `${ui.primary('›')} ${ui.primary('[')} ${ui.text.bold(plain)} ${ui.primary(']')} ${ui.primary('‹')}`;
+  if (isDefault) {
+    return panelRow(width, ` ${ui.primary('●')} ${ui.primary(plain)}`);
   }
-  return `${ui.muted(' ')} ${ui.border('[')} ${ui.muted(plain)} ${ui.border(']')} ${ui.muted(' ')}`;
+  return panelRow(width, `   ${ui.text(plain)}`);
 }
 
 function enterInteractiveScreen(enableMouse: boolean): void {
