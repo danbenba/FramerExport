@@ -7,7 +7,7 @@ import { dlBuffer } from '../network/download.js';
 import { info, log, success, setCooking } from '../logger/index.js';
 import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
 import { AntiBotError } from './anti-bot.js';
-import { downloadAll } from './download.js';
+import { downloadAll, downloadLazyChunks } from './download.js';
 import { buildOutput } from './output.js';
 import { printSummary } from './summary.js';
 import { runAiPromptAssistant } from '../ai/prompt-assistant.js';
@@ -66,8 +66,15 @@ export class FramerExporter implements ExporterContext {
   prettyPrint: boolean;
   platform: PlatformHandler;
   cooking?: CookingSpinner;
+  deviceScaleFactor?: number;
+  subpages: Map<string, string> = new Map();
 
-  constructor(siteUrl: string, outDir: string, platformOverride?: PlatformType) {
+  constructor(
+    siteUrl: string,
+    outDir: string,
+    platformOverride?: PlatformType,
+    deviceScaleFactor?: number
+  ) {
     this.siteUrl = siteUrl;
     this.outDir = outDir;
     this.assets = new AssetMap();
@@ -75,6 +82,7 @@ export class FramerExporter implements ExporterContext {
     this.page = null;
     this.ssrHTML = '';
     this.prettyPrint = true;
+    this.deviceScaleFactor = deviceScaleFactor;
 
     if (platformOverride && platformOverride !== 'unknown') {
       this.platform = getPlatformByName(platformOverride);
@@ -90,6 +98,7 @@ export class FramerExporter implements ExporterContext {
     info('Source   : ' + chalk.underline(this.siteUrl));
     info('Output   : ' + ui.primary(this.outDir));
     info('Platform : ' + ui.primary(this.platform.displayName));
+    info('DPR      : ' + ui.primary(String(this.deviceScaleFactor || 1)));
     if (includeSubpages) {
       info('Subpages : ' + ui.success('enabled'));
     }
@@ -142,6 +151,9 @@ export class FramerExporter implements ExporterContext {
 
       this.cooking.update('Downloading assets...');
       await downloadAll(this);
+
+      this.cooking.update('Resolving lazy-loaded chunks...');
+      await downloadLazyChunks(this);
 
       this.cooking.update('Building output...');
       await buildOutput(this);
@@ -212,8 +224,27 @@ export class FramerExporter implements ExporterContext {
       return Array.from(hrefs);
     }, baseHost);
 
-    log('Found ' + links.length + ' sub-page links');
-    const uniqueLinks = [...new Set(links)].slice(0, 50);
+    // Framer-style SPAs drop their route anchors during hydration, so the
+    // rendered DOM alone misses real pages the SSR markup still links to.
+    const ssrLinks: string[] = [];
+    for (const m of this.ssrHTML.matchAll(/<a\b[^>]*\shref=["']([^"']+)["']/gi)) {
+      const href = m[1];
+      if (/^(javascript:|mailto:|tel:|#)/i.test(href)) continue;
+      try {
+        const u = new URL(href, this.siteUrl);
+        if (
+          u.protocol.startsWith('http') &&
+          u.hostname.replace(/^www\./, '') === baseHost &&
+          u.pathname !== '/' &&
+          u.pathname !== ''
+        ) {
+          ssrLinks.push(u.href.split('#')[0]);
+        }
+      } catch {}
+    }
+
+    const uniqueLinks = [...new Set([...links, ...ssrLinks])].slice(0, 50);
+    log('Found ' + uniqueLinks.length + ' sub-page links');
 
     if (uniqueLinks.length === 0) {
       log('No sub-pages to crawl');
@@ -234,6 +265,7 @@ export class FramerExporter implements ExporterContext {
         const filepath = path.join(this.outDir, 'subpages', filename);
 
         await fs.writeFile(filepath, html, 'utf-8');
+        this.subpages.set(link, filename);
         log('  Saved: subpages/' + filename);
       } catch (e) {
         log('  Skipped ' + link + ': ' + (e as Error).message);

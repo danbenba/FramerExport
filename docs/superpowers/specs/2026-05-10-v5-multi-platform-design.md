@@ -88,7 +88,9 @@ export interface PlatformHandler {
 
   // assets
   mapAssetDir(host: string, pathname: string, ext: string): string | null;
-  rewriteUrlPatterns?: Array<{ from: RegExp; to: string }>;   // NEW
+  rewritePatterns?: Array<{ from: RegExp; to: string }>;      // NEW
+  /** @deprecated Use rewritePatterns. */
+  rewriteUrlPatterns?: Array<{ from: RegExp; to: string }>;
 
   // hooks
   preCapture?(page: Page): Promise<void>;                         // NEW

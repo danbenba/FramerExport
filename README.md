@@ -102,6 +102,8 @@ Usage:
 Options:
   --setup            Launch interactive setup wizard
   --platform <name>  Force platform: framer | webflow | wix
+  --subpages         Crawl and export sub-pages
+  --dpr <number>     Capture device pixel ratio (default: 1)
   --legacy-mode      Use y/n text input instead of arrow selection
   --help, -h         Show help message
 ```

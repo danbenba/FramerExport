@@ -20,6 +20,7 @@ export function showHelp(): void {
     ['--setup', 'Launch the interactive setup assistant'],
     ['--platform <p>', 'Force platform by id (e.g. framer, shopify, notion)'],
     ['--subpages', 'Crawl and export sub-pages'],
+    ['--dpr <number>', 'Capture device pixel ratio (default: 1)'],
     ['--legacy-mode', 'Use text input instead of arrow selection'],
     ['--help, -h', 'Show this help message'],
   ];

@@ -7,6 +7,23 @@ interface AssetEntry {
   localPath: string;
 }
 
+/**
+ * Replace every occurrence of `url`, except where it is only the prefix of a
+ * deeper path: `https://framer.com/edit` also matches inside
+ * `https://framer.com/edit/init.mjs`, and rewriting that one would point a live
+ * module at a mirrored file that never had such a child.
+ */
+export function replaceUrl(text: string, url: string, rel: string): string {
+  const parts: string[] = text.split(url);
+  if (parts.length === 1) return text;
+
+  let out: string = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    out += (parts[i].startsWith('/') ? url : rel) + parts[i];
+  }
+  return out;
+}
+
 export class AssetMap {
   entries: Map<string, AssetEntry> = new Map();
   buffers: Map<string, Buffer> = new Map();
@@ -65,10 +82,13 @@ export class AssetMap {
     const sorted = [...this.entries.entries()].sort((a, b) => b[0].length - a[0].length);
     let out: string = text;
     for (const [url, { localPath }] of sorted) {
-      const rel: string = fromDir ? path.posix.relative(fromDir, localPath) : localPath;
-      out = out.split(url).join(rel);
+      let rel: string = fromDir ? path.posix.relative(fromDir, localPath) : localPath;
+      // A same-directory path must stay explicitly relative, or JS dynamic
+      // imports treat it as a bare module specifier and fail to resolve.
+      if (fromDir && !rel.startsWith('.')) rel = './' + rel;
+      out = replaceUrl(out, url, rel);
       if (url.includes('&')) {
-        out = out.split(url.replace(/&/g, '&amp;')).join(rel);
+        out = replaceUrl(out, url.replace(/&/g, '&amp;'), rel);
       }
     }
     return out;

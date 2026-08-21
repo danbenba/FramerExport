@@ -20,6 +20,7 @@
     "start": "tsx src/cli/index.ts",
     "dev": "tsx src/cli/index.ts",
     "build": "tsup",
+    "test": "node --import tsx --test tests/unit/*.test.ts",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\"",
     "prepublishOnly": "npm run build",
