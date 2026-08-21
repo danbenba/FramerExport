@@ -49,7 +49,8 @@ export async function select(
 ): Promise<string> {
   const isTTY = stdin.isTTY && stdout.isTTY;
   if (!isTTY) {
-    return fallbackPrompt(question, options, defaultIndex, config);
+    const flat = options.map((o) => (o.heading ? { ...o, disabled: true } : o));
+    return fallbackPrompt(question, flat, defaultIndex, config);
   }
   return arrowSelect(question, options, defaultIndex, config);
 }
