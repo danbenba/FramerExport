@@ -21,7 +21,9 @@ export function showHelp(): void {
     ['--platform <p>', 'Force platform by id (e.g. framer, shopify, notion)'],
     ['--subpages', 'Crawl and export sub-pages'],
     ['--dpr <number>', 'Capture device pixel ratio (default: 1)'],
-    ['--legacy-mode', 'Use text input instead of arrow selection'],
+    ['--legacy-mode', 'With --setup: use text input instead of arrow selection'],
+    ['--about', 'Show version and package information'],
+    ['--version, -v', 'Show the version number'],
     ['--help, -h', 'Show this help message'],
   ];
 
