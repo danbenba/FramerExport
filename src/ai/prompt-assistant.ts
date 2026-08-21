@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import type { ExporterContext } from '../types.js';
 import { select, type SelectOption } from '../cli/select.js';
 import { boxTop, boxLine, boxSep, boxBot, maxWidth } from '../cli/box.js';
-import { stripAnsi, ui } from '../cli/theme.js';
+import { centerText, ui } from '../cli/theme.js';
 
 interface ConversionTarget {
   id: string;
@@ -274,13 +274,6 @@ function buttonLabel(label: string): string {
   return `${ui.border('[')} ${ui.text.bold(label)} ${ui.border(']')}`;
 }
 
-function centerText(text: string, width: number): string {
-  const visible = stripAnsi(text).length;
-  if (visible >= width) return text;
-  const left = Math.floor((width - visible) / 2);
-  return ' '.repeat(left) + text + ' '.repeat(width - visible - left);
-}
-
 function buildServeCommand(exporter: ExporterContext): string {
   return `cd ${path.basename(exporter.outDir)} && node serve.js`;
 }
@@ -381,23 +374,6 @@ async function runPromptReadyPrompt(
 
 function checkboxLabel(checked: boolean): string {
   return checked ? ui.success('☑') : ui.muted('☐');
-}
-
-function printConvertPanel(exporter: ExporterContext): void {
-  const w = maxWidth();
-  const inner = w - 4;
-  const rows = [
-    centerText(`${ui.text.bold('AI Convert')} ${ui.error('BETA')}`, inner),
-    centerText(ui.muted('Generate a conversion prompt after the export.'), inner),
-    centerText(`${buttonLabel('Convert')} ${ui.muted('or')} ${buttonLabel('Skip')}`, inner),
-    centerText(ui.muted(path.basename(exporter.outDir)), inner),
-  ];
-
-  console.log('');
-  console.log(boxTop(w));
-  for (const row of rows) console.log(boxLine(w, row));
-  console.log(boxBot(w));
-  console.log('');
 }
 
 function printAssistantModal(title: string, lines: string[]): void {
@@ -610,49 +586,4 @@ function pipeToCommand(command: string, args: string[], input: string): Promise<
     });
     child.stdin?.end(input);
   });
-}
-
-function printPromptResult(
-  promptPath: string,
-  target: ConversionTarget,
-  aiTool: AiTool,
-  goal: ConversionGoal
-): void {
-  const w = maxWidth();
-  const isSmall = w < 50;
-  const inner = w - 4;
-  const relPath = path.relative(process.cwd(), promptPath) || promptPath;
-
-  console.log('');
-  if (!isSmall) {
-    console.log(boxTop(w));
-    console.log(
-      boxLine(
-        w,
-        centerText(
-          `${ui.success('✓')} ${ui.text.bold('AI Prompt Ready')} ${ui.error('BETA')}`,
-          inner
-        )
-      )
-    );
-    console.log(boxSep(w));
-    console.log(
-      boxLine(w, centerText(`${ui.muted('Tool')} ${ui.primary(aiTool.displayName)}`, inner))
-    );
-    console.log(boxLine(w, centerText(`${ui.muted('Stack')} ${ui.primary(target.label)}`, inner)));
-    console.log(boxLine(w, centerText(`${ui.muted('Mode')} ${ui.primary(goal.label)}`, inner)));
-    console.log(boxLine(w, centerText(`${ui.muted('File')} ${ui.primary(relPath)}`, inner)));
-    console.log(boxSep(w));
-    console.log(
-      boxLine(w, centerText(`${buttonLabel('Copy prompt')} ${buttonLabel('Done')}`, inner))
-    );
-    console.log(boxBot(w));
-  } else {
-    console.log(ui.text.bold('  AI Prompt Ready - BETA'));
-    console.log(`  Tool: ${ui.primary(aiTool.displayName)}`);
-    console.log(`  Stack: ${ui.primary(target.label)}`);
-    console.log(`  Situation: ${ui.primary(goal.label)}`);
-    console.log(`  File: ${ui.primary(relPath)}`);
-  }
-  console.log('');
 }
