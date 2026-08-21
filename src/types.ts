@@ -2,9 +2,12 @@ import type { Browser, Page } from 'puppeteer';
 import type { AssetMap } from './assets/asset-map.js';
 import type { PlatformHandler } from './platforms/types.js';
 import type { CookingSpinner } from './cli/cooking.js';
-
 export interface Config {
-  viewport: { width: number; height: number; deviceScaleFactor?: number };
+  viewport: {
+    width: number;
+    height: number;
+    deviceScaleFactor?: number;
+  };
   timeout: number;
   scrollStep: number;
   scrollDelay: number;
@@ -13,7 +16,6 @@ export interface Config {
   dlTimeout: number;
   sharedStripDomains: string[];
 }
-
 export interface ExporterContext {
   siteUrl: string;
   outDir: string;
@@ -25,6 +27,5 @@ export interface ExporterContext {
   platform: PlatformHandler;
   cooking?: CookingSpinner;
   deviceScaleFactor?: number;
-  /** Crawled sub-page URL -> filename inside subpages/. */
   subpages: Map<string, string>;
 }

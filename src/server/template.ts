@@ -62,7 +62,6 @@ const server = http.createServer((req, res) => {
   };
 
   if (url !== '/index.html' && !path.extname(url)) {
-    // Route paths map to their exported sub-page, then fall back to the SPA shell.
     const slug = url.replace(/^\\/+|\\/+$/g, '').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
     const serveIndex = () => serveFile(path.join(ROOT, 'index.html'));
     if (slug) {

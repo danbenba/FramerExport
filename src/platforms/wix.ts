@@ -41,9 +41,7 @@ export const wix: PlatformHandler = {
 
   stripSelectors: ['#WIX_ADS', '.wix-ads', '#wix-badge', '#SCROLL_TO_TOP'],
 
-  stripPatterns: [
-    /<div[^>]*class="[^"]*wix-ads[^"]*"[^>]*>[\s\S]*?<\/div>/g,
-  ],
+  stripPatterns: [/<div[^>]*class="[^"]*wix-ads[^"]*"[^>]*>[\s\S]*?<\/div>/g],
 
   hydrationTimeout: 3000,
   needsHydrationCheck: false,

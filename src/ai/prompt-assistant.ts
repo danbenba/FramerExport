@@ -6,7 +6,6 @@ import type { ExporterContext } from '../types.js';
 import { select, type SelectOption } from '../cli/select.js';
 import { boxTop, boxLine, boxSep, boxBot, maxWidth } from '../cli/box.js';
 import { centerText, ui } from '../cli/theme.js';
-
 interface ConversionTarget {
   id: string;
   label: string;
@@ -17,21 +16,18 @@ interface ConversionTarget {
   entryFiles: string;
   routing: string;
 }
-
 interface AiTool {
   id: string;
   label: string;
   displayName: string;
   agentName: string;
 }
-
 interface ConversionGoal {
   id: string;
   label: string;
   instruction: string;
   priority: string;
 }
-
 interface ExportFacts {
   sourceUrl: string;
   outputDir: string;
@@ -39,7 +35,6 @@ interface ExportFacts {
   rootEntries: string[];
   counts: Record<string, number>;
 }
-
 const IMPORTANT_DIRS = [
   'index.html',
   'styles',
@@ -52,7 +47,6 @@ const IMPORTANT_DIRS = [
   'data',
   'subpages',
 ];
-
 const AI_TOOLS: AiTool[] = [
   {
     id: 'claude-code',
@@ -79,7 +73,6 @@ const AI_TOOLS: AiTool[] = [
     agentName: 'AI coding agent',
   },
 ];
-
 const TARGETS: ConversionTarget[] = [
   {
     id: 'react-vite',
@@ -132,7 +125,6 @@ const TARGETS: ConversionTarget[] = [
     routing: 'Use Astro pages for exported subpages and avoid unnecessary client JavaScript.',
   },
 ];
-
 const GOALS: ConversionGoal[] = [
   {
     id: 'clean-rebuild',
@@ -166,39 +158,31 @@ const GOALS: ConversionGoal[] = [
       'Fast loading, semantic markup, metadata, accessibility, asset hygiene, and faithful pages.',
   },
 ];
-
 export async function runAiPromptAssistant(exporter: ExporterContext): Promise<void> {
   if (!stdin.isTTY || !stdout.isTTY) return;
-
   const serveCommand = buildServeCommand(exporter);
   const shouldConvert = await runExportCompletePrompt(exporter, serveCommand);
   if (!shouldConvert) return;
-
   printAssistantModal(`${ui.text.bold('AI conversion prompt')} ${ui.error('BETA')}`, [
     'Choose a target stack, AI tool, and conversion situation.',
     'Mouse clicks are supported in the terminal when available.',
     'A detailed prompt file will be generated inside the export folder.',
   ]);
-
   const targetOptions: SelectOption[] = [
     ...TARGETS.map((target) => ({ label: target.label, value: target.id })),
     { label: 'Customize with AI - BETA in development', value: 'custom-ai', disabled: true },
   ];
-
   const targetId = await select('Choose target stack', targetOptions, 0);
-
   const aiToolId = await select(
     'Choose the AI coding tool',
     AI_TOOLS.map((tool) => ({ label: tool.label, value: tool.id })),
     0
   );
-
   const goalId = await select(
     'Choose the conversion situation',
     GOALS.map((goal) => ({ label: goal.label, value: goal.id })),
     0
   );
-
   const target = TARGETS.find((item) => item.id === targetId) || TARGETS[0];
   const aiTool = AI_TOOLS.find((item) => item.id === aiToolId) || AI_TOOLS[0];
   const goal = GOALS.find((item) => item.id === goalId) || GOALS[0];
@@ -206,10 +190,8 @@ export async function runAiPromptAssistant(exporter: ExporterContext): Promise<v
   const prompt = buildConversionPrompt(target, aiTool, goal, facts);
   const aiDir = path.join(exporter.outDir, 'ai');
   const promptPath = path.join(aiDir, `${aiTool.id}-${target.id}-${goal.id}-prompt.md`);
-
   await fs.mkdir(aiDir, { recursive: true });
   await fs.writeFile(promptPath, prompt, 'utf-8');
-
   const copyPrompt = await runPromptReadyPrompt(promptPath, target, aiTool, goal);
   if (copyPrompt) {
     try {
@@ -222,11 +204,9 @@ export async function runAiPromptAssistant(exporter: ExporterContext): Promise<v
     }
   }
 }
-
 async function collectExportFacts(exporter: ExporterContext): Promise<ExportFacts> {
   const counts: Record<string, number> = {};
   const rootEntries = await safeReadDir(exporter.outDir);
-
   for (const item of IMPORTANT_DIRS) {
     counts[item] =
       item === 'index.html'
@@ -235,7 +215,6 @@ async function collectExportFacts(exporter: ExporterContext): Promise<ExportFact
           : 0
         : await countEntries(path.join(exporter.outDir, item));
   }
-
   return {
     sourceUrl: exporter.siteUrl,
     outputDir: exporter.outDir,
@@ -244,7 +223,6 @@ async function collectExportFacts(exporter: ExporterContext): Promise<ExportFact
     counts,
   };
 }
-
 async function exists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
@@ -253,7 +231,6 @@ async function exists(filePath: string): Promise<boolean> {
     return false;
   }
 }
-
 async function safeReadDir(dir: string): Promise<string[]> {
   try {
     return (await fs.readdir(dir)).sort();
@@ -261,7 +238,6 @@ async function safeReadDir(dir: string): Promise<string[]> {
     return [];
   }
 }
-
 async function countEntries(dir: string): Promise<number> {
   try {
     return (await fs.readdir(dir)).length;
@@ -269,21 +245,17 @@ async function countEntries(dir: string): Promise<number> {
     return 0;
   }
 }
-
 function buttonLabel(label: string): string {
   return `${ui.border('[')} ${ui.text.bold(label)} ${ui.border(']')}`;
 }
-
 function buildServeCommand(exporter: ExporterContext): string {
   return `cd ${path.basename(exporter.outDir)} && node serve.js`;
 }
-
 async function runExportCompletePrompt(
   exporter: ExporterContext,
   serveCommand: string
 ): Promise<boolean> {
   let copyServeCommand = true;
-
   while (true) {
     const action = await select(
       'Export complete',
@@ -308,12 +280,10 @@ async function runExportCompletePrompt(
         footer: 'enter select  ·  checkbox toggles copy  ·  mouse hover/click',
       }
     );
-
     if (action === 'toggle-copy') {
       copyServeCommand = !copyServeCommand;
       continue;
     }
-
     if (action === 'finish') {
       if (copyServeCommand) {
         try {
@@ -327,11 +297,9 @@ async function runExportCompletePrompt(
       }
       return false;
     }
-
     return true;
   }
 }
-
 async function runPromptReadyPrompt(
   promptPath: string,
   target: ConversionTarget,
@@ -340,7 +308,6 @@ async function runPromptReadyPrompt(
 ): Promise<boolean> {
   const relPath = path.relative(process.cwd(), promptPath) || promptPath;
   let copyPrompt = false;
-
   while (true) {
     const action = await select(
       `AI Prompt Ready ${ui.error('BETA')}`,
@@ -362,24 +329,19 @@ async function runPromptReadyPrompt(
         footer: 'enter finish  ·  checkbox toggles copy  ·  mouse hover/click',
       }
     );
-
     if (action === 'toggle-copy') {
       copyPrompt = !copyPrompt;
       continue;
     }
-
     return copyPrompt;
   }
 }
-
 function checkboxLabel(checked: boolean): string {
   return checked ? ui.success('☑') : ui.muted('☐');
 }
-
 function printAssistantModal(title: string, lines: string[]): void {
   const w = maxWidth();
   const inner = w - 4;
-
   console.log('');
   console.log(boxTop(w));
   console.log(boxLine(w, centerText(`${ui.primary('◆')} ${title}`, inner)));
@@ -390,7 +352,6 @@ function printAssistantModal(title: string, lines: string[]): void {
   console.log(boxBot(w));
   console.log('');
 }
-
 function buildConversionPrompt(
   target: ConversionTarget,
   aiTool: AiTool,
@@ -512,7 +473,6 @@ function buildConversionPrompt(
     'If something could not be converted, state the exact file or behavior and the reason.',
     'Quality bar: the result should feel like a real hand-built production app, not an automated scrape or simplified demo.',
   ];
-
   return [
     `# ${aiTool.displayName} Conversion Prompt - ${target.label}`,
     '',
@@ -526,15 +486,12 @@ function buildConversionPrompt(
     '',
   ].join('\n');
 }
-
 function quoteForPrompt(value: string): string {
   return `"${value.replace(/"/g, '\\"')}"`;
 }
-
 function toPosixPath(value: string): string {
   return value.replace(/\\/g, '/');
 }
-
 async function copyToClipboard(text: string): Promise<void> {
   const commands =
     process.platform === 'win32'
@@ -546,7 +503,6 @@ async function copyToClipboard(text: string): Promise<void> {
             { command: 'xclip', args: ['-selection', 'clipboard'] },
             { command: 'xsel', args: ['--clipboard', '--input'] },
           ];
-
   let lastError: Error | null = null;
   for (const item of commands) {
     try {
@@ -556,23 +512,19 @@ async function copyToClipboard(text: string): Promise<void> {
       lastError = error as Error;
     }
   }
-
   throw lastError || new Error('No clipboard command found');
 }
-
 function pipeToCommand(command: string, args: string[], input: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ['pipe', 'ignore', 'pipe'] });
     let stderr = '';
     let settled = false;
-
     const finish = (error?: Error): void => {
       if (settled) return;
       settled = true;
       if (error) reject(error);
       else resolve();
     };
-
     child.stderr?.on('data', (chunk: Buffer) => {
       stderr += chunk.toString();
     });

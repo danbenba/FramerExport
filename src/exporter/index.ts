@@ -16,12 +16,10 @@ import type { PlatformHandler, PlatformType } from '../platforms/types.js';
 import type { ExporterContext } from '../types.js';
 import { CookingSpinner } from '../cli/cooking.js';
 import { chip, ui } from '../cli/theme.js';
-
 export function deriveOutputName(url: string, platformName: PlatformType): string {
   try {
     const parsed = new URL(url);
     const hostname: string = parsed.hostname;
-
     let siteName: string;
     if (hostname.endsWith('.webflow.io')) {
       siteName = hostname.replace('.webflow.io', '');
@@ -33,20 +31,17 @@ export function deriveOutputName(url: string, platformName: PlatformType): strin
     } else {
       siteName = hostname.replace(/\./g, '-');
     }
-
     const cleanName =
       siteName
         .toLowerCase()
         .replace(/[^a-z0-9_-]/g, '-')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '') || 'site';
-
     return `${platformName}-${cleanName}-${randomOutputSuffix()}`;
   } catch {
     return `framer-export-output-${randomOutputSuffix()}`;
   }
 }
-
 function randomOutputSuffix(): string {
   const adjectives = ['clean', 'bright', 'swift', 'sharp', 'fresh', 'solid', 'tidy', 'prime'];
   const nouns = ['mirror', 'export', 'site', 'build', 'copy', 'page', 'stack', 'bundle'];
@@ -55,7 +50,6 @@ function randomOutputSuffix(): string {
   const id = Math.random().toString(36).slice(2, 6);
   return `${adjective}-${noun}-${id}`;
 }
-
 export class FramerExporter implements ExporterContext {
   siteUrl: string;
   outDir: string;
@@ -68,7 +62,6 @@ export class FramerExporter implements ExporterContext {
   cooking?: CookingSpinner;
   deviceScaleFactor?: number;
   subpages: Map<string, string> = new Map();
-
   constructor(
     siteUrl: string,
     outDir: string,
@@ -83,14 +76,12 @@ export class FramerExporter implements ExporterContext {
     this.ssrHTML = '';
     this.prettyPrint = true;
     this.deviceScaleFactor = deviceScaleFactor;
-
     if (platformOverride && platformOverride !== 'unknown') {
       this.platform = getPlatformByName(platformOverride);
     } else {
       this.platform = detectPlatform(siteUrl);
     }
   }
-
   async run(includeSubpages: boolean = false): Promise<void> {
     console.log(
       `\n  ${ui.text.bold('Framer Export')} ${chip('mirror')} ${ui.muted('v4 pipeline')}\n`
@@ -103,11 +94,9 @@ export class FramerExporter implements ExporterContext {
       info('Subpages : ' + ui.success('enabled'));
     }
     console.log('');
-
     this.cooking = new CookingSpinner();
     setCooking(this.cooking);
     this.cooking.start('Preparing directories...');
-
     for (const d of [
       '',
       'assets/images',
@@ -123,7 +112,6 @@ export class FramerExporter implements ExporterContext {
       await fs.mkdir(path.join(this.outDir, d), { recursive: true });
     }
     log('Output directory structure created');
-
     this.cooking.update('Fetching SSR HTML...');
     log('Fetching SSR HTML from ' + this.siteUrl);
     try {
@@ -133,31 +121,23 @@ export class FramerExporter implements ExporterContext {
     } catch (e) {
       log(chalk.red('Could not fetch SSR HTML: ' + (e as Error).message));
     }
-
     const htmlDetected = detectPlatform(this.siteUrl, this.ssrHTML);
     if (htmlDetected.name !== this.platform.name) {
       this.platform = htmlDetected;
       log('Platform refined: ' + ui.primary(this.platform.displayName) + ' (from HTML analysis)');
     }
-
     try {
       await launchAndCapture(this);
-
       if (includeSubpages && this.page) {
         await this.crawlSubpages();
       }
-
       await closeBrowser(this);
-
       this.cooking.update('Downloading assets...');
       await downloadAll(this);
-
       this.cooking.update('Resolving lazy-loaded chunks...');
       await downloadLazyChunks(this);
-
       this.cooking.update('Building output...');
       await buildOutput(this);
-
       if (this.platform.postProcess) {
         this.cooking.update('Running ' + this.platform.displayName + ' post-processing...');
         try {
@@ -171,30 +151,24 @@ export class FramerExporter implements ExporterContext {
       this.cooking?.stop();
       setCooking(null);
       await closeBrowser(this);
-      // On a bot-protection block, leave no empty/partial export behind.
       if (e instanceof AntiBotError) {
         await fs.rm(this.outDir, { recursive: true, force: true }).catch(() => {});
       }
       throw e;
     }
-
     this.cooking.stop();
     setCooking(null);
-
     console.log('');
     success('Export complete!');
     await printSummary(this);
     await runAiPromptAssistant(this);
   }
-
   private async crawlSubpages(): Promise<void> {
     this.cooking?.update('Discovering sub-pages...');
     log('Scanning page for internal links...');
-
     const page = this.page!;
     const baseUrl = new URL(this.siteUrl);
     const baseHost = baseUrl.hostname.replace(/^www\./, '');
-
     const links: string[] = await page.evaluate((host: string) => {
       const anchors = Array.from(document.querySelectorAll('a[href]'));
       const hrefs = new Set<string>();
@@ -223,9 +197,6 @@ export class FramerExporter implements ExporterContext {
       }
       return Array.from(hrefs);
     }, baseHost);
-
-    // Framer-style SPAs drop their route anchors during hydration, so the
-    // rendered DOM alone misses real pages the SSR markup still links to.
     const ssrLinks: string[] = [];
     for (const m of this.ssrHTML.matchAll(/<a\b[^>]*\shref=["']([^"']+)["']/gi)) {
       const href = m[1];
@@ -242,15 +213,12 @@ export class FramerExporter implements ExporterContext {
         }
       } catch {}
     }
-
     const uniqueLinks = [...new Set([...links, ...ssrLinks])].slice(0, 50);
     log('Found ' + uniqueLinks.length + ' sub-page links');
-
     if (uniqueLinks.length === 0) {
       log('No sub-pages to crawl');
       return;
     }
-
     for (let i = 0; i < uniqueLinks.length; i++) {
       const link = uniqueLinks[i];
       this.cooking?.update('Crawling sub-page ' + (i + 1) + '/' + uniqueLinks.length);
@@ -259,11 +227,9 @@ export class FramerExporter implements ExporterContext {
           needsHydrationCheck: this.platform.needsHydrationCheck,
           hydrationTimeout: this.platform.hydrationTimeout,
         });
-
         const slug = this.deriveSlug(link, baseUrl);
         const filename = slug + '.html';
         const filepath = path.join(this.outDir, 'subpages', filename);
-
         await fs.writeFile(filepath, html, 'utf-8');
         this.subpages.set(link, filename);
         log('  Saved: subpages/' + filename);
@@ -271,10 +237,8 @@ export class FramerExporter implements ExporterContext {
         log('  Skipped ' + link + ': ' + (e as Error).message);
       }
     }
-
     success('Sub-pages crawled: ' + uniqueLinks.length);
   }
-
   private deriveSlug(link: string, baseUrl: URL): string {
     try {
       const u = new URL(link);

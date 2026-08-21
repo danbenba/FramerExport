@@ -12,7 +12,7 @@ function padRight(text: string, w: number): string {
   return fitted + ' '.repeat(w - visible);
 }
 
-function fitAnsi(text: string, width: number): string {
+export function fitAnsi(text: string, width: number): string {
   if (stripAnsi(text).length <= width) return text;
   if (width <= 2) return '.'.repeat(Math.max(0, width));
 
@@ -52,7 +52,7 @@ function fitValue(value: string, width: number): string {
   return value.slice(0, width - 2) + '..';
 }
 
-function shortenPath(value: string, width: number): string {
+export function shortenPath(value: string, width: number): string {
   if (width <= 12) {
     return width <= 3 ? '.'.repeat(Math.max(0, width)) : value.slice(0, width - 2) + '..';
   }
