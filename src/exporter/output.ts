@@ -276,8 +276,12 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   });
   success('All URLs rewritten to local paths');
 
-  exporter.cooking?.update('Pretty-printing JS files...');
-  await prettifyDownloadedJS(exporter);
+  if (exporter.prettyPrint !== false) {
+    exporter.cooking?.update('Pretty-printing JS files...');
+    await prettifyDownloadedJS(exporter);
+  } else {
+    log('Pretty-print disabled, keeping JS files as downloaded');
+  }
 
   exporter.cooking?.update('Writing final output...');
   log('Writing index.html (' + (html.length / 1024).toFixed(1) + ' KB)...');
