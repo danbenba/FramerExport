@@ -124,9 +124,9 @@ async function main(): Promise<void> {
     }
     showBanner();
     const { startUiServer } = await import('../ui/server.js');
-    const actualPort = await startUiServer(port);
+    const handle = await startUiServer(port);
     if (!hasFlag(args, '--no-open')) {
-      const target = `http://localhost:${actualPort}`;
+      const target = `http://localhost:${handle.port}`;
       const opener =
         process.platform === 'win32'
           ? { cmd: 'cmd', args: ['/c', 'start', '', target] }

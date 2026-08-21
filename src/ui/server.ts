@@ -97,7 +97,12 @@ async function startExport(body: ExportRequest): Promise<void> {
   sse('status', run);
 }
 
-export function startUiServer(port: number): Promise<number> {
+export interface UiServerHandle {
+  port: number;
+  close: () => Promise<void>;
+}
+
+export function startUiServer(port: number): Promise<UiServerHandle> {
   const unsubscribeLog = onLog((record) => sse('log', record));
   const unsubscribeProgress = onProgress((progress) => sse('progress', progress));
 
@@ -196,7 +201,15 @@ export function startUiServer(port: number): Promise<number> {
       console.log(`  ${ui.muted('Local')}   ${ui.primary(`http://localhost:${actualPort}`)}`);
       console.log(`  ${ui.muted('Stop')}    ${ui.primary('ctrl+c')}`);
       console.log('');
-      resolve(actualPort);
+      resolve({
+        port: actualPort,
+        close: () =>
+          new Promise<void>((done) => {
+            for (const client of clients) client.end();
+            clients.clear();
+            server.close(() => done());
+          }),
+      });
     });
   });
 }
