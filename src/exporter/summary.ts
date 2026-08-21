@@ -4,13 +4,16 @@ import type { ExporterContext } from '../types.js';
 import { boxTop, boxLine, boxBot, boxSep, boxRow, maxWidth } from '../cli/box.js';
 import { chip, ui } from '../cli/theme.js';
 
-export async function printSummary(exporter: ExporterContext): Promise<void> {
-  const w = maxWidth();
-  const isSmall = w < 50;
+export interface SummaryEntry {
+  dir: string;
+  count: number;
+  kind: string;
+}
 
+export async function collectSummary(outDir: string): Promise<SummaryEntry[]> {
   const count = async (d: string): Promise<number> => {
     try {
-      return (await fs.readdir(path.join(exporter.outDir, d))).length;
+      return (await fs.readdir(path.join(outDir, d))).length;
     } catch {
       return 0;
     }
@@ -26,6 +29,26 @@ export async function printSummary(exporter: ExporterContext): Promise<void> {
     count('data'),
     count('subpages'),
   ]);
+  return [
+    { dir: 'styles/', count: styles, kind: 'CSS' },
+    { dir: 'scripts/vendor/', count: vendor, kind: 'JS vendor' },
+    { dir: 'scripts/modules/', count: scripts, kind: 'JS modules' },
+    { dir: 'assets/images/', count: imgs, kind: 'images' },
+    { dir: 'assets/videos/', count: videos, kind: 'videos' },
+    { dir: 'assets/fonts/', count: fonts, kind: 'fonts' },
+    { dir: 'assets/misc/', count: misc, kind: 'misc' },
+    { dir: 'data/', count: data, kind: 'data' },
+    { dir: 'subpages/', count: subpages, kind: 'pages' },
+  ];
+}
+
+export async function printSummary(exporter: ExporterContext): Promise<void> {
+  const w = maxWidth();
+  const isSmall = w < 50;
+  const collected = await collectSummary(exporter.outDir);
+  const [styles, vendor, scripts, imgs, videos, fonts, misc, data, subpages] = collected.map(
+    (e) => e.count
+  );
 
   const G = ui.primary;
   const G2 = ui.primarySoft;

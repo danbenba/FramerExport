@@ -60,6 +60,7 @@ export class FramerExporter implements ExporterContext {
   page: Page | null;
   ssrHTML: string;
   prettyPrint: boolean;
+  interactive: boolean;
   platform: PlatformHandler;
   cooking?: CookingSpinner;
   deviceScaleFactor?: number;
@@ -77,6 +78,7 @@ export class FramerExporter implements ExporterContext {
     this.page = null;
     this.ssrHTML = '';
     this.prettyPrint = true;
+    this.interactive = true;
     this.deviceScaleFactor = deviceScaleFactor;
     if (platformOverride && platformOverride !== 'unknown') {
       this.platform = getPlatformByName(platformOverride);
@@ -177,7 +179,9 @@ export class FramerExporter implements ExporterContext {
     success('Export complete!');
     await this.writeExportLog();
     await printSummary(this);
-    await runAiPromptAssistant(this);
+    if (this.interactive) {
+      await runAiPromptAssistant(this);
+    }
   }
 
   private phase(label: string): void {

@@ -24,6 +24,7 @@ export interface ExporterContext {
   page: Page | null;
   ssrHTML: string;
   prettyPrint?: boolean;
+  interactive?: boolean;
   platform: PlatformHandler;
   cooking?: CookingSpinner;
   deviceScaleFactor?: number;
