@@ -1,4 +1,3 @@
-import chalk from 'chalk';
 import { select, type SelectOption } from './select.js';
 import {
   platformsByCategory,
@@ -6,73 +5,33 @@ import {
   CATEGORY_ORDER,
   detectByUrl,
 } from '../platforms/index.js';
-import type { PlatformType, PlatformCategory } from '../platforms/types.js';
-export type PlatformSelection =
-  | {
-      platform: PlatformType;
-    }
-  | {
-      modifyUrl: true;
-    };
-const MODIFY_URL = '__modify_url__';
-const BROWSE = '__browse__';
-const USE_DETECTED = '__use_detected__';
-const BACK = '__back__';
-export async function selectPlatform(siteUrl: string): Promise<PlatformSelection> {
+import type { PlatformType } from '../platforms/types.js';
+
+export const AUTO_DETECT = '__auto__';
+
+export type ToolSelection = { platform: PlatformType } | { auto: true };
+
+export async function selectTool(): Promise<ToolSelection> {
   const grouped = platformsByCategory();
+  const options: SelectOption[] = [{ label: 'Auto-detect from URL', value: AUTO_DETECT }];
+
+  for (const cat of CATEGORY_ORDER) {
+    options.push({ label: CATEGORY_LABELS[cat], value: `__heading_${cat}`, heading: true });
+    for (const handler of grouped[cat]) {
+      options.push({ label: handler.displayName, value: handler.name });
+    }
+  }
+
+  const choice = await select('Select a tool to export', options, 0, {
+    headerLines: ['25+ platforms supported, scroll to browse them all.'],
+    footer: '↑↓ scroll   enter select   mouse click   esc close',
+  });
+
+  if (choice === AUTO_DETECT) return { auto: true };
+  return { platform: choice as PlatformType };
+}
+
+export function resolveDetected(siteUrl: string): PlatformType | null {
   const detected = detectByUrl(siteUrl);
-  if (detected) {
-    const choice = await select(
-      'Platform detected',
-      [
-        { label: `Use ${detected.displayName}`, value: USE_DETECTED },
-        { label: 'Browse all platforms', value: BROWSE },
-      ],
-      0,
-      {
-        headerLines: [`URL: ${siteUrl}`, `Detected: ${detected.displayName}`],
-        actions: [{ label: 'Modify URL', value: MODIFY_URL }],
-        footer: 'tab focus button  ·  enter select  ·  mouse hover/click',
-      }
-    );
-    if (choice === MODIFY_URL) return { modifyUrl: true };
-    if (choice === USE_DETECTED) return { platform: detected.name };
-  }
-  let categoryDefault = detected ? Math.max(0, CATEGORY_ORDER.indexOf(detected.category)) : 0;
-  while (true) {
-    const categoryOptions: SelectOption[] = CATEGORY_ORDER.map((cat) => ({
-      label: `${CATEGORY_LABELS[cat]} ${chalk.gray(`(${grouped[cat].length})`)}`,
-      value: cat,
-    }));
-    const category = await select('Select a category', categoryOptions, categoryDefault, {
-      headerLines: [`URL: ${siteUrl}`],
-      actions: [{ label: 'Modify URL', value: MODIFY_URL }],
-      footer: 'tab focus button  ·  enter next  ·  mouse hover/click',
-    });
-    if (category === MODIFY_URL) return { modifyUrl: true };
-    const cat = category as PlatformCategory;
-    categoryDefault = CATEGORY_ORDER.indexOf(cat);
-    const handlers = grouped[cat];
-    const platformOptions: SelectOption[] = handlers.map((handler) => ({
-      label:
-        detected && handler.name === detected.name
-          ? `${handler.displayName}${chalk.gray(' (detected)')}`
-          : handler.displayName,
-      value: handler.name,
-    }));
-    const platformDefault =
-      detected && detected.category === cat
-        ? Math.max(
-            0,
-            handlers.findIndex((handler) => handler.name === detected.name)
-          )
-        : 0;
-    const platform = await select('Select platform', platformOptions, platformDefault, {
-      headerLines: [`Category: ${CATEGORY_LABELS[cat]}`],
-      actions: [{ label: 'Back to categories', value: BACK }],
-      footer: 'tab focus button  ·  enter select  ·  mouse hover/click',
-    });
-    if (platform === BACK) continue;
-    return { platform: platform as PlatformType };
-  }
+  return detected ? detected.name : null;
 }
