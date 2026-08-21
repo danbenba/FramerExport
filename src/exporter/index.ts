@@ -4,7 +4,9 @@ import chalk from 'chalk';
 import type { Browser, Page } from 'puppeteer';
 import { AssetMap } from '../assets/asset-map.js';
 import { dlBuffer } from '../network/download.js';
-import { info, log, success, setCooking } from '../logger/index.js';
+import { info, log, success, setCooking, getLogHistory } from '../logger/index.js';
+import { resetProgress, setPhase, noteFile, noteSubpage } from './progress.js';
+import { ExportSidebar } from '../cli/sidebar.js';
 import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
 import { AntiBotError } from './anti-bot.js';
 import { downloadAll, downloadLazyChunks } from './download.js';
@@ -96,6 +98,10 @@ export class FramerExporter implements ExporterContext {
     console.log('');
     this.cooking = new CookingSpinner();
     setCooking(this.cooking);
+    resetProgress();
+    const sidebar = new ExportSidebar();
+    sidebar.start();
+    this.phase('Preparing directories...');
     this.cooking.start('Preparing directories...');
     for (const d of [
       '',
@@ -112,6 +118,7 @@ export class FramerExporter implements ExporterContext {
       await fs.mkdir(path.join(this.outDir, d), { recursive: true });
     }
     log('Output directory structure created');
+    this.phase('Fetching SSR HTML...');
     this.cooking.update('Fetching SSR HTML...');
     log('Fetching SSR HTML from ' + this.siteUrl);
     try {
@@ -127,18 +134,23 @@ export class FramerExporter implements ExporterContext {
       log('Platform refined: ' + ui.primary(this.platform.displayName) + ' (from HTML analysis)');
     }
     try {
+      this.phase('Capturing rendered page...');
       await launchAndCapture(this);
       if (includeSubpages && this.page) {
         await this.crawlSubpages();
       }
       await closeBrowser(this);
+      this.phase('Downloading assets...');
       this.cooking.update('Downloading assets...');
       await downloadAll(this);
+      this.phase('Resolving lazy-loaded chunks...');
       this.cooking.update('Resolving lazy-loaded chunks...');
       await downloadLazyChunks(this);
+      this.phase('Building output...');
       this.cooking.update('Building output...');
       await buildOutput(this);
       if (this.platform.postProcess) {
+        this.phase('Post-processing...');
         this.cooking.update('Running ' + this.platform.displayName + ' post-processing...');
         try {
           await this.platform.postProcess(this);
@@ -148,6 +160,7 @@ export class FramerExporter implements ExporterContext {
         }
       }
     } catch (e) {
+      sidebar.stop();
       this.cooking?.stop();
       setCooking(null);
       await closeBrowser(this);
@@ -156,14 +169,31 @@ export class FramerExporter implements ExporterContext {
       }
       throw e;
     }
+    this.phase('Done');
+    sidebar.stop();
     this.cooking.stop();
     setCooking(null);
     console.log('');
     success('Export complete!');
+    await this.writeExportLog();
     await printSummary(this);
     await runAiPromptAssistant(this);
   }
+
+  private phase(label: string): void {
+    setPhase(label);
+  }
+
+  private async writeExportLog(): Promise<void> {
+    const lines = getLogHistory().map((r) => `[${r.time}] [${r.level}] ${r.message}`);
+    const dest = path.join(this.outDir, 'export.log');
+    try {
+      await fs.writeFile(dest, lines.join('\n') + '\n', 'utf-8');
+      log('Full export log written: export.log (' + lines.length + ' lines)');
+    } catch {}
+  }
   private async crawlSubpages(): Promise<void> {
+    this.phase('Crawling sub-pages...');
     this.cooking?.update('Discovering sub-pages...');
     log('Scanning page for internal links...');
     const page = this.page!;
@@ -232,6 +262,8 @@ export class FramerExporter implements ExporterContext {
         const filepath = path.join(this.outDir, 'subpages', filename);
         await fs.writeFile(filepath, html, 'utf-8');
         this.subpages.set(link, filename);
+        noteSubpage();
+        noteFile('subpages/' + filename);
         log('  Saved: subpages/' + filename);
       } catch (e) {
         log('  Skipped ' + link + ': ' + (e as Error).message);

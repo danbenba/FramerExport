@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { CFG } from '../config/index.js';
 import { log, warn, success } from '../logger/index.js';
+import { setTotalAssets, noteDownload, noteFile } from './progress.js';
 import { dlBuffer } from '../network/download.js';
 import { pool } from '../network/pool.js';
 import type { ExporterContext } from '../types.js';
@@ -17,6 +18,7 @@ export async function downloadAll(exporter: ExporterContext): Promise<void> {
     toDownload.push({ url, localPath });
   }
   const total: number = toDownload.length;
+  setTotalAssets(total);
   log('Starting download of ' + total + ' unique assets');
   log('Concurrency: ' + CFG.concurrency + ' parallel downloads');
   log('Retry policy: ' + CFG.retries + ' attempts, ' + CFG.dlTimeout + 'ms timeout');
@@ -42,8 +44,11 @@ export async function downloadAll(exporter: ExporterContext): Promise<void> {
             await fs.writeFile(dest, data);
             ok++;
           }
+          noteDownload(true);
+          noteFile(localPath);
         } catch (e) {
           fail++;
+          noteDownload(false);
           if (!url.includes('framer.com/edit') && !url.includes('framerstatic.com/editorbar')) {
             warn('Download failed: ' + path.basename(localPath) + ' - ' + (e as Error).message);
           }
@@ -103,6 +108,8 @@ export async function downloadLazyChunks(exporter: ExporterContext): Promise<voi
           await fs.writeFile(path.join(exporter.outDir, dest), await dlBuffer(chunkUrl));
           next.push(dest);
           added++;
+          noteDownload(true);
+          noteFile(dest);
         } catch (e) {
           warn('Lazy chunk failed: ' + match[1] + ' - ' + (e as Error).message);
         }

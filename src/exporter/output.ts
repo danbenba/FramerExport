@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { log, warn, success } from '../logger/index.js';
+import { noteFile } from './progress.js';
 import { prettifyJS } from '../formatter/prettify.js';
 import { SERVE_SCRIPT } from '../server/template.js';
 import type { ExporterContext } from '../types.js';
@@ -245,13 +246,16 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   exporter.cooking?.update('Writing final output...');
   log('Writing index.html (' + (html.length / 1024).toFixed(1) + ' KB)...');
   await fs.writeFile(path.join(exporter.outDir, 'index.html'), html);
+  noteFile('index.html');
   success('index.html written');
   await fs.writeFile(path.join(exporter.outDir, 'serve.js'), SERVE_SCRIPT);
+  noteFile('serve.js');
   log('serve.js written');
   await fs.writeFile(
     path.join(exporter.outDir, 'package.json'),
     JSON.stringify({ type: 'module', scripts: { serve: 'node serve.js' } }, null, 2) + '\n'
   );
+  noteFile('package.json');
   log('package.json written for serve.js');
   success('Output build complete');
 }
