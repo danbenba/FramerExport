@@ -44,7 +44,10 @@
 | **Pretty-Print** | Minified JS/MJS files reformatted with Prettier |
 | **Integrity Strip** | Removes `integrity` and `crossorigin` attributes for local serving |
 | **SEO Optimization** | Injects canonical, OG tags, and robots meta if missing |
-| **Interactive Setup** | Arrow-key wizard with platform detection and progress animation |
+| **Interactive Setup** | Tool-first wizard: pick the platform in a gallery, paste the URL, toggle options |
+| **Web Interface** | `framer-export ui` — OpenCode-styled local web app with animated PixelBlast background, platform gallery, live logs and a real-time summary panel |
+| **Live Summary Sidebar** | Terminal exports show an OpenCode-style right panel: phase, asset counters, recent files |
+| **Copyable Logs** | Full run log written to `export.log` and copyable from the finish panel or the web UI |
 | **Cooking Animation** | Shimmer gradient progress indicator during export |
 | **Local Server** | Built-in serve.js with SPA fallback and CORS headers |
 | **Smart Naming** | Output folder auto-named from URL (e.g. `webflow-mysite/`) |
@@ -59,6 +62,9 @@ npm install
 
 # Interactive mode (recommended)
 npm run dev
+
+# Web interface (gallery + live export view)
+npm run dev -- ui
 
 # Direct export
 npm run dev -- https://mysite.framer.app
@@ -96,15 +102,19 @@ cd webflow-mysite && node serve.js
 ```
 Usage:
   framer-export <url> [output-dir]
+  framer-export ui [--port <n>] [--no-open]
   framer-export --setup
   framer-export --setup --legacy-mode
 
 Options:
+  ui                 Launch the local web interface (default port 4400)
   --setup            Launch interactive setup wizard
-  --platform <name>  Force platform: framer | webflow | wix
+  --platform <name>  Force platform by id (framer, webflow, wix, shopify, ...)
   --subpages         Crawl and export sub-pages
   --dpr <number>     Capture device pixel ratio (default: 1)
-  --legacy-mode      Use y/n text input instead of arrow selection
+  --legacy-mode      With --setup: y/n text input instead of arrow selection
+  --about            Show version and package information
+  --version, -v      Show the version number
   --help, -h         Show help message
 ```
 
@@ -119,6 +129,9 @@ framer-export --platform webflow https://custom-domain.com
 
 # Specify output directory
 framer-export https://mysite.webflow.io ./my-export
+
+# Web interface
+framer-export ui
 
 # Interactive wizard with arrow-key selection
 framer-export --setup
