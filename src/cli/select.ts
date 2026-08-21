@@ -3,21 +3,19 @@ import chalk from 'chalk';
 import { stdin, stdout } from 'node:process';
 import { maxWidth } from './box.js';
 import { centerText, stripAnsi, truncatePlain, THEME, ui } from './theme.js';
-
-/** One full-width row painted with the panel background (OpenCode-style card). */
 function panelRow(width: number, content: string = ''): string {
   const visible = stripAnsi(content).length;
   const pad = Math.max(0, width - visible);
   return chalk.bgHex(THEME.panel)(content + ' '.repeat(pad));
 }
-
-/** The highlighted row: inverted, bold, foreground = theme background. */
 function selectedRow(width: number, content: string): string {
   const visible = content.length;
   const pad = Math.max(0, width - visible);
-  return chalk.bgHex(THEME.primary).hex(THEME.background).bold(content + ' '.repeat(pad));
+  return chalk
+    .bgHex(THEME.primary)
+    .hex(THEME.background)
+    .bold(content + ' '.repeat(pad));
 }
-
 function titleRow(width: number, title: string): string {
   const left = `  ${ui.text.bold(title)}`;
   const right = `${ui.muted('esc')}  `;
@@ -25,28 +23,24 @@ function titleRow(width: number, title: string): string {
   const gap = Math.max(1, width - visible);
   return chalk.bgHex(THEME.panel)(left + ' '.repeat(gap) + right);
 }
-
 export interface SelectOption {
   label: string;
   value: string;
   disabled?: boolean;
+  heading?: boolean;
 }
-
 export interface SelectAction {
   label: string;
   value: string;
   disabled?: boolean;
 }
-
 export interface SelectConfig {
   headerLines?: string[];
   actions?: SelectAction[];
   footer?: string;
 }
-
 let pipedLinesPromise: Promise<string[]> | null = null;
 let pipedLineIndex = 0;
-
 export async function select(
   question: string,
   options: SelectOption[],
@@ -54,14 +48,11 @@ export async function select(
   config: SelectConfig = {}
 ): Promise<string> {
   const isTTY = stdin.isTTY && stdout.isTTY;
-
   if (!isTTY) {
     return fallbackPrompt(question, options, defaultIndex, config);
   }
-
   return arrowSelect(question, options, defaultIndex, config);
 }
-
 export async function promptInput(
   question: string,
   defaultValue: string = '',
@@ -70,10 +61,8 @@ export async function promptInput(
   if (!stdin.isTTY || !stdout.isTTY) {
     return fallbackInput(question, defaultValue);
   }
-
   return fullscreenInput(question, defaultValue, config);
 }
-
 async function arrowSelect(
   question: string,
   options: SelectOption[],
@@ -86,32 +75,47 @@ async function arrowSelect(
   const inner = width - 4;
   const hasActions = actions.length > 0;
   const headerCount = headerLines.length;
-  const optionStartOffset = 3 + headerCount + (headerCount > 0 ? 1 : 0);
-  const actionLineOffset = optionStartOffset + options.length + 1;
-  const lineCount = actionLineOffset + (hasActions ? 2 : 1);
   const rows = process.stdout.rows || 24;
   const columns = process.stdout.columns || 80;
+  const optionStartOffset = 3 + headerCount + (headerCount > 0 ? 1 : 0);
+  const chromeLines = optionStartOffset + (hasActions ? 3 : 1) + 2;
+  const maxVisible = Math.max(4, rows - chromeLines);
+  const visibleCount = Math.min(options.length, maxVisible);
+  const actionLineOffset = optionStartOffset + visibleCount + 1;
+  const lineCount = actionLineOffset + (hasActions ? 2 : 1);
   const panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
   const panelLeftCol = Math.max(1, Math.floor((columns - width) / 2) + 1);
   const footerRow = Math.min(rows, panelTopRow + lineCount + 1);
-
   return new Promise((resolve) => {
-    const firstEnabled: number = options.findIndex((option) => !option.disabled);
-    let selected: number = options[defaultIndex]?.disabled ? firstEnabled : defaultIndex;
+    const selectable = (i: number): boolean => !options[i].disabled && !options[i].heading;
+    const firstEnabled: number = options.findIndex((_, i) => selectable(i));
+    let selected: number =
+      defaultIndex >= 0 && defaultIndex < options.length && selectable(defaultIndex)
+        ? defaultIndex
+        : firstEnabled;
     let selectedAction: number | null = null;
+    let scrollOffset = 0;
     if (selected < 0) selected = 0;
-
     const move = (direction: -1 | 1): void => {
       let next = selected + direction;
       while (next >= 0 && next < options.length) {
-        if (!options[next].disabled) {
+        if (selectable(next)) {
           selected = next;
           return;
         }
         next += direction;
       }
     };
-
+    const syncScroll = (): void => {
+      if (options.length <= visibleCount) {
+        scrollOffset = 0;
+        return;
+      }
+      const anchor = selected > 0 && options[selected - 1].heading ? selected - 1 : selected;
+      if (anchor < scrollOffset) scrollOffset = anchor;
+      if (selected >= scrollOffset + visibleCount) scrollOffset = selected - visibleCount + 1;
+      scrollOffset = Math.max(0, Math.min(scrollOffset, options.length - visibleCount));
+    };
     const render = (initial: boolean = false): void => {
       if (!initial) {
         stdout.write('\x1B[2J');
@@ -124,7 +128,8 @@ async function arrowSelect(
         lines.push(panelRow(width, `   ${ui.muted(truncatePlain(stripAnsi(header), inner))}`));
       }
       if (headerCount > 0) lines.push(panelRow(width));
-      for (let i = 0; i < options.length; i++) {
+      syncScroll();
+      for (let i = scrollOffset; i < scrollOffset + visibleCount; i++) {
         lines.push(
           renderOption(
             options[i],
@@ -135,12 +140,15 @@ async function arrowSelect(
           )
         );
       }
-      lines.push(panelRow(width));
+      lines.push(
+        options.length > visibleCount
+          ? panelRow(width, `   ${ui.muted(`${selected + 1}/${options.length}  scroll for more`)}`)
+          : panelRow(width)
+      );
       if (hasActions) {
         lines.push(panelRow(width, renderActions(actions, selectedAction)));
         lines.push(panelRow(width));
       }
-
       lines.forEach((line, index) => writeAt(panelTopRow + index, panelLeftCol, line));
       writeAt(
         footerRow,
@@ -151,32 +159,26 @@ async function arrowSelect(
         )
       );
     };
-
     const choose = (value: string = options[selected].value): void => {
       cleanup();
       console.log(
         `  ${ui.success('✓')} ${ui.text.bold(question)} ${ui.primary(labelForValue(value, options, actions))}\n`
       );
-
       resolve(value);
     };
-
     const onMouseData = (chunk: Buffer): void => {
       const mouse = parseMouseEvent(chunk);
       if (!mouse) return;
-
       if (mouse.kind === 'wheel-up') {
         move(-1);
         render();
         return;
       }
-
       if (mouse.kind === 'wheel-down') {
         move(1);
         render();
         return;
       }
-
       if (hasActions && mouse.y === panelTopRow + actionLineOffset) {
         const actionIdx = actionIndexAtX(actions, mouse.x, panelLeftCol, inner);
         if (actionIdx === null || actions[actionIdx].disabled) return;
@@ -187,21 +189,19 @@ async function arrowSelect(
         if (mouse.kind === 'click') choose(actions[actionIdx].value);
         return;
       }
-
-      const idx = mouse.y - panelTopRow - optionStartOffset;
-      if (idx < 0 || idx >= options.length || options[idx].disabled) return;
-
+      const relative = mouse.y - panelTopRow - optionStartOffset;
+      if (relative < 0 || relative >= visibleCount) return;
+      const idx = scrollOffset + relative;
+      if (idx >= options.length || options[idx].disabled || options[idx].heading) return;
       if (selected !== idx) {
         selected = idx;
         selectedAction = null;
         render();
       }
-
       if (mouse.kind === 'click') {
         choose();
       }
     };
-
     const cleanup = (): void => {
       leaveInteractiveScreen();
       stdin.setRawMode(false);
@@ -209,15 +209,12 @@ async function arrowSelect(
       stdin.removeListener('data', onMouseData);
       stdin.pause();
     };
-
     readline.emitKeypressEvents(stdin);
     stdin.setRawMode(true);
     enterInteractiveScreen(true);
     render(true);
-
     const onKeypress = (_str: string | undefined, key: readline.Key): void => {
       if (!key) return;
-
       if (key.name === 'up' && selected > 0) {
         move(-1);
         selectedAction = null;
@@ -236,13 +233,11 @@ async function arrowSelect(
         process.exit(0);
       }
     };
-
     stdin.resume();
     stdin.on('data', onMouseData);
     stdin.on('keypress', onKeypress);
   });
 }
-
 async function fallbackPrompt(
   question: string,
   options: SelectOption[],
@@ -253,9 +248,7 @@ async function fallbackPrompt(
     const firstEnabled: number = options.findIndex((option) => !option.disabled);
     const enabledDefault: number = options[defaultIndex]?.disabled ? firstEnabled : defaultIndex;
     const def = String(enabledDefault + 1);
-
     printFallbackOptions(question, options, enabledDefault, config);
-
     while (true) {
       const trimmed = (await readPipedLine()).trim();
       if (trimmed.toLowerCase() === 'a') {
@@ -276,15 +269,12 @@ async function fallbackPrompt(
       console.log(`  ${ui.error('✗')} ${ui.warning(`Enter 1-${options.length} or ${def}`)}\n`);
     }
   }
-
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: stdin, output: stdout });
     const firstEnabled: number = options.findIndex((option) => !option.disabled);
     const enabledDefault: number = options[defaultIndex]?.disabled ? firstEnabled : defaultIndex;
-
     printFallbackOptions(question, options, enabledDefault, config);
     const def = String(enabledDefault + 1);
-
     const ask = (): void => {
       rl.question(
         `  ${ui.primary('>')} ${ui.muted(`Choose [1-${options.length}] (${def})`)}: `,
@@ -324,7 +314,6 @@ async function fallbackPrompt(
     ask();
   });
 }
-
 function fullscreenInput(
   question: string,
   defaultValue: string,
@@ -340,10 +329,8 @@ function fullscreenInput(
   const panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
   const panelLeftCol = Math.max(1, Math.floor((columns - width) / 2) + 1);
   const footerRow = Math.min(rows, panelTopRow + lineCount + 1);
-
   return new Promise((resolve) => {
     let value = defaultValue;
-
     const render = (): void => {
       stdout.write('\x1B[2J');
       const shown = value || '';
@@ -363,7 +350,6 @@ function fullscreenInput(
       if (headerCount > 0) lines.push(panelRow(width));
       lines.push(inputRow);
       lines.push(panelRow(width));
-
       lines.forEach((line, index) => writeAt(panelTopRow + index, panelLeftCol, line));
       writeAt(
         footerRow,
@@ -371,20 +357,17 @@ function fullscreenInput(
         centerText(ui.muted(config.footer || 'type value   enter confirm   esc close'), width)
       );
     };
-
     const cleanup = (): void => {
       leaveInteractiveScreen();
       stdin.setRawMode(false);
       stdin.removeListener('keypress', onKeypress);
       stdin.pause();
     };
-
     const submit = (): void => {
       const output = cleanInputValue(value.trim() || defaultValue);
       cleanup();
       resolve(output);
     };
-
     const onKeypress = (str: string | undefined, key: readline.Key): void => {
       if ((key.ctrl && key.name === 'c') || key.name === 'escape') {
         cleanup();
@@ -409,7 +392,6 @@ function fullscreenInput(
         render();
       }
     };
-
     readline.emitKeypressEvents(stdin);
     stdin.setRawMode(true);
     enterInteractiveScreen(false);
@@ -418,7 +400,6 @@ function fullscreenInput(
     stdin.on('keypress', onKeypress);
   });
 }
-
 async function fallbackInput(question: string, defaultValue: string): Promise<string> {
   if (!stdin.isTTY) {
     const suffix = defaultValue ? ui.muted(` (${defaultValue})`) : '';
@@ -426,7 +407,6 @@ async function fallbackInput(question: string, defaultValue: string): Promise<st
     const answer = await readPipedLine();
     return cleanInputValue(answer.trim() || defaultValue);
   }
-
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: stdin, output: stdout });
     const suffix = defaultValue ? ui.muted(` (${defaultValue})`) : '';
@@ -436,7 +416,6 @@ async function fallbackInput(question: string, defaultValue: string): Promise<st
     });
   });
 }
-
 function printFallbackOptions(
   question: string,
   options: SelectOption[],
@@ -464,7 +443,6 @@ function printFallbackOptions(
   }
   console.log('');
 }
-
 function readPipedLine(): Promise<string> {
   if (!pipedLinesPromise) {
     pipedLinesPromise = new Promise((resolve) => {
@@ -481,10 +459,8 @@ function readPipedLine(): Promise<string> {
       });
     });
   }
-
   return pipedLinesPromise.then((lines) => lines[pipedLineIndex++] ?? '');
 }
-
 function renderActions(actions: SelectAction[], active: number | null): string {
   const rendered = actions
     .map((action, index) => {
@@ -497,7 +473,6 @@ function renderActions(actions: SelectAction[], active: number | null): string {
     .join('   ');
   return `   ${rendered}`;
 }
-
 function actionIndexAtX(
   actions: SelectAction[],
   mouseX: number,
@@ -510,7 +485,6 @@ function actionIndexAtX(
   if (relative < 0 || relative > inner) return null;
   return Math.min(actions.length - 1, Math.floor((relative / Math.max(1, inner)) * actions.length));
 }
-
 function labelForValue(value: string, options: SelectOption[], actions: SelectAction[]): string {
   return stripAnsi(
     options.find((option) => option.value === value)?.label ||
@@ -518,13 +492,27 @@ function labelForValue(value: string, options: SelectOption[], actions: SelectAc
       value
   );
 }
-
 type MouseEventInfo =
-  | { kind: 'click'; x: number; y: number }
-  | { kind: 'hover'; x: number; y: number }
-  | { kind: 'wheel-up'; x: number; y: number }
-  | { kind: 'wheel-down'; x: number; y: number };
-
+  | {
+      kind: 'click';
+      x: number;
+      y: number;
+    }
+  | {
+      kind: 'hover';
+      x: number;
+      y: number;
+    }
+  | {
+      kind: 'wheel-up';
+      x: number;
+      y: number;
+    }
+  | {
+      kind: 'wheel-down';
+      x: number;
+      y: number;
+    };
 function renderOption(
   option: SelectOption,
   isSelected: boolean,
@@ -533,6 +521,9 @@ function renderOption(
   inner: number
 ): string {
   const plain = truncatePlain(stripAnsi(option.label), Math.max(10, inner - 2));
+  if (option.heading) {
+    return panelRow(width, `   ${ui.accent.bold(plain)}`);
+  }
   if (isSelected && !option.disabled) {
     return selectedRow(width, ` ${isDefault ? '●' : ' '} ${plain}`);
   }
@@ -544,25 +535,21 @@ function renderOption(
   }
   return panelRow(width, `   ${ui.text(plain)}`);
 }
-
 function enterInteractiveScreen(enableMouse: boolean): void {
   stdout.write('\x1B[?1049h' + '\x1B[2J' + '\x1B[H' + '\x1B[?25l');
   if (enableMouse) {
     stdout.write('\x1B[?1006h' + '\x1B[?1000h' + '\x1B[?1002h' + '\x1B[?1003h');
   }
 }
-
 function leaveInteractiveScreen(): void {
   stdout.write(
     '\x1B[?1003l' + '\x1B[?1002l' + '\x1B[?1000l' + '\x1B[?1006l' + '\x1B[?25h' + '\x1B[?1049l'
   );
 }
-
 function parseMouseEvent(chunk: Buffer): MouseEventInfo | null {
   const text = chunk.toString('utf-8');
   const match = text.match(/\x1B\[<(\d+);(\d+);(\d+)([mM])/);
   if (!match) return parseLegacyMouseEvent(text);
-
   const code = Number(match[1]);
   const x = Number(match[2]);
   const y = Number(match[3]);
@@ -574,32 +561,26 @@ function parseMouseEvent(chunk: Buffer): MouseEventInfo | null {
   if ((code & 3) === 0) return { kind: 'hover', x, y };
   return null;
 }
-
 function parseLegacyMouseEvent(text: string): MouseEventInfo | null {
   const match = text.match(/\x1B\[M([\s\S])([\s\S])([\s\S])/);
   if (!match) return null;
-
   const code = match[1].charCodeAt(0) - 32;
   const x = match[2].charCodeAt(0) - 32;
   const y = match[3].charCodeAt(0) - 32;
-
   if (code === 64) return { kind: 'wheel-up', x, y };
   if (code === 65) return { kind: 'wheel-down', x, y };
   if ((code & 3) === 3) return { kind: 'click', x, y };
   if ((code & 32) === 32) return { kind: 'hover', x, y };
   return { kind: 'hover', x, y };
 }
-
 function writeAt(row: number, col: number, text: string): void {
   stdout.write(`\x1B[${row};${col}H${text}`);
 }
-
 function isTerminalSequence(str: string, key: readline.Key): boolean {
   return (
     str.includes('\x1B') || !!key.sequence?.includes('\x1B') || /^(?:\d+;){2}\d+[mM]$/.test(str)
   );
 }
-
 function cleanInputValue(value: string): string {
   return value
     .replace(/\x1B\[<\d+;\d+;\d+[mM]/g, '')
