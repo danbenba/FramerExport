@@ -112,6 +112,32 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  if (args[0] === 'ui') {
+    args.shift();
+    const portValue = extractFlag(args, '--port');
+    const port = portValue === null ? 4400 : Number(portValue);
+    if (!Number.isFinite(port) || port < 0 || port > 65535) {
+      console.log(
+        `  ${ui.error('✗')} ${ui.error.bold('Invalid port:')} ${ui.text(portValue || '')}\n`
+      );
+      process.exit(1);
+    }
+    showBanner();
+    const { startUiServer } = await import('../ui/server.js');
+    const actualPort = await startUiServer(port);
+    if (!hasFlag(args, '--no-open')) {
+      const target = `http://localhost:${actualPort}`;
+      const opener =
+        process.platform === 'win32'
+          ? { cmd: 'cmd', args: ['/c', 'start', '', target] }
+          : process.platform === 'darwin'
+            ? { cmd: 'open', args: [target] }
+            : { cmd: 'xdg-open', args: [target] };
+      spawnSync(opener.cmd, opener.args, { stdio: 'ignore' });
+    }
+    return;
+  }
+
   await showLoadingIntro(VERSION);
   await showUpdateNotice();
 

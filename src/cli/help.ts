@@ -12,11 +12,15 @@ export function showHelp(): void {
   console.log(
     `    ${ui.primary('fexport')}         ${ui.warning('<url>')} ${ui.muted('[output-dir]')}`
   );
+  console.log(
+    `    ${ui.primary('framer-export')} ${ui.success('ui')}   ${ui.muted('[--port <n>] [--no-open]')}`
+  );
 
   console.log('');
   console.log(ui.text.bold('  OPTIONS\n'));
 
   const opts: Array<[string, string]> = [
+    ['ui', 'Launch the web interface (gallery, options, live logs)'],
     ['--setup', 'Launch the interactive setup assistant'],
     ['--platform <p>', 'Force platform by id (e.g. framer, shopify, notion)'],
     ['--subpages', 'Crawl and export sub-pages'],
