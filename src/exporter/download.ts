@@ -34,8 +34,7 @@ export async function downloadAll(exporter: ExporterContext): Promise<void> {
 
         try {
           const buf: Buffer | undefined =
-            exporter.assets.buffers.get(url) ||
-            exporter.assets.buffers.get(url.split('?')[0]);
+            exporter.assets.buffers.get(url) || exporter.assets.buffers.get(url.split('?')[0]);
           if (buf) {
             await fs.writeFile(dest, buf);
             cached++;
@@ -47,10 +46,7 @@ export async function downloadAll(exporter: ExporterContext): Promise<void> {
           }
         } catch (e) {
           fail++;
-          if (
-            !url.includes('framer.com/edit') &&
-            !url.includes('framerstatic.com/editorbar')
-          ) {
+          if (!url.includes('framer.com/edit') && !url.includes('framerstatic.com/editorbar')) {
             warn('Download failed: ' + path.basename(localPath) + ' - ' + (e as Error).message);
           }
         }
@@ -67,11 +63,86 @@ export async function downloadAll(exporter: ExporterContext): Promise<void> {
 
   await pool(tasks, CFG.concurrency);
 
-  success('Downloads complete: ' + ok + ' succeeded, ' + cached + ' from cache, ' + fail + ' failed');
+  success(
+    'Downloads complete: ' + ok + ' succeeded, ' + cached + ' from cache, ' + fail + ' failed'
+  );
 
   const totalBytes: number = [...exporter.assets.entries.values()].length;
   log('Total unique assets written to disk: ' + totalBytes);
 
   exporter.assets.buffers.clear();
   log('Network buffer cache cleared');
+}
+
+const SIBLING_IMPORT = /(?:import|from)\s*\(?\s*["'`]\.\/([A-Za-z0-9_.-]+\.m?js)["'`]/g;
+const MAX_CHUNK_DEPTH = 5;
+
+/**
+ * Route and font chunks load lazily, so a single crawl never requests them and
+ * the mirror ends up with dead `import("./chunk.mjs")` calls. Follow those
+ * sibling specifiers from the JS already on disk until the graph closes.
+ */
+export async function downloadLazyChunks(exporter: ExporterContext): Promise<void> {
+  const chunkDirs = exporter.platform.lazyChunkDirs;
+  if (!chunkDirs?.length) return;
+
+  const sourceOf: Map<string, string> = new Map();
+  for (const [url, { localPath }] of exporter.assets.entries) {
+    if (!sourceOf.has(localPath)) sourceOf.set(localPath, url);
+  }
+
+  let frontier: string[] = [...sourceOf.keys()].filter((p) =>
+    chunkDirs.some((dir) => p.startsWith(dir + '/'))
+  );
+  let added = 0;
+
+  // Each fetched chunk can name more chunks; the graph is shallow in practice.
+  for (let depth = 0; depth < MAX_CHUNK_DEPTH && frontier.length > 0; depth++) {
+    const next: string[] = [];
+
+    const tasks = frontier.map((localPath) => async (): Promise<void> => {
+      let code: string;
+      try {
+        code = await fs.readFile(path.join(exporter.outDir, localPath), 'utf-8');
+      } catch {
+        return;
+      }
+
+      for (const match of code.matchAll(SIBLING_IMPORT)) {
+        let chunkUrl: string;
+        try {
+          chunkUrl = new URL('./' + match[1], sourceOf.get(localPath)!).href;
+        } catch {
+          continue;
+        }
+        if (exporter.assets.entries.has(chunkUrl)) continue;
+
+        const dest: string | null = exporter.assets.localPathFor(chunkUrl, exporter.platform);
+        if (!dest) continue;
+        sourceOf.set(dest, chunkUrl);
+
+        try {
+          await fs.writeFile(path.join(exporter.outDir, dest), await dlBuffer(chunkUrl));
+          next.push(dest);
+          added++;
+        } catch (e) {
+          warn('Lazy chunk failed: ' + match[1] + ' - ' + (e as Error).message);
+        }
+      }
+    });
+    await pool(tasks, CFG.concurrency);
+
+    frontier = next;
+  }
+
+  if (frontier.length > 0) {
+    warn(
+      'Lazy chunk traversal stopped at depth ' +
+        MAX_CHUNK_DEPTH +
+        ' with ' +
+        frontier.length +
+        ' chunks left to inspect'
+    );
+  }
+  if (added > 0) success('Lazy-loaded chunks resolved: ' + added);
 }

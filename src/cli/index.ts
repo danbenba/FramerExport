@@ -130,7 +130,20 @@ async function main(): Promise<void> {
   }
 
   const platformOverride = extractFlag(args, '--platform') as PlatformType | null;
+  const hasDprFlag = args.includes('--dpr');
+  const dprValue = extractFlag(args, '--dpr');
   const includeSubpages: boolean = hasFlag(args, '--subpages');
+
+  const deviceScaleFactor = dprValue === null ? 1 : Number(dprValue);
+  if (
+    (hasDprFlag && dprValue === null) ||
+    !Number.isFinite(deviceScaleFactor) ||
+    deviceScaleFactor <= 0
+  ) {
+    console.log(`  ${ui.error('✗')} ${ui.error.bold('Invalid DPR:')} ${ui.text(dprValue || '')}`);
+    console.log(`  ${ui.muted('Expected a positive number, for example: --dpr 2')}\n`);
+    process.exit(1);
+  }
 
   showBanner();
 
@@ -152,9 +165,12 @@ async function main(): Promise<void> {
   const out: string = args[1] || `./${defaultDir}`;
 
   try {
-    await new FramerExporter(url, path.resolve(out), platformOverride || undefined).run(
-      includeSubpages
-    );
+    await new FramerExporter(
+      url,
+      path.resolve(out),
+      platformOverride || undefined,
+      deviceScaleFactor
+    ).run(includeSubpages);
   } catch (e) {
     const { AntiBotError, formatAntiBotError } = await import('../exporter/anti-bot.js');
     if (e instanceof AntiBotError) {

@@ -31,11 +31,38 @@ export const framer: PlatformHandler = {
 
   stripPatterns: [
     /<div id="__framer-badge-container"[^>]*><\/div>/g,
-    /<script>try\{if\(localStorage\.get\("__framer_force_showing_editorbar_since"\)\)[^<]*<\/script>/g,
+    /<script>try\{if\(localStorage\.getItem\("__framer_force_showing_editorbar_since"\)\)[^<]*<\/script>/g,
   ],
 
   hydrationTimeout: 10000,
   needsHydrationCheck: true,
+
+  // The editor bar builds its iframe URL from import.meta.url, so a mirrored
+  // copy points at the export's own script directory and 404s in a loop.
+  // Keep these regexes non-global because capture calls RegExp.test repeatedly.
+  skipAssetUrls: [
+    /^https:\/\/(?:www\.)?framer\.com\/edit(?:[/?]|$)/,
+    /^https:\/\/(?:[^/]+\.)*(?:framer\.com|framerstatic\.com|framerusercontent\.com|framercanvas\.com)\/[^?]*\/init\.mjs(?:\?|$)/,
+    /^https:\/\/(?:[^/]+\.)*(?:framer\.com|framerstatic\.com|framerusercontent\.com|framercanvas\.com)\/[^?]*\/editorbar\.[^/]*\.mjs(?:\?|$)/,
+    /^https:\/\/(?:[^/]+\.)*(?:framer\.com|framerstatic\.com|framerusercontent\.com|framercanvas\.com)\/[^?]*\/EditButton-[^/]*\.mjs(?:\?|$)/,
+  ],
+
+  lazyChunkDirs: ['scripts/vendor', 'scripts/modules'],
+
+  rewritePatterns: [
+    // The editor bar is Framer chrome, not site content: give the loader an
+    // inert module so a mirror never reaches back out to framer.com.
+    {
+      from: /https:\/\/(?:www\.)?framer\.com\/edit\/init\.mjs/g,
+      to: 'data:text/javascript,export%20const%20createEditorBar=()=>()=>null',
+    },
+    // The badge markup is stripped from the HTML, so its bootstrap would call
+    // hydrateRoot with a null container and kill the rest of the page scripts.
+    {
+      from: /\(function\(\)\{[\w$]+&&[\w$]+\(\(\)=>\{[\s\S]{0,200}?__framer-badge-container[\s\S]{0,300}?\}\)\}\)\(\)/g,
+      to: '',
+    },
+  ],
 
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('framerusercontent.com')) {
