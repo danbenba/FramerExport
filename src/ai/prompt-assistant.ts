@@ -6,6 +6,7 @@ import type { ExporterContext } from '../types.js';
 import { select, type SelectOption } from '../cli/select.js';
 import { boxTop, boxLine, boxSep, boxBot, maxWidth } from '../cli/box.js';
 import { centerText, ui } from '../cli/theme.js';
+import { getLogHistory } from '../logger/index.js';
 interface ConversionTarget {
   id: string;
   label: string;
@@ -256,6 +257,7 @@ async function runExportCompletePrompt(
   serveCommand: string
 ): Promise<boolean> {
   let copyServeCommand = true;
+  let copyExportLog = false;
   while (true) {
     const action = await select(
       'Export complete',
@@ -265,23 +267,32 @@ async function runExportCompletePrompt(
           value: 'toggle-copy',
         },
         {
+          label: `${checkboxLabel(copyExportLog)} Copy full export log when finishing`,
+          value: 'toggle-log',
+        },
+        {
           label: `${buttonLabel('Convert to AI code')} ${ui.error('BETA')}`,
           value: 'convert',
         },
         { label: buttonLabel('Finish'), value: 'finish' },
       ],
-      2,
+      3,
       {
         headerLines: [
           `Output: ${path.basename(exporter.outDir)}`,
           `Run: ${serveCommand}`,
+          `Log: ${path.basename(exporter.outDir)}/export.log`,
           'Use Convert to open the AI conversion assistant.',
         ],
-        footer: 'enter select  ·  checkbox toggles copy  ·  mouse hover/click',
+        footer: 'enter select   checkbox toggles   mouse click',
       }
     );
     if (action === 'toggle-copy') {
       copyServeCommand = !copyServeCommand;
+      continue;
+    }
+    if (action === 'toggle-log') {
+      copyExportLog = !copyExportLog;
       continue;
     }
     if (action === 'finish') {
@@ -289,6 +300,19 @@ async function runExportCompletePrompt(
         try {
           await copyToClipboard(serveCommand);
           console.log(`  ${ui.success('✓')} ${ui.text.bold('Serve command copied')}\n`);
+        } catch (error) {
+          console.log(
+            `  ${ui.warning('!')} ${ui.warning('Clipboard copy unavailable:')} ${ui.muted((error as Error).message)}\n`
+          );
+        }
+      }
+      if (copyExportLog) {
+        try {
+          const logText = getLogHistory()
+            .map((r) => `[${r.time}] [${r.level}] ${r.message}`)
+            .join('\n');
+          await copyToClipboard(logText);
+          console.log(`  ${ui.success('✓')} ${ui.text.bold('Export log copied')}\n`);
         } catch (error) {
           console.log(
             `  ${ui.warning('!')} ${ui.warning('Clipboard copy unavailable:')} ${ui.muted((error as Error).message)}\n`
