@@ -30,6 +30,14 @@ export function getLogHistory(): readonly LogRecord[] {
 export function clearLogHistory(): void {
   _history.length = 0;
 }
+let _messageWidth = 120;
+let _renderHook: (() => void) | null = null;
+export function setMessageWidth(width: number | null): void {
+  _messageWidth = width ?? 120;
+}
+export function setRenderHook(hook: (() => void) | null): void {
+  _renderHook = hook;
+}
 function record(level: LogLevel, message: string): LogRecord {
   const entry: LogRecord = { time: T(), level, message };
   _history.push(entry);
@@ -37,9 +45,12 @@ function record(level: LogLevel, message: string): LogRecord {
   for (const listener of _listeners) listener(entry);
   return entry;
 }
-function output(line: string): void {
+function output(line: string, channel: 'log' | 'warn' | 'error' = 'log'): void {
   if (_cooking) _cooking.log(line);
+  else if (channel === 'warn') console.warn(line);
+  else if (channel === 'error') console.error(line);
   else console.log(line);
+  _renderHook?.();
 }
 const LOG_PALETTE: Array<(s: string) => string> = [
   (s) => chalk.hex(THEME.primary)(s),
@@ -55,7 +66,7 @@ export const log = (m: string): void => {
   _li++;
   const c = LOG_PALETTE[_li % LOG_PALETTE.length];
   output(
-    `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.primary)('[log]')} ${c(trunc(m, 120))}`
+    `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.primary)('[log]')} ${c(trunc(m, _messageWidth))}`
   );
 };
 const INFO_PALETTE: Array<(s: string) => string> = [
@@ -69,24 +80,22 @@ export const info = (m: string): void => {
   _ii++;
   const c = INFO_PALETTE[_ii % INFO_PALETTE.length];
   output(
-    `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.info).bold('[info]')} ${c(trunc(m, 120))}`
+    `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.info).bold('[info]')} ${c(trunc(m, _messageWidth))}`
   );
 };
 export const warn = (m: string): void => {
   const { time } = record('warn', m);
-  const line = `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.warning).bold('[warn]')} ${chalk.hex(THEME.warning)(trunc(m, 120))}`;
-  if (_cooking) _cooking.log(line);
-  else console.warn(line);
+  const line = `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.warning).bold('[warn]')} ${chalk.hex(THEME.warning)(trunc(m, _messageWidth))}`;
+  output(line, 'warn');
 };
 export const success = (m: string): void => {
   const { time } = record('ok', m);
   output(
-    `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.success)('[ok]')} ${chalk.hex(THEME.success)(trunc(m, 120))}`
+    `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.success)('[ok]')} ${chalk.hex(THEME.success)(trunc(m, _messageWidth))}`
   );
 };
 export const error = (m: string): void => {
   const { time } = record('error', m);
-  const line = `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.error)('[error]')} ${chalk.hex(THEME.error)(trunc(m, 120))}`;
-  if (_cooking) _cooking.log(line);
-  else console.error(line);
+  const line = `${chalk.hex(THEME.muted)(`[${time}]`)} ${chalk.hex(THEME.error)('[error]')} ${chalk.hex(THEME.error)(trunc(m, _messageWidth))}`;
+  output(line, 'error');
 };
