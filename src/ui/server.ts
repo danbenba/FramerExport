@@ -32,6 +32,36 @@ interface RunState {
 const clients = new Set<http.ServerResponse>();
 let run: RunState = { state: 'idle' };
 
+function isAllowedHost(req: http.IncomingMessage): boolean {
+  const host = (req.headers.host || '').toLowerCase();
+  return /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+}
+
+function isSameOrigin(req: http.IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    const parsed = new URL(origin);
+    return (
+      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+      parsed.port === (req.headers.host || '').split(':')[1]
+    );
+  } catch {
+    return false;
+  }
+}
+
+function resolveOutDir(requested: string | undefined, fallbackName: string): string | null {
+  const cwd = process.cwd();
+  const target = path.resolve(cwd, requested || './' + fallbackName);
+  if (target !== cwd && !target.startsWith(cwd + path.sep)) return null;
+  return target;
+}
+
+function quoteForShell(name: string): string {
+  return '"' + name.replace(/["`$\\\r\n]/g, '') + '"';
+}
+
 function sse(event: string, data: unknown): void {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const client of clients) client.write(payload);
@@ -66,7 +96,7 @@ function platformsPayload(): unknown {
   };
 }
 
-async function startExport(body: ExportRequest): Promise<void> {
+async function startExport(body: ExportRequest, outDir: string): Promise<void> {
   run = { state: 'running' };
   clearLogHistory();
   sse('status', run);
@@ -74,7 +104,6 @@ async function startExport(body: ExportRequest): Promise<void> {
   const { CFG } = await import('../config/index.js');
   CFG.concurrency = body.concurrency || 12;
 
-  const outDir = path.resolve(body.outDir || './' + deriveOutputName(body.url, 'framer'));
   const exporter = new FramerExporter(
     body.url,
     outDir,
@@ -88,7 +117,7 @@ async function startExport(body: ExportRequest): Promise<void> {
     run = {
       state: 'done',
       outDir,
-      serveCommand: `cd ${path.basename(outDir)} && node serve.js`,
+      serveCommand: `cd ${quoteForShell(path.basename(outDir))} && node serve.js`,
       summary: await collectSummary(outDir),
     };
   } catch (e) {
@@ -109,6 +138,11 @@ export function startUiServer(port: number): Promise<UiServerHandle> {
   const server = http.createServer(async (req, res) => {
     const parsed = new URL(req.url || '/', 'http://localhost');
     const route = parsed.pathname;
+
+    if (!isAllowedHost(req) || !isSameOrigin(req)) {
+      json(res, 403, { error: 'forbidden' });
+      return;
+    }
 
     if (route === '/' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -178,8 +212,13 @@ export function startUiServer(port: number): Promise<UiServerHandle> {
         json(res, 400, { error: 'invalid request body' });
         return;
       }
+      const outDir = resolveOutDir(body.outDir, deriveOutputName(body.url, 'framer'));
+      if (!outDir) {
+        json(res, 400, { error: 'output directory must stay inside the working directory' });
+        return;
+      }
       json(res, 202, { started: true });
-      void startExport(body);
+      void startExport(body, outDir);
       return;
     }
     res.writeHead(404, { 'Content-Type': 'application/json' });

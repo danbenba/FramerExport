@@ -91,6 +91,46 @@ test('returns 404 for unknown routes', async () => {
   assert.equal(res.status, 404);
 });
 
+test('rejects cross-origin export requests', async () => {
+  const res = await fetch(base + '/api/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' },
+    body: JSON.stringify({ url: 'https://demo.framer.app' }),
+  });
+  assert.equal(res.status, 403);
+});
+
+test('rejects requests with a non-local Host header', async () => {
+  const status = await new Promise<number>((resolve, reject) => {
+    const req = http.request(
+      {
+        host: '127.0.0.1',
+        port: handle.port,
+        path: '/api/status',
+        headers: { Host: 'evil.example' },
+      },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode || 0);
+      }
+    );
+    req.on('error', reject);
+    req.end();
+  });
+  assert.equal(status, 403);
+});
+
+test('rejects output directories escaping the working directory', async () => {
+  const res = await fetch(base + '/api/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: 'https://demo.framer.app', outDir: '../../outside' }),
+  });
+  assert.equal(res.status, 400);
+  const data = (await res.json()) as { error: string };
+  assert.match(data.error, /working directory/);
+});
+
 test('event stream sends initial status and progress events', async () => {
   const received = await new Promise<string>((resolve, reject) => {
     const req = http.get(base + '/api/events', (res) => {
