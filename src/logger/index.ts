@@ -54,31 +54,19 @@ export const info = (m: string): void => {
 };
 
 export const warn = (m: string): void => {
-  const colors: Array<(s: string) => string> = [
-    (s) => chalk.hex(THEME.warning)(s),
-    (s) => chalk.hex(THEME.primary)(s),
-  ];
-  const c = colors[Math.floor(Math.random() * colors.length)];
-  const line = `${chalk.hex(THEME.muted)(`[${T()}]`)} ${chalk.hex(THEME.warning).bold('[warn]')} ${c(trunc(m, 120))}`;
+  const line = `${chalk.hex(THEME.muted)(`[${T()}]`)} ${chalk.hex(THEME.warning).bold('[warn]')} ${chalk.hex(THEME.warning)(trunc(m, 120))}`;
   if (_cooking) _cooking.log(line);
   else console.warn(line);
 };
 
 export const success = (m: string): void => {
-  const colors: Array<(s: string) => string> = [
-    (s) => chalk.hex(THEME.success)(s),
-    (s) => chalk.hex(THEME.info)(s),
-  ];
-  const c = colors[Math.floor(Math.random() * colors.length)];
   output(
-    `${chalk.hex(THEME.muted)(`[${T()}]`)} ${chalk.hex(THEME.success)('[ok]')} ${c(trunc(m, 120))}`
+    `${chalk.hex(THEME.muted)(`[${T()}]`)} ${chalk.hex(THEME.success)('[ok]')} ${chalk.hex(THEME.success)(trunc(m, 120))}`
   );
 };
 
 export const error = (m: string): void => {
-  const colors: Array<(s: string) => string> = [(s) => chalk.hex(THEME.error)(s)];
-  const c = colors[Math.floor(Math.random() * colors.length)];
-  const line = `${chalk.hex(THEME.muted)(`[${T()}]`)} ${chalk.hex(THEME.error)('[error]')} ${c(trunc(m, 120))}`;
+  const line = `${chalk.hex(THEME.muted)(`[${T()}]`)} ${chalk.hex(THEME.error)('[error]')} ${chalk.hex(THEME.error)(trunc(m, 120))}`;
   if (_cooking) _cooking.log(line);
   else console.error(line);
 };
