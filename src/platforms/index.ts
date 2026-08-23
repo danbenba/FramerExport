@@ -6,6 +6,8 @@ export {
   PLATFORM_REGISTRY,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
+  STABLE_PLATFORMS,
+  isBetaPlatform,
   sortedByPriority,
   platformsByCategory,
 } from './registry.js';

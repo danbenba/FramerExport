@@ -82,3 +82,7 @@ export function platformsByCategory(): Record<PlatformCategory, PlatformHandler[
   }
   return out;
 }
+export const STABLE_PLATFORMS = new Set<string>(['framer', 'webflow', 'wix']);
+export function isBetaPlatform(name: string): boolean {
+  return !STABLE_PLATFORMS.has(name);
+}

@@ -1,6 +1,11 @@
 import { showBanner } from './banner.js';
 import { chip, ui } from './theme.js';
-import { platformsByCategory, CATEGORY_LABELS, CATEGORY_ORDER } from '../platforms/index.js';
+import {
+  platformsByCategory,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  isBetaPlatform,
+} from '../platforms/index.js';
 
 export function showHelp(): void {
   showBanner();
@@ -40,9 +45,12 @@ export function showHelp(): void {
 
   const grouped = platformsByCategory();
   for (const cat of CATEGORY_ORDER) {
-    const names = grouped[cat].map((handler) => handler.displayName).join(', ');
+    const names = grouped[cat]
+      .map((handler) => handler.displayName + (isBetaPlatform(handler.name) ? '*' : ''))
+      .join(', ');
     console.log(`    ${ui.primary(CATEGORY_LABELS[cat].padEnd(22))} ${ui.muted(names)}`);
   }
+  console.log(`    ${ui.muted('* beta support, Framer, Webflow and Wix are stable')}`);
 
   console.log('');
   console.log(ui.text.bold('  EXAMPLES\n'));

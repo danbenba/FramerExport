@@ -4,6 +4,7 @@ import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   detectByUrl,
+  isBetaPlatform,
 } from '../platforms/index.js';
 import type { PlatformType } from '../platforms/types.js';
 
@@ -18,13 +19,19 @@ export async function selectTool(): Promise<ToolSelection> {
   for (const cat of CATEGORY_ORDER) {
     options.push({ label: CATEGORY_LABELS[cat], value: `__heading_${cat}`, heading: true });
     for (const handler of grouped[cat]) {
-      options.push({ label: handler.displayName, value: handler.name });
+      options.push({
+        label: isBetaPlatform(handler.name)
+          ? `${handler.displayName}  [beta]`
+          : handler.displayName,
+        value: handler.name,
+      });
     }
   }
 
   const choice = await select('Select a tool to export', options, 0, {
-    headerLines: ['25+ platforms supported, scroll to browse them all.'],
-    footer: '↑↓ scroll   enter select   mouse click   esc close',
+    headerLines: ['25+ platforms supported, type to search the list.'],
+    searchable: true,
+    footer: 'type to search   ↑↓ scroll   enter select   esc close',
   });
 
   if (choice === AUTO_DETECT) return { auto: true };
