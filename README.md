@@ -1,7 +1,7 @@
 <h1 align="center">F-EXPORT</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.0.0-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-5.0.0--beta.2-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933" alt="Node" />
 </p>
@@ -50,7 +50,7 @@ The server only listens on 127.0.0.1 and rejects cross-origin requests, so nothi
 framer-export
 ```
 
-Running it with no arguments opens the interactive setup. First you pick the tool from a scrollable list grouped by category, then you enter the URL, then the output directory, and finally a single options panel with checkboxes for pretty-printing and sub-pages, plus a concurrency setting. If the URL looks like a different platform than the one you picked, it asks before continuing.
+Running it with no arguments opens the interactive setup. First you pick the tool from a scrollable list grouped by category, and you can just start typing to filter it. Then you enter the URL, then the output directory, and finally a single options panel with checkboxes for pretty-printing and sub-pages, plus a concurrency setting. If the URL looks like a different platform than the one you picked, it asks before continuing.
 
 While the export runs, terminals wider than 100 columns get a live sidebar on the right with the phase, elapsed time, download counters and recent files. The log stream itself stays untouched.
 
@@ -97,6 +97,8 @@ Course platforms: Kajabi, Teachable, Thinkific, Podia.
 E-commerce: Gumroad, Shopify.
 
 AI builders: Gamma.
+
+Framer, Webflow and Wix are the stable trio, tested on real production sites. Everything else carries a beta badge in the gallery and in `--help`: the handlers work, but they have seen fewer real-world sites, so expect the occasional rough edge and report what you find.
 
 Each platform is a single self-contained handler in `src/platforms/`. It declares how to detect the platform, which domains and selectors to strip, how long to wait for hydration, how to route assets into folders, and optional hooks that run before capture, after capture and after the build. Adding a platform never touches the others.
 
