@@ -75,22 +75,33 @@ async function arrowSelect(
   const actions = config.actions ?? [];
   const headerLines = config.headerLines ?? [];
   const searchable = config.searchable === true;
-  const width = Math.max(50, Math.min(maxWidth(), 64));
-  const inner = width - 4;
   const hasActions = actions.length > 0;
   const headerCount = headerLines.length;
-  const rows = process.stdout.rows || 24;
-  const columns = process.stdout.columns || 80;
   const searchRows = searchable ? 1 : 0;
   const optionStartOffset = 3 + searchRows + headerCount + (headerCount > 0 ? 1 : 0);
-  const chromeLines = optionStartOffset + (hasActions ? 3 : 1) + 2;
-  const maxVisible = Math.max(4, rows - chromeLines);
-  const visibleCount = Math.min(options.length, maxVisible);
-  const actionLineOffset = optionStartOffset + visibleCount + 1;
-  const lineCount = actionLineOffset + (hasActions ? 2 : 1);
-  const panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
-  const panelLeftCol = Math.max(1, Math.floor((columns - width) / 2) + 1);
-  const footerRow = Math.min(rows, panelTopRow + lineCount + 1);
+  let width = 0;
+  let inner = 0;
+  let visibleCount = 0;
+  let actionLineOffset = 0;
+  let lineCount = 0;
+  let panelTopRow = 0;
+  let panelLeftCol = 0;
+  let footerRow = 0;
+  const recomputeLayout = (): void => {
+    width = Math.max(50, Math.min(maxWidth(), 64));
+    inner = width - 4;
+    const rows = process.stdout.rows || 24;
+    const columns = process.stdout.columns || 80;
+    const chromeLines = optionStartOffset + (hasActions ? 3 : 1) + 2;
+    const maxVisible = Math.max(4, rows - chromeLines);
+    visibleCount = Math.min(options.length, maxVisible);
+    actionLineOffset = optionStartOffset + visibleCount + 1;
+    lineCount = actionLineOffset + (hasActions ? 2 : 1);
+    panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
+    panelLeftCol = Math.max(1, Math.floor((columns - width) / 2) + 1);
+    footerRow = Math.min(rows, panelTopRow + lineCount + 1);
+  };
+  recomputeLayout();
   return new Promise((resolve) => {
     let query = '';
     const buildView = (): number[] => {
@@ -154,15 +165,19 @@ async function arrowSelect(
       scrollOffset = Math.max(0, Math.min(scrollOffset, view.length - visibleCount));
     };
     const backdrop = new Backdrop();
-    backdrop.setExclude({
-      top: panelTopRow - 1,
-      left: panelLeftCol - 2,
-      width: width + 4,
-      height: lineCount + 3,
-    });
+    const syncBackdropExclude = (): void => {
+      backdrop.setExclude({
+        top: panelTopRow - 1,
+        left: panelLeftCol - 2,
+        width: width + 4,
+        height: lineCount + 3,
+      });
+    };
+    syncBackdropExclude();
     const searchRow = (): string => {
+      const clipped = truncatePlain(query, Math.max(10, inner - 6));
       const shown = query
-        ? `${chalk.hex(THEME.text)(query)}${chalk.hex(THEME.primary)('▌')}`
+        ? `${chalk.hex(THEME.text)(clipped)}${chalk.hex(THEME.primary)('▌')}`
         : ui.muted('type to search');
       const content = ` ${chalk.hex(THEME.text)('▏')} ${shown}`;
       const visible = stripAnsi(content).length;
@@ -238,7 +253,12 @@ async function arrowSelect(
       );
       resolve(value);
     };
+    let mouseGuardUntil = 0;
     const onMouseData = (chunk: Buffer): void => {
+      const text = chunk.toString('utf-8');
+      if (text.includes('\x1B[<') || text.includes('\x1B[M') || /^[\d;<>]+[mM]?$/.test(text)) {
+        mouseGuardUntil = Date.now() + 150;
+      }
       const mouse = parseMouseEvent(chunk);
       if (!mouse) return;
       if (mouse.kind === 'wheel-up') {
@@ -251,6 +271,8 @@ async function arrowSelect(
         render();
         return;
       }
+      if (mouse.kind === 'hover') return;
+      if (mouse.kind === 'click') backdrop.addClick(mouse.x, mouse.y);
       if (hasActions && mouse.y === panelTopRow + actionLineOffset) {
         const actionIdx = actionIndexAtX(actions, mouse.x, panelLeftCol, inner);
         if (actionIdx === null || actions[actionIdx].disabled) return;
@@ -274,8 +296,15 @@ async function arrowSelect(
         choose();
       }
     };
+    const onResize = (): void => {
+      recomputeLayout();
+      syncBackdropExclude();
+      stdout.write('\x1B[2J');
+      render();
+    };
     const cleanup = (): void => {
       backdrop.stop();
+      stdout.removeListener('resize', onResize);
       leaveInteractiveScreen();
       stdin.setRawMode(false);
       stdin.removeListener('keypress', onKeypress);
@@ -287,6 +316,7 @@ async function arrowSelect(
     enterInteractiveScreen(true);
     render();
     backdrop.start();
+    stdout.on('resize', onResize);
     const onKeypress = (str: string | undefined, key: readline.Key): void => {
       if (!key) return;
       if (key.name === 'up') {
@@ -320,9 +350,12 @@ async function arrowSelect(
       } else if (
         searchable &&
         str &&
+        str.length === 1 &&
         !key.ctrl &&
         !key.meta &&
         str >= ' ' &&
+        query.length < 40 &&
+        Date.now() >= mouseGuardUntil &&
         !isTerminalSequence(str, key)
       ) {
         query += cleanInputValue(str.replace(/[\r\n]/g, ''));
@@ -330,7 +363,7 @@ async function arrowSelect(
       }
     };
     stdin.resume();
-    stdin.on('data', onMouseData);
+    stdin.prependListener('data', onMouseData);
     stdin.on('keypress', onKeypress);
   });
 }
@@ -416,24 +449,35 @@ function fullscreenInput(
   config: Omit<SelectConfig, 'actions'>
 ): Promise<string> {
   const headerLines = config.headerLines ?? [];
-  const width = Math.max(50, Math.min(maxWidth(), 64));
-  const inner = width - 4;
   const headerCount = headerLines.length;
   const lineCount = 3 + headerCount + (headerCount > 0 ? 1 : 0) + 2;
-  const rows = process.stdout.rows || 24;
-  const columns = process.stdout.columns || 80;
-  const panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
-  const panelLeftCol = Math.max(1, Math.floor((columns - width) / 2) + 1);
-  const footerRow = Math.min(rows, panelTopRow + lineCount + 1);
+  let width = 0;
+  let inner = 0;
+  let panelTopRow = 0;
+  let panelLeftCol = 0;
+  let footerRow = 0;
+  const recomputeLayout = (): void => {
+    width = Math.max(50, Math.min(maxWidth(), 64));
+    inner = width - 4;
+    const rows = process.stdout.rows || 24;
+    const columns = process.stdout.columns || 80;
+    panelTopRow = Math.max(2, Math.floor((rows - lineCount) / 2) + 1);
+    panelLeftCol = Math.max(1, Math.floor((columns - width) / 2) + 1);
+    footerRow = Math.min(rows, panelTopRow + lineCount + 1);
+  };
+  recomputeLayout();
   return new Promise((resolve) => {
     let value = defaultValue;
     const backdrop = new Backdrop();
-    backdrop.setExclude({
-      top: panelTopRow - 1,
-      left: panelLeftCol - 2,
-      width: width + 4,
-      height: lineCount + 3,
-    });
+    const syncBackdropExclude = (): void => {
+      backdrop.setExclude({
+        top: panelTopRow - 1,
+        left: panelLeftCol - 2,
+        width: width + 4,
+        height: lineCount + 3,
+      });
+    };
+    syncBackdropExclude();
     const render = (): void => {
       const shown = value || '';
       const clipped = truncatePlain(shown, Math.max(12, inner - 6));
@@ -459,8 +503,15 @@ function fullscreenInput(
         centerText(ui.muted(config.footer || 'type value   enter confirm   esc close'), width)
       );
     };
+    const onResize = (): void => {
+      recomputeLayout();
+      syncBackdropExclude();
+      stdout.write('\x1B[2J');
+      render();
+    };
     const cleanup = (): void => {
       backdrop.stop();
+      stdout.removeListener('resize', onResize);
       leaveInteractiveScreen();
       stdin.setRawMode(false);
       stdin.removeListener('keypress', onKeypress);
@@ -500,6 +551,7 @@ function fullscreenInput(
     enterInteractiveScreen(false);
     render();
     backdrop.start();
+    stdout.on('resize', onResize);
     stdin.resume();
     stdin.on('keypress', onKeypress);
   });
@@ -617,6 +669,19 @@ type MouseEventInfo =
       x: number;
       y: number;
     };
+const BETA_SUFFIX = '[beta]';
+
+function betaBadge(): string {
+  return chalk.bgHex(THEME.warning).hex(THEME.background).bold(' beta ');
+}
+
+function splitBetaLabel(plain: string): { base: string; beta: boolean } {
+  if (plain.endsWith(BETA_SUFFIX)) {
+    return { base: plain.slice(0, -BETA_SUFFIX.length).trimEnd(), beta: true };
+  }
+  return { base: plain, beta: false };
+}
+
 function renderOption(
   option: SelectOption,
   isSelected: boolean,
@@ -628,21 +693,23 @@ function renderOption(
   if (option.heading) {
     return panelRow(width, `   ${ui.accent.bold(plain)}`);
   }
+  const { base, beta } = splitBetaLabel(plain);
   if (isSelected && !option.disabled) {
     return selectedRow(width, ` ${isDefault ? '●' : ' '} ${plain}`);
   }
+  const badge = beta ? `  ${betaBadge()}` : '';
   if (option.disabled) {
-    return panelRow(width, `   ${ui.muted(plain)}`);
+    return panelRow(width, `   ${ui.muted(base)}${badge}`);
   }
   if (isDefault) {
-    return panelRow(width, ` ${ui.primary('●')} ${ui.primary(plain)}`);
+    return panelRow(width, ` ${ui.primary('●')} ${ui.primary(base)}${badge}`);
   }
-  return panelRow(width, `   ${ui.text(plain)}`);
+  return panelRow(width, `   ${ui.text(base)}${badge}`);
 }
 function enterInteractiveScreen(enableMouse: boolean): void {
   stdout.write('\x1B[?1049h' + '\x1B[2J' + '\x1B[H' + '\x1B[?25l');
   if (enableMouse) {
-    stdout.write('\x1B[?1006h' + '\x1B[?1000h' + '\x1B[?1002h' + '\x1B[?1003h');
+    stdout.write('\x1B[?1006h' + '\x1B[?1000h');
   }
 }
 function leaveInteractiveScreen(): void {
