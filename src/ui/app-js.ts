@@ -70,10 +70,14 @@ export const APP_JS = `(function () {
     });
   }
 
-  function loadGallery() {
-    fetch('/api/platforms').then(function (r) { return r.json(); }).then(function (data) {
-      var grid = $('gallery');
-      grid.innerHTML = '';
+  var galleryData = null;
+
+  function renderGallery(filter) {
+    if (!galleryData) return;
+    var q = (filter || '').trim().toLowerCase();
+    var grid = $('gallery');
+    grid.innerHTML = '';
+    if (!q) {
       var auto = document.createElement('div');
       auto.className = 'card auto';
       auto.innerHTML = '<div class="cat"><span class="dot" style="color: var(--muted)">●</span>smart</div>' +
@@ -81,24 +85,49 @@ export const APP_JS = `(function () {
         '<div class="hint">figure out the platform from the URL</div>';
       auto.onclick = function () { pickTool(null, 'Auto-detect'); };
       grid.appendChild(auto);
-      data.categories.forEach(function (cat) {
-        var heading = document.createElement('div');
-        heading.className = 'cat-heading';
-        heading.textContent = cat.label;
-        grid.appendChild(heading);
-        cat.platforms.forEach(function (p) {
-          var card = document.createElement('div');
-          card.className = 'card';
-          var color = CAT_COLORS[cat.id] || 'var(--muted)';
-          card.innerHTML = '<div class="cat"><span class="dot" style="color: ' + color + '">●</span>' + cat.label + '</div>' +
-            '<div class="name">' + p.displayName + '</div>' +
-            '<div class="hint">export a ' + p.displayName + ' site</div>';
-          card.onclick = function () { pickTool(p.name, p.displayName); };
-          grid.appendChild(card);
-        });
+    }
+    var any = false;
+    galleryData.categories.forEach(function (cat) {
+      var matches = cat.platforms.filter(function (p) {
+        return !q || p.displayName.toLowerCase().indexOf(q) !== -1 || cat.label.toLowerCase().indexOf(q) !== -1;
+      });
+      if (!matches.length) return;
+      any = true;
+      var heading = document.createElement('div');
+      heading.className = 'cat-heading';
+      heading.textContent = cat.label;
+      grid.appendChild(heading);
+      matches.forEach(function (p) {
+        var card = document.createElement('div');
+        card.className = 'card';
+        var color = CAT_COLORS[cat.id] || 'var(--muted)';
+        var badge = p.beta ? '<span class="badge-beta">beta</span>' : '';
+        card.innerHTML = '<div class="cat"><span class="dot" style="color: ' + color + '">●</span>' + cat.label + '</div>' +
+          '<div class="name">' + p.displayName + badge + '</div>' +
+          '<div class="hint">export a ' + p.displayName + ' site</div>';
+        card.onclick = function () { pickTool(p.name, p.displayName); };
+        grid.appendChild(card);
       });
     });
+    if (!any && q) {
+      var empty = document.createElement('div');
+      empty.className = 'cat-heading';
+      empty.style.color = 'var(--muted)';
+      empty.textContent = 'No results found';
+      grid.appendChild(empty);
+    }
   }
+
+  function loadGallery() {
+    fetch('/api/platforms').then(function (r) { return r.json(); }).then(function (data) {
+      galleryData = data;
+      renderGallery('');
+    });
+  }
+
+  $('searchInput').addEventListener('input', function () {
+    renderGallery(this.value);
+  });
 
   function pickTool(name, label) {
     state.tool = name;

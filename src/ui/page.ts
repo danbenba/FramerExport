@@ -91,7 +91,17 @@ export const UI_HTML = `<!doctype html>
   .card:active { transform: scale(0.98); }
   .card .cat { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .card .cat .dot { font-size: 12px; }
-  .card .name { font-weight: 700; font-size: 15px; }
+  .card .name { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .badge-beta {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--warning);
+    border: 1px solid var(--warning);
+    border-radius: 3px;
+    padding: 1px 5px;
+    letter-spacing: 0.04em;
+  }
+  .search-wrap { max-width: 420px; margin-bottom: 1.6rem; }
   .card .hint { font-size: 12px; color: var(--muted); margin-top: 8px; opacity: 0; transition: opacity .15s ease; }
   .card:hover .hint { opacity: 1; }
   .card.auto { border-style: dashed; }
@@ -279,6 +289,9 @@ export const UI_HTML = `<!doctype html>
     <section class="screen active" id="screen-gallery">
       <h1>Select a tool</h1>
       <div class="sub"><span class="star">[*]</span> 25+ platforms supported. Click one, paste the URL, export.</div>
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="search a platform..." spellcheck="false" autocomplete="off" />
+      </div>
       <div class="grid" id="gallery"></div>
     </section>
 

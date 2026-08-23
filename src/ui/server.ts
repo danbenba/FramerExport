@@ -6,7 +6,12 @@ import { APP_JS } from './app-js.js';
 import { PIXEL_BLAST_JS } from './pixel-blast.js';
 import { FramerExporter, deriveOutputName } from '../exporter/index.js';
 import { collectSummary } from '../exporter/summary.js';
-import { platformsByCategory, CATEGORY_LABELS, CATEGORY_ORDER } from '../platforms/index.js';
+import {
+  platformsByCategory,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  isBetaPlatform,
+} from '../platforms/index.js';
 import type { PlatformType } from '../platforms/types.js';
 import { onLog, getLogHistory, clearLogHistory } from '../logger/index.js';
 import { onProgress, getProgress } from '../exporter/progress.js';
@@ -91,7 +96,11 @@ function platformsPayload(): unknown {
     categories: CATEGORY_ORDER.map((cat) => ({
       id: cat,
       label: CATEGORY_LABELS[cat],
-      platforms: grouped[cat].map((h) => ({ name: h.name, displayName: h.displayName })),
+      platforms: grouped[cat].map((h) => ({
+        name: h.name,
+        displayName: h.displayName,
+        beta: isBetaPlatform(h.name),
+      })),
     })),
   };
 }

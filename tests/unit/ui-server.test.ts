@@ -36,17 +36,24 @@ test('serves the client app and the PixelBlast background script', async () => {
   assert.ok(pb.includes('window.PixelBlast'));
 });
 
-test('lists all 25 platforms grouped into 6 categories', async () => {
+test('lists all 25 platforms grouped into 6 categories with beta flags', async () => {
   const data = (await (await fetch(base + '/api/platforms')).json()) as {
-    categories: Array<{ id: string; label: string; platforms: Array<{ name: string }> }>;
+    categories: Array<{
+      id: string;
+      label: string;
+      platforms: Array<{ name: string; beta: boolean }>;
+    }>;
   };
   assert.equal(data.categories.length, 6);
-  const total = data.categories.reduce((n, c) => n + c.platforms.length, 0);
-  assert.equal(total, 25);
+  const all = data.categories.flatMap((c) => c.platforms);
+  assert.equal(all.length, 25);
   for (const cat of data.categories) {
     assert.ok(cat.label.length > 0);
     assert.ok(cat.platforms.length > 0);
   }
+  const stable = all.filter((p) => !p.beta).map((p) => p.name);
+  assert.deepEqual(stable.sort(), ['framer', 'webflow', 'wix']);
+  assert.equal(all.filter((p) => p.beta).length, 22);
 });
 
 test('derives an output name from a URL with and without explicit platform', async () => {
