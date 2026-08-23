@@ -1,7 +1,7 @@
 <h1 align="center">F-EXPORT</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.0.0--beta.2-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-5.0.0--beta.3-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933" alt="Node" />
 </p>

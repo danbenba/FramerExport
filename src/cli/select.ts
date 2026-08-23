@@ -1,4 +1,5 @@
 import readline from 'node:readline';
+import { RawInput, type InputEvent } from './input.js';
 import chalk from 'chalk';
 import { stdin, stdout } from 'node:process';
 import { maxWidth } from './box.js';
@@ -144,6 +145,8 @@ async function arrowSelect(
     }
     let selectedAction: number | null = null;
     let scrollOffset = 0;
+    let prevLines: string[] = [];
+    let prevFooter = '';
     const move = (direction: -1 | 1): void => {
       let next = selected + direction;
       while (next >= 0 && next < view.length) {
@@ -221,20 +224,26 @@ async function arrowSelect(
         lines.push(panelRow(width, renderActions(actions, selectedAction)));
         lines.push(panelRow(width));
       }
-      lines.forEach((line, index) => writeAt(panelTopRow + index, panelLeftCol, line));
-      writeAt(
-        footerRow,
-        panelLeftCol,
-        centerText(
-          ui.muted(
-            config.footer ||
-              (searchable
-                ? 'type to search   ↑↓ move   enter select   esc close'
-                : '↑↓ move   enter select   mouse click   esc close')
-          ),
-          width
-        )
+      const sameLength = prevLines.length === lines.length;
+      lines.forEach((line, index) => {
+        if (!sameLength || prevLines[index] !== line) {
+          writeAt(panelTopRow + index, panelLeftCol, line);
+        }
+      });
+      prevLines = lines;
+      const footer = centerText(
+        ui.muted(
+          config.footer ||
+            (searchable
+              ? 'type to search   ↑↓ move   enter select   esc close'
+              : '↑↓ move   enter select   mouse click   esc close')
+        ),
+        width
       );
+      if (footer !== prevFooter) {
+        writeAt(footerRow, panelLeftCol, footer);
+        prevFooter = footer;
+      }
     };
     const refilter = (): void => {
       view = buildView();
@@ -253,118 +262,124 @@ async function arrowSelect(
       );
       resolve(value);
     };
-    let mouseGuardUntil = 0;
-    const onMouseData = (chunk: Buffer): void => {
-      const text = chunk.toString('utf-8');
-      if (text.includes('\x1B[<') || text.includes('\x1B[M') || /^[\d;<>]+[mM]?$/.test(text)) {
-        mouseGuardUntil = Date.now() + 150;
-      }
-      const mouse = parseMouseEvent(chunk);
-      if (!mouse) return;
-      if (mouse.kind === 'wheel-up') {
-        move(-1);
-        render();
-        return;
-      }
-      if (mouse.kind === 'wheel-down') {
-        move(1);
-        render();
-        return;
-      }
-      if (mouse.kind === 'hover') return;
-      if (mouse.kind === 'click') backdrop.addClick(mouse.x, mouse.y);
-      if (hasActions && mouse.y === panelTopRow + actionLineOffset) {
-        const actionIdx = actionIndexAtX(actions, mouse.x, panelLeftCol, inner);
+    const hitOption = (x: number, y: number): number | null => {
+      const relative = y - panelTopRow - optionStartOffset;
+      if (relative < 0 || relative >= visibleCount) return null;
+      if (x < panelLeftCol || x >= panelLeftCol + width) return null;
+      const pos = scrollOffset + relative;
+      if (pos >= view.length || !selectableAt(pos)) return null;
+      return pos;
+    };
+    const onMouse = (kind: 'move' | 'click' | 'press', x: number, y: number): void => {
+      if (kind === 'click') backdrop.addClick(x, y);
+      if (hasActions && y === panelTopRow + actionLineOffset) {
+        const actionIdx = actionIndexAtX(actions, x, panelLeftCol, inner);
         if (actionIdx === null || actions[actionIdx].disabled) return;
         if (selectedAction !== actionIdx) {
           selectedAction = actionIdx;
           render();
         }
-        if (mouse.kind === 'click') choose(actions[actionIdx].value);
+        if (kind === 'click') choose(actions[actionIdx].value);
         return;
       }
-      const relative = mouse.y - panelTopRow - optionStartOffset;
-      if (relative < 0 || relative >= visibleCount) return;
-      const pos = scrollOffset + relative;
-      if (pos >= view.length || !selectableAt(pos)) return;
-      if (selected !== pos) {
+      const pos = hitOption(x, y);
+      if (pos === null) {
+        if (kind === 'move' && selectedAction !== null) {
+          selectedAction = null;
+          render();
+        }
+        return;
+      }
+      if (selected !== pos || selectedAction !== null) {
         selected = pos;
         selectedAction = null;
         render();
       }
-      if (mouse.kind === 'click') {
-        choose();
+      if (kind === 'click') choose();
+    };
+    const onEvent = (event: InputEvent): void => {
+      if (event.type === 'mouse') {
+        if (event.kind === 'wheel-up') {
+          move(-1);
+          render();
+        } else if (event.kind === 'wheel-down') {
+          move(1);
+          render();
+        } else {
+          onMouse(event.kind, event.x, event.y);
+        }
+        return;
+      }
+      if (event.type === 'key') {
+        switch (event.name) {
+          case 'up':
+            move(-1);
+            selectedAction = null;
+            render();
+            return;
+          case 'down':
+            move(1);
+            selectedAction = null;
+            render();
+            return;
+          case 'tab':
+            if (hasActions) {
+              selectedAction = selectedAction === null ? 0 : null;
+              render();
+            }
+            return;
+          case 'return':
+            if (selectedAction !== null) choose(actions[selectedAction].value);
+            else choose();
+            return;
+          case 'ctrl-c':
+            cleanup();
+            process.exit(0);
+            return;
+          case 'escape':
+            if (searchable && query) {
+              query = '';
+              refilter();
+              return;
+            }
+            cleanup();
+            process.exit(0);
+            return;
+          case 'backspace':
+            if (searchable) {
+              query = query.slice(0, -1);
+              refilter();
+            }
+            return;
+          default:
+            return;
+        }
+      }
+      if (event.type === 'char' && searchable && query.length < 40) {
+        query += cleanInputValue(event.char);
+        refilter();
       }
     };
+    const input = new RawInput(onEvent);
     const onResize = (): void => {
       recomputeLayout();
       syncBackdropExclude();
+      prevLines = [];
+      prevFooter = '';
       stdout.write('\x1B[2J');
       render();
     };
     const cleanup = (): void => {
       backdrop.stop();
       stdout.removeListener('resize', onResize);
+      input.stop();
       leaveInteractiveScreen();
-      stdin.setRawMode(false);
-      stdin.removeListener('keypress', onKeypress);
-      stdin.removeListener('data', onMouseData);
-      stdin.pause();
     };
-    readline.emitKeypressEvents(stdin);
-    stdin.setRawMode(true);
     enterInteractiveScreen(true);
     render();
     backdrop.start();
     stdout.on('resize', onResize);
-    const onKeypress = (str: string | undefined, key: readline.Key): void => {
-      if (!key) return;
-      if (key.name === 'up') {
-        move(-1);
-        selectedAction = null;
-        render();
-      } else if (key.name === 'down') {
-        move(1);
-        selectedAction = null;
-        render();
-      } else if (key.name === 'tab' && hasActions) {
-        selectedAction = selectedAction === null ? 0 : null;
-        render();
-      } else if (key.name === 'return') {
-        if (selectedAction !== null) choose(actions[selectedAction].value);
-        else choose();
-      } else if (key.ctrl && key.name === 'c') {
-        cleanup();
-        process.exit(0);
-      } else if (key.name === 'escape') {
-        if (searchable && query) {
-          query = '';
-          refilter();
-          return;
-        }
-        cleanup();
-        process.exit(0);
-      } else if (searchable && key.name === 'backspace') {
-        query = query.slice(0, -1);
-        refilter();
-      } else if (
-        searchable &&
-        str &&
-        str.length === 1 &&
-        !key.ctrl &&
-        !key.meta &&
-        str >= ' ' &&
-        query.length < 40 &&
-        Date.now() >= mouseGuardUntil &&
-        !isTerminalSequence(str, key)
-      ) {
-        query += cleanInputValue(str.replace(/[\r\n]/g, ''));
-        refilter();
-      }
-    };
-    stdin.resume();
-    stdin.prependListener('data', onMouseData);
-    stdin.on('keypress', onKeypress);
+    input.start();
   });
 }
 async function fallbackPrompt(
@@ -468,6 +483,8 @@ function fullscreenInput(
   recomputeLayout();
   return new Promise((resolve) => {
     let value = defaultValue;
+    let prevLines: string[] = [];
+    let prevFooter = '';
     const backdrop = new Backdrop();
     const syncBackdropExclude = (): void => {
       backdrop.setExclude({
@@ -496,64 +513,75 @@ function fullscreenInput(
       if (headerCount > 0) lines.push(panelRow(width));
       lines.push(inputRow);
       lines.push(panelRow(width));
-      lines.forEach((line, index) => writeAt(panelTopRow + index, panelLeftCol, line));
-      writeAt(
-        footerRow,
-        panelLeftCol,
-        centerText(ui.muted(config.footer || 'type value   enter confirm   esc close'), width)
+      const sameLength = prevLines.length === lines.length;
+      lines.forEach((line, index) => {
+        if (!sameLength || prevLines[index] !== line) {
+          writeAt(panelTopRow + index, panelLeftCol, line);
+        }
+      });
+      prevLines = lines;
+      const footer = centerText(
+        ui.muted(config.footer || 'type value   enter confirm   esc close'),
+        width
       );
+      if (footer !== prevFooter) {
+        writeAt(footerRow, panelLeftCol, footer);
+        prevFooter = footer;
+      }
     };
     const onResize = (): void => {
       recomputeLayout();
       syncBackdropExclude();
+      prevLines = [];
+      prevFooter = '';
       stdout.write('\x1B[2J');
       render();
     };
     const cleanup = (): void => {
       backdrop.stop();
       stdout.removeListener('resize', onResize);
+      input.stop();
       leaveInteractiveScreen();
-      stdin.setRawMode(false);
-      stdin.removeListener('keypress', onKeypress);
-      stdin.pause();
     };
     const submit = (): void => {
       const output = cleanInputValue(value.trim() || defaultValue);
       cleanup();
       resolve(output);
     };
-    const onKeypress = (str: string | undefined, key: readline.Key): void => {
-      if ((key.ctrl && key.name === 'c') || key.name === 'escape') {
-        cleanup();
-        process.exit(0);
+    const onEvent = (event: InputEvent): void => {
+      if (event.type === 'key') {
+        switch (event.name) {
+          case 'ctrl-c':
+          case 'escape':
+            cleanup();
+            process.exit(0);
+            return;
+          case 'return':
+            submit();
+            return;
+          case 'backspace':
+            value = value.slice(0, -1);
+            render();
+            return;
+          case 'delete':
+            value = '';
+            render();
+            return;
+          default:
+            return;
+        }
       }
-      if (key.name === 'return') {
-        submit();
-        return;
-      }
-      if (key.name === 'backspace') {
-        value = value.slice(0, -1);
-        render();
-        return;
-      }
-      if (key.name === 'delete') {
-        value = '';
-        render();
-        return;
-      }
-      if (str && !key.ctrl && !key.meta && str >= ' ' && !isTerminalSequence(str, key)) {
-        value += cleanInputValue(str.replace(/[\r\n]/g, ''));
+      if (event.type === 'char') {
+        value += cleanInputValue(event.char);
         render();
       }
     };
-    readline.emitKeypressEvents(stdin);
-    stdin.setRawMode(true);
+    const input = new RawInput(onEvent);
     enterInteractiveScreen(false);
     render();
     backdrop.start();
     stdout.on('resize', onResize);
-    stdin.resume();
-    stdin.on('keypress', onKeypress);
+    input.start();
   });
 }
 async function fallbackInput(question: string, defaultValue: string): Promise<string> {
@@ -648,27 +676,6 @@ function labelForValue(value: string, options: SelectOption[], actions: SelectAc
       value
   );
 }
-type MouseEventInfo =
-  | {
-      kind: 'click';
-      x: number;
-      y: number;
-    }
-  | {
-      kind: 'hover';
-      x: number;
-      y: number;
-    }
-  | {
-      kind: 'wheel-up';
-      x: number;
-      y: number;
-    }
-  | {
-      kind: 'wheel-down';
-      x: number;
-      y: number;
-    };
 const BETA_SUFFIX = '[beta]';
 
 function betaBadge(): string {
@@ -709,7 +716,7 @@ function renderOption(
 function enterInteractiveScreen(enableMouse: boolean): void {
   stdout.write('\x1B[?1049h' + '\x1B[2J' + '\x1B[H' + '\x1B[?25l');
   if (enableMouse) {
-    stdout.write('\x1B[?1006h' + '\x1B[?1000h');
+    stdout.write('\x1B[?1006h' + '\x1B[?1000h' + '\x1B[?1002h' + '\x1B[?1003h');
   }
 }
 function leaveInteractiveScreen(): void {
@@ -717,40 +724,8 @@ function leaveInteractiveScreen(): void {
     '\x1B[?1003l' + '\x1B[?1002l' + '\x1B[?1000l' + '\x1B[?1006l' + '\x1B[?25h' + '\x1B[?1049l'
   );
 }
-function parseMouseEvent(chunk: Buffer): MouseEventInfo | null {
-  const text = chunk.toString('utf-8');
-  const match = text.match(/\x1B\[<(\d+);(\d+);(\d+)([mM])/);
-  if (!match) return parseLegacyMouseEvent(text);
-  const code = Number(match[1]);
-  const x = Number(match[2]);
-  const y = Number(match[3]);
-  const state = match[4];
-  if (code === 64) return { kind: 'wheel-up', x, y };
-  if (code === 65) return { kind: 'wheel-down', x, y };
-  if (state === 'm') return { kind: 'click', x, y };
-  if ((code & 32) === 32 || code === 35) return { kind: 'hover', x, y };
-  if ((code & 3) === 0) return { kind: 'hover', x, y };
-  return null;
-}
-function parseLegacyMouseEvent(text: string): MouseEventInfo | null {
-  const match = text.match(/\x1B\[M([\s\S])([\s\S])([\s\S])/);
-  if (!match) return null;
-  const code = match[1].charCodeAt(0) - 32;
-  const x = match[2].charCodeAt(0) - 32;
-  const y = match[3].charCodeAt(0) - 32;
-  if (code === 64) return { kind: 'wheel-up', x, y };
-  if (code === 65) return { kind: 'wheel-down', x, y };
-  if ((code & 3) === 3) return { kind: 'click', x, y };
-  if ((code & 32) === 32) return { kind: 'hover', x, y };
-  return { kind: 'hover', x, y };
-}
 function writeAt(row: number, col: number, text: string): void {
   stdout.write(`\x1B[${row};${col}H${text}`);
-}
-function isTerminalSequence(str: string, key: readline.Key): boolean {
-  return (
-    str.includes('\x1B') || !!key.sequence?.includes('\x1B') || /^(?:\d+;){2}\d+[mM]$/.test(str)
-  );
 }
 function cleanInputValue(value: string): string {
   return value
