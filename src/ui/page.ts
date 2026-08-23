@@ -95,11 +95,13 @@ export const UI_HTML = `<!doctype html>
   .badge-beta {
     font-size: 10px;
     font-weight: 700;
-    color: var(--warning);
-    border: 1px solid var(--warning);
+    color: #131010;
+    background: var(--warning);
     border-radius: 3px;
-    padding: 1px 5px;
-    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    box-shadow: 0 0 10px rgba(245, 167, 66, 0.35);
   }
   .search-wrap { max-width: 420px; margin-bottom: 1.6rem; }
   .card .hint { font-size: 12px; color: var(--muted); margin-top: 8px; opacity: 0; transition: opacity .15s ease; }
