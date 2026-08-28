@@ -64,11 +64,36 @@ test('google fonts hosts fall back to assets/fonts', () => {
     /^assets\/fonts\//
   );
 });
-test('unknown-host scripts fall back to scripts/vendor, other files to assets/misc', () => {
+test('unknown-host files fall back to a directory matching their extension', () => {
   const map = new AssetMap();
   assert.equal(map.localPathFor('https://cdn.example.com/app.js'), 'scripts/vendor/app.js');
   assert.equal(map.localPathFor('https://cdn.example.com/lib.mjs'), 'scripts/vendor/lib.mjs');
-  assert.equal(map.localPathFor('https://cdn.example.com/pic.webp'), 'assets/misc/pic.webp');
+  assert.equal(map.localPathFor('https://cdn.example.com/pic.webp'), 'assets/images/pic.webp');
+  assert.equal(map.localPathFor('https://cdn.example.com/site.css'), 'styles/site.css');
+  assert.equal(map.localPathFor('https://cdn.example.com/f.woff2'), 'assets/fonts/f.woff2');
+  assert.equal(map.localPathFor('https://cdn.example.com/notes.bin'), 'assets/misc/notes.bin');
+});
+test('extension-less URLs use the response content type for extension and directory', () => {
+  const map = new AssetMap();
+  assert.match(
+    map.localPathFor('https://fonts.googleapis.com/css2?family=Inter', undefined, 'text/css')!,
+    /^styles\/css2-[a-f0-9]{6}\.css$/
+  );
+  assert.match(
+    map.localPathFor('https://cdn.example.com/chunk', undefined, 'text/javascript; charset=utf-8')!,
+    /^scripts\/vendor\/chunk-[a-f0-9]{6}\.js$/
+  );
+  assert.match(
+    map.localPathFor('https://cdn.example.com/photo', undefined, 'image/webp')!,
+    /^assets\/images\/photo-[a-f0-9]{6}\.webp$/
+  );
+});
+test('over-long filenames are truncated with a hash while keeping the extension', () => {
+  const map = new AssetMap();
+  const local = map.localPathFor('https://cdn.example.com/' + 'a'.repeat(300) + '.png');
+  const filename = local!.split('/').pop()!;
+  assert.ok(filename.length <= 100);
+  assert.match(filename, /-[a-f0-9]{6}\.png$/);
 });
 test('querystring is stripped from the extension and the base URL is aliased', () => {
   const map = new AssetMap();
@@ -89,7 +114,7 @@ test('a bare root path yields a hashed asset-* filename', () => {
 test('unsafe filename characters are sanitized to underscores', () => {
   const map = new AssetMap();
   const local = map.localPathFor('https://example.com/img/my image (1).png');
-  assert.match(local!, /^assets\/misc\/[a-zA-Z0-9._-]+\.png$/);
+  assert.match(local!, /^assets\/images\/[a-zA-Z0-9._-]+\.png$/);
 });
 test('invalid URLs return null', () => {
   const map = new AssetMap();
@@ -131,7 +156,57 @@ test('rewrite also replaces the &amp;-encoded form of query URLs', () => {
   const map = new AssetMap();
   map.localPathFor('https://cdn.example.com/a.png?x=1&y=2');
   const out = map.rewrite('<img src="https://cdn.example.com/a.png?x=1&amp;y=2">');
-  assert.equal(out, '<img src="assets/misc/a.png">');
+  assert.equal(out, '<img src="assets/images/a.png">');
+});
+test('rewrite leaves longer unregistered URLs sharing a registered prefix intact', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://shop.example.com/', undefined, 'text/html');
+  const untouched = '<script src="https://shop.example.com/cdn/wpm/x.js"></script>';
+  assert.equal(map.rewrite(untouched), untouched);
+  const root = map.entries.get('https://shop.example.com/')!.localPath;
+  assert.equal(map.rewrite('<a href="https://shop.example.com/">'), `<a href="${root}">`);
+});
+test('rewrite maps site-root-relative references to local paths', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://mysite.weebly.com/files/main_style.css?123', undefined, 'text/css');
+  const out = map.rewrite(
+    '<link rel="stylesheet" href="/files/main_style.css?123">',
+    '',
+    'https://mysite.weebly.com/'
+  );
+  assert.equal(out, '<link rel="stylesheet" href="styles/main_style.css">');
+});
+test('rewrite maps document-relative references to local paths', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://moe.carrd.co/assets/images/gallery01/a.jpg?v=1');
+  const out = map.rewrite(
+    '<img src="assets/images/gallery01/a.jpg?v=1">',
+    '',
+    'https://moe.carrd.co/'
+  );
+  assert.equal(out, '<img src="assets/images/a.jpg">');
+});
+test('rewrite respects fromDir for site-relative references', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://blog.ghost.io/assets/built/screen.css?v=x', undefined, 'text/css');
+  const out = map.rewrite(
+    'href="/assets/built/screen.css?v=x"',
+    'subpages',
+    'https://blog.ghost.io/'
+  );
+  assert.equal(out, 'href="../styles/screen.css"');
+});
+test('rewrite does not relativize captured document URLs', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://mysite.com/about', undefined, 'text/html');
+  const nav = '<a href="/about">About</a>';
+  assert.equal(map.rewrite(nav, '', 'https://mysite.com/'), nav);
+});
+test('rewrite does not touch relative paths inside foreign absolute URLs', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://mysite.com/img/logo.png');
+  const foreign = '<img src="https://cdn.other.com/img/logo.png">';
+  assert.equal(map.rewrite(foreign, '', 'https://mysite.com/'), foreign);
 });
 test('rewrite replaces longer URLs before their prefixes', () => {
   const map = new AssetMap();
