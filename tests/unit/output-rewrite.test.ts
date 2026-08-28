@@ -95,6 +95,7 @@ test('buildOutput cleans attributes, injects SEO tags and writes serve files', a
     ssrHTML:
       '<html><head>' +
       '<script src="https://cdn.example.com/app.js" integrity="sha384-abc" crossorigin="anonymous"></script>' +
+      "<link crossorigin='anonymous' rel='stylesheet' href='https://cdn.example.com/site.css'>" +
       '<link rel="preconnect" href="https://cdn.example.com">' +
       '</head><body>' +
       '<img srcset="https://cdn.example.com/w800.png 800w, local-400.png 400w">' +
@@ -107,6 +108,8 @@ test('buildOutput cleans attributes, injects SEO tags and writes serve files', a
   assert.match(index, /src="scripts\/vendor\/app\.js"/);
   assert.doesNotMatch(index, /integrity=/);
   assert.doesNotMatch(index, /crossorigin/);
+  assert.doesNotMatch(index, /<link=/);
+  assert.match(index, /<link rel='stylesheet'/);
   assert.doesNotMatch(index, /rel="preconnect"/);
   assert.doesNotMatch(index, /w800\.png/);
   assert.match(index, /srcset="local-400\.png 400w"/);
@@ -178,5 +181,36 @@ test('buildOutput rewrites asset URLs inside downloaded vendor scripts and style
   const js = await fs.readFile(path.join(outDir, 'scripts', 'vendor', 'main.js'), 'utf8');
   assert.match(js, /import\("\.\/chunk\.mjs"\)/);
   const css = await fs.readFile(path.join(outDir, 'styles', 'site.css'), 'utf8');
-  assert.match(css, /url\(\.\.\/assets\/misc\/bg\.png\)/);
+  assert.match(css, /url\(\.\.\/assets\/images\/bg\.png\)/);
+});
+test('buildOutput resolves relative refs inside downloaded CSS against their source URL', async (t) => {
+  const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'framer-export-cssrel-test-'));
+  t.after(() => fs.rm(outDir, { recursive: true, force: true, maxRetries: 3 }));
+  const orig = { log: console.log, warn: console.warn, error: console.error };
+  console.log = console.warn = console.error = () => {};
+  t.after(() => Object.assign(console, orig));
+  await fs.mkdir(path.join(outDir, 'styles'), { recursive: true });
+  await fs.writeFile(
+    path.join(outDir, 'styles', 'screen.css'),
+    '@font-face{src:url(../fonts/poppins.woff2)}h1{background:url(theme/bg.png)}\n'
+  );
+  const assets = new AssetMap();
+  assets.localPathFor('https://blog.ghost.io/assets/built/screen.css?v=x');
+  assets.localPathFor('https://blog.ghost.io/assets/fonts/poppins.woff2');
+  assets.localPathFor('https://blog.ghost.io/assets/built/theme/bg.png');
+  const exporter: ExporterContext = {
+    siteUrl: 'https://blog.ghost.io/',
+    outDir,
+    assets,
+    browser: null,
+    page: null,
+    prettyPrint: false,
+    ssrHTML: '<html><head></head><body></body></html>',
+    platform: minimalPlatform(),
+    subpages: new Map(),
+  };
+  await buildOutput(exporter);
+  const css = await fs.readFile(path.join(outDir, 'styles', 'screen.css'), 'utf8');
+  assert.match(css, /url\(\.\.\/assets\/fonts\/poppins\.woff2\)/);
+  assert.match(css, /url\(\.\.\/assets\/images\/bg\.png\)/);
 });

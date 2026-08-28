@@ -89,12 +89,27 @@ function processSEO(html: string, url: string): string {
   return html;
 }
 function stripIntegrityAndCors(html: string): string {
-  html = html.replace(/\s+integrity="[^"]*"/g, '');
-  html = html.replace(/\s+crossorigin="[^"]*"/g, '');
-  html = html.replace(/\s+crossorigin/g, '');
+  html = html.replace(/\s+integrity=("[^"]*"|'[^']*')/g, '');
+  html = html.replace(/\s+crossorigin=("[^"]*"|'[^']*')/g, '');
+  html = html.replace(/\s+crossorigin(?=[\s>])/g, '');
   html = html.replace(/<link[^>]*rel="preconnect"[^>]*>/g, '');
   html = html.replace(/<link[^>]*rel="dns-prefetch"[^>]*>/g, '');
   html = html.replace(/<meta[^>]*content-security-policy[^>]*>/gi, '');
+  return html;
+}
+const SHARED_STRIP_PATTERNS: RegExp[] = [
+  /<script[^>]*data-cf-beacon[^>]*>[\s\S]*?<\/script>/g,
+  /<script[^>]*\/cdn-cgi\/[^>]*>[\s\S]*?<\/script>/g,
+  /<script[^>]*cloudflareinsights\.com[^>]*>[\s\S]*?<\/script>/g,
+  /<script[^>]*src="[^"]*googletagmanager\.com[^"]*"[^>]*>[\s\S]*?<\/script>/g,
+  /<script[^>]*src="[^"]*google-analytics\.com[^"]*"[^>]*>[\s\S]*?<\/script>/g,
+  /<script[^>]*src="[^"]*connect\.facebook\.net[^"]*"[^>]*>[\s\S]*?<\/script>/g,
+  /<script(?:\s[^>]*)?>[^<]*googletagmanager\.com\/gtm\.js[^<]*<\/script>/g,
+];
+function stripSharedCruft(html: string): string {
+  for (const pattern of SHARED_STRIP_PATTERNS) {
+    html = html.replace(new RegExp(pattern.source, pattern.flags), '');
+  }
   return html;
 }
 function stripSrcsetCdnUrls(html: string): string {
@@ -177,6 +192,7 @@ function processHtml(
   report: RewriteReport
 ): string {
   html = stripIntegrityAndCors(html);
+  html = stripSharedCruft(html);
   html = processSEO(html, pageUrl);
   for (const sel of exporter.platform.stripSelectors) html = stripBySelector(html, sel);
   for (const pattern of exporter.platform.stripPatterns) {
@@ -192,7 +208,7 @@ function processHtml(
       warn('postCapture hook failed for ' + pageUrl + ': ' + (e as Error).message);
     }
   }
-  html = exporter.assets.rewrite(html, fromDir);
+  html = exporter.assets.rewrite(html, fromDir, exporter.siteUrl);
   html = applyRewritePatterns(html, report);
   html = stripSrcsetCdnUrls(html);
   return rewriteInternalLinks(html, exporter.siteUrl, routes, fromSubpages);
@@ -223,8 +239,9 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   log('HTML size: ' + (exporter.ssrHTML.length / 1024).toFixed(1) + ' KB');
   let html: string = exporter.ssrHTML;
   if (!html) {
-    warn('No SSR HTML available, cannot build output');
-    return;
+    throw new Error(
+      'No page HTML captured (SSR fetch failed and no rendered DOM available), cannot build output'
+    );
   }
   const routes = subpageRoutes(exporter);
   const report: RewriteReport = { patterns: rewritePatterns(exporter), matched: new Set() };
@@ -259,11 +276,40 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   log('package.json written for serve.js');
   success('Output build complete');
 }
+function resolveCssRelativeRefs(
+  content: string,
+  sourceUrl: string,
+  dir: string,
+  exporter: ExporterContext
+): string {
+  return content.replace(
+    /url\(\s*(['"]?)([^'")]+)\1\s*\)/g,
+    (match: string, quote: string, ref: string) => {
+      if (/^(data:|https?:|\/\/|#|\.\.?\/(?:assets|styles|scripts)\/)/i.test(ref)) return match;
+      let resolved: string;
+      try {
+        resolved = new URL(ref, sourceUrl).href;
+      } catch {
+        return match;
+      }
+      const entry =
+        exporter.assets.entries.get(resolved) ?? exporter.assets.entries.get(resolved.split('?')[0]);
+      if (!entry) return match;
+      let rel: string = path.posix.relative(dir, entry.localPath);
+      if (!rel.startsWith('.')) rel = './' + rel;
+      return `url(${quote}${rel}${quote})`;
+    }
+  );
+}
 async function rewriteDownloadedFiles(
   exporter: ExporterContext,
   report: RewriteReport
 ): Promise<void> {
   const dirs: string[] = ['scripts/vendor', 'scripts/modules', 'styles'];
+  const sourceByLocal = new Map<string, string>();
+  for (const [url, entry] of exporter.assets.entries) {
+    if (!sourceByLocal.has(entry.localPath)) sourceByLocal.set(entry.localPath, url);
+  }
   let rewritten = 0;
   for (const dir of dirs) {
     const fullDir: string = path.join(exporter.outDir, dir);
@@ -280,7 +326,13 @@ async function rewriteDownloadedFiles(
       try {
         let content: string = await fs.readFile(filePath, 'utf-8');
         const before: string = content;
-        content = exporter.assets.rewrite(content, dir);
+        if (ext === '.css') {
+          const sourceUrl = sourceByLocal.get(`${dir}/${file}`);
+          if (sourceUrl) {
+            content = resolveCssRelativeRefs(content, sourceUrl, dir, exporter);
+          }
+        }
+        content = exporter.assets.rewrite(content, dir, exporter.siteUrl);
         content = applyRewritePatterns(content, report);
         if (content !== before) {
           await fs.writeFile(filePath, content);
