@@ -27,6 +27,12 @@ export const notion: PlatformHandler = {
   needsHydrationCheck: true,
   hydrationSelector: '#notion-app',
   captureRenderedDom: true,
+  postCapture(html: string): string {
+    return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag: string) => {
+      const openTag: string = tag.slice(0, tag.indexOf('>') + 1);
+      return /type=["']application\/(?:ld\+)?json["']/i.test(openTag) ? tag : '';
+    });
+  },
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('img.notionusercontent.com') || host.includes('app.notion.com')) {
       if (VIDEO_EXTS.includes(ext)) return 'assets/videos';

@@ -26,6 +26,12 @@ export const systemeio: PlatformHandler = {
   ],
   hydrationTimeout: 0,
   needsHydrationCheck: false,
+  postCapture(html: string): string {
+    return html.replace(
+      '</body>',
+      '<style>a[href*="systeme.io/?sa="],[class*="affiliate-badge"],[class*="affiliateBadge"]{display:none!important}</style></body>'
+    );
+  },
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('d3fit27i5nzkqh.cloudfront.net')) {
       if (ext === '.css') return 'styles';

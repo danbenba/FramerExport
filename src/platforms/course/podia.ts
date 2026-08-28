@@ -1,3 +1,4 @@
+import type { Page } from 'puppeteer';
 import type { PlatformHandler } from '../types.js';
 const IMG_EXTS: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.avif', '.ico'];
 const FONT_EXTS: string[] = ['.woff2', '.woff', '.ttf', '.otf', '.eot'];
@@ -27,6 +28,35 @@ export const podia: PlatformHandler = {
   needsHydrationCheck: true,
   hydrationSelector: '.react-page-section',
   captureRenderedDom: true,
+  async preCapture(page: Page): Promise<void> {
+    await page
+      .waitForSelector('.react-page-section', { timeout: 8000 })
+      .catch(() => undefined);
+    await new Promise<void>((r) => setTimeout(r, 1500));
+    await page.evaluate(`
+      (function() {
+        for (var i = 0; i < document.styleSheets.length; i++) {
+          var sheet = document.styleSheets[i];
+          var node = sheet.ownerNode;
+          if (!node || node.tagName !== 'STYLE') continue;
+          try {
+            var rules = sheet.cssRules;
+            var text = '';
+            for (var j = 0; j < rules.length; j++) text += rules[j].cssText + '\\n';
+            if (text && node.textContent.trim().length < text.trim().length) {
+              node.textContent = text;
+            }
+          } catch (e) {}
+        }
+      })()
+    `);
+  },
+  postCapture(html: string): string {
+    return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag: string) => {
+      const openTag: string = tag.slice(0, tag.indexOf('>') + 1);
+      return /type=["']application\/(?:ld\+)?json["']/i.test(openTag) ? tag : '';
+    });
+  },
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('cdn.podia.com')) {
       if (VIDEO_EXTS.includes(ext)) return 'assets/videos';

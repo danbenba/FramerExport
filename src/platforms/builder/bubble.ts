@@ -27,6 +27,17 @@ export const bubble: PlatformHandler = {
   hydrationTimeout: 8000,
   hydrationSelector: '#main-page',
   captureRenderedDom: true,
+  postCapture(html: string): string {
+    html = html.replace(
+      /<div style="[^"]*z-index: 100000000000[^"]*">[\s\S]*?Built on Bubble<\/div><\/div><\/div><\/div>/gi,
+      ''
+    );
+    html = html.replace(
+      /<script\b(?![^>]*application\/ld\+json)[^>]*>[\s\S]*?<\/script>/gi,
+      ''
+    );
+    return html;
+  },
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('meta-fonts.cdn.bubble.io')) {
       if (FONT_EXTS.includes(ext)) return 'assets/fonts';
