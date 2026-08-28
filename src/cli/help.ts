@@ -50,7 +50,7 @@ export function showHelp(): void {
       .join(', ');
     console.log(`    ${ui.primary(CATEGORY_LABELS[cat].padEnd(22))} ${ui.muted(names)}`);
   }
-  console.log(`    ${ui.muted('* beta support, Framer, Webflow and Wix are stable')}`);
+  console.log(`    ${ui.muted('* beta support, all other platforms are stable')}`);
 
   console.log('');
   console.log(ui.text.bold('  EXAMPLES\n'));

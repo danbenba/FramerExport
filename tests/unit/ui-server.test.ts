@@ -51,9 +51,9 @@ test('lists all 25 platforms grouped into 6 categories with beta flags', async (
     assert.ok(cat.label.length > 0);
     assert.ok(cat.platforms.length > 0);
   }
-  const stable = all.filter((p) => !p.beta).map((p) => p.name);
-  assert.deepEqual(stable.sort(), ['framer', 'webflow', 'wix']);
-  assert.equal(all.filter((p) => p.beta).length, 22);
+  const beta = all.filter((p) => p.beta).map((p) => p.name);
+  assert.deepEqual(beta, ['notion']);
+  assert.equal(all.filter((p) => !p.beta).length, 24);
 });
 
 test('derives an output name from a URL with and without explicit platform', async () => {

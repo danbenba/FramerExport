@@ -98,7 +98,7 @@ E-commerce: Gumroad, Shopify.
 
 AI builders: Gamma.
 
-Framer, Webflow and Wix are the stable trio, tested on real production sites. Everything else carries a beta badge in the gallery and in `--help`: the handlers work, but they have seen fewer real-world sites, so expect the occasional rough edge and report what you find.
+Every platform has been validated against a real production site: exported, served locally and compared to the original. Notion is the one exception still marked beta in the gallery and in `--help` — its handler is in place but the notion.site edge rate-limits automated capture, so expect retries.
 
 Each platform is a single self-contained handler in `src/platforms/`. It declares how to detect the platform, which domains and selectors to strip, how long to wait for hydration, how to route assets into folders, and optional hooks that run before capture, after capture and after the build. Adding a platform never touches the others.
 
