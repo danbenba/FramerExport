@@ -4,15 +4,56 @@ import { log, success, info } from '../logger/index.js';
 import { detectByDom } from '../platforms/index.js';
 import { detectAntiBotPage, AntiBotError } from './anti-bot.js';
 import type { ExporterContext } from '../types.js';
+async function applyStealth(page: Page, browser: import('puppeteer').Browser): Promise<void> {
+  let chromeVersion = '131.0.0.0';
+  try {
+    const raw: string = await browser.version();
+    const match = raw.match(/(?:Headless)?Chrome\/([\d.]+)/i);
+    if (match) chromeVersion = match[1];
+  } catch {}
+  const major: string = chromeVersion.split('.')[0];
+  await page.setUserAgent(
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/' +
+      chromeVersion +
+      ' Safari/537.36',
+    {
+      brands: [
+        { brand: 'Chromium', version: major },
+        { brand: 'Google Chrome', version: major },
+        { brand: 'Not-A.Brand', version: '99' },
+      ],
+      fullVersion: chromeVersion,
+      platform: 'Windows',
+      platformVersion: '15.0.0',
+      architecture: 'x86',
+      model: '',
+      mobile: false,
+    }
+  );
+  await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+  await page.evaluateOnNewDocument(`
+    Object.defineProperty(navigator, 'webdriver', { get: function() { return undefined; } });
+    Object.defineProperty(navigator, 'languages', { get: function() { return ['en-US', 'en']; } });
+    Object.defineProperty(navigator, 'plugins', {
+      get: function() { return { length: 3, 0: {}, 1: {}, 2: {} }; }
+    });
+    if (!window.chrome) {
+      window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {} };
+    }
+  `);
+  log('Stealth hardening applied (Chrome ' + chromeVersion + ')');
+}
 export async function launchAndCapture(exporter: ExporterContext): Promise<void> {
   exporter.cooking?.update('Launching browser...');
   log('Launching headless Chromium...');
   exporter.browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
   });
   success('Chromium launched');
   exporter.page = await exporter.browser.newPage();
+  await applyStealth(exporter.page, exporter.browser);
   const viewport = {
     ...CFG.viewport,
     deviceScaleFactor: exporter.deviceScaleFactor ?? CFG.viewport.deviceScaleFactor ?? 1,
@@ -27,11 +68,6 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
       viewport.deviceScaleFactor +
       'x DPR'
   );
-  await exporter.page.setUserAgent(
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-      '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-  );
-  log('User agent set to Chrome 131');
   const allStripDomains: string[] = [...CFG.sharedStripDomains, ...exporter.platform.stripDomains];
   log('Blocking ' + allStripDomains.length + ' tracking domains:');
   for (const domain of allStripDomains) {
@@ -56,7 +92,7 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
       platformSkipped++;
       return;
     }
-    exporter.assets.localPathFor(url, exporter.platform);
+    exporter.assets.localPathFor(url, exporter.platform, res.headers()['content-type']);
     try {
       exporter.assets.buffers.set(url, await res.buffer());
       intercepted++;
@@ -91,7 +127,26 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
     );
     exporter.platform = domDetected;
   }
-  const antiBot = await detectAntiBotPage(exporter.page);
+  let antiBot = await detectAntiBotPage(exporter.page);
+  if (antiBot) {
+    log('Anti-bot challenge detected (' + antiBot + '), waiting for it to clear...');
+    exporter.cooking?.update('Waiting out anti-bot challenge...');
+    await new Promise<void>((r) => setTimeout(r, 8000));
+    antiBot = await detectAntiBotPage(exporter.page);
+    if (antiBot) {
+      try {
+        await exporter.page.goto(exporter.siteUrl, {
+          waitUntil: 'networkidle2',
+          timeout: CFG.timeout,
+        });
+        await new Promise<void>((r) => setTimeout(r, 5000));
+      } catch {}
+      antiBot = await detectAntiBotPage(exporter.page);
+    }
+    if (!antiBot) {
+      success('Anti-bot challenge cleared, continuing');
+    }
+  }
   if (antiBot) {
     throw new AntiBotError(antiBot, exporter.platform.displayName, exporter.siteUrl);
   }
@@ -174,7 +229,7 @@ export async function launchAndCapture(exporter: ExporterContext): Promise<void>
   } catch {
     log('Network idle timeout reached (continuing anyway)');
   }
-  if (exporter.platform.captureRenderedDom) {
+  if (exporter.platform.captureRenderedDom || !exporter.ssrHTML) {
     try {
       const rendered: string = await exporter.page.evaluate(
         () => '<!DOCTYPE html>\n' + document.documentElement.outerHTML

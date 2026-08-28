@@ -26,7 +26,13 @@ export function detectAntiBotHtml(html: string): AntiBotType | null {
   if (
     /class="g-recaptcha"|h-captcha|hcaptcha\.com|challenges\.cloudflare\.com\/turnstile/i.test(html)
   ) {
-    return 'captcha';
+    const text: string = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (text.length < 300) return 'captcha';
   }
   return null;
 }
@@ -37,15 +43,19 @@ export async function detectAntiBotPage(page: Page): Promise<AntiBotType | null>
       return 'cloudflare';
     }
     const flagged: string = await page.evaluate(() => {
-      if (document.querySelector('iframe[src*="challenges.cloudflare.com"]')) return 'cloudflare';
+      const body = document.body ? document.body.innerText || '' : '';
+      const sparse = body.trim().length < 300;
+      if (sparse && document.querySelector('iframe[src*="challenges.cloudflare.com"]')) {
+        return 'cloudflare';
+      }
       if (
+        sparse &&
         document.querySelector(
           '.g-recaptcha, .h-captcha, iframe[src*="hcaptcha.com"], iframe[src*="recaptcha"]'
         )
       ) {
         return 'captcha';
       }
-      const body = document.body ? document.body.innerText || '' : '';
       const outer = document.documentElement.outerHTML || '';
       if (body.trim().length < 120 && /cf-chl|cloudflare|cf-browser-verification/i.test(outer)) {
         return 'cloudflare';
