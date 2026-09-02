@@ -4,10 +4,11 @@ import chalk from 'chalk';
 import type { Browser, Page } from 'puppeteer';
 import { AssetMap } from '../assets/asset-map.js';
 import { dlBuffer } from '../network/download.js';
-import { info, log, success, setCooking, getLogHistory } from '../logger/index.js';
+import { info, log, warn, success, setCooking, getLogHistory } from '../logger/index.js';
 import { resetProgress, setPhase, noteFile, noteSubpage } from './progress.js';
 import { ExportSidebar } from '../cli/sidebar.js';
 import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
+import { extractInternalLinks, normalizeInternalLink, hostKey } from './links.js';
 import { AntiBotError } from './anti-bot.js';
 import { downloadAll, downloadLazyChunks } from './download.js';
 import { buildOutput } from './output.js';
@@ -18,6 +19,7 @@ import type { PlatformHandler, PlatformType } from '../platforms/types.js';
 import type { ExporterContext } from '../types.js';
 import { CookingSpinner } from '../cli/cooking.js';
 import { chip, ui } from '../cli/theme.js';
+const MAX_SUBPAGES = 50;
 export function deriveOutputName(url: string, platformName: PlatformType): string {
   try {
     const parsed = new URL(url);
@@ -96,6 +98,8 @@ export class FramerExporter implements ExporterContext {
     info('DPR      : ' + ui.primary(String(this.deviceScaleFactor || 1)));
     if (includeSubpages) {
       info('Subpages : ' + ui.success('enabled'));
+    } else {
+      info('Subpages : ' + ui.muted('disabled (pass --subpages to crawl the whole site)'));
     }
     console.log('');
     this.cooking = new CookingSpinner();
@@ -115,7 +119,7 @@ export class FramerExporter implements ExporterContext {
       'scripts/vendor',
       'scripts/modules',
       'data',
-      'subpages',
+      ...(includeSubpages ? ['subpages'] : []),
     ]) {
       await fs.mkdir(path.join(this.outDir, d), { recursive: true });
     }
@@ -202,60 +206,49 @@ export class FramerExporter implements ExporterContext {
     log('Scanning page for internal links...');
     const page = this.page!;
     const baseUrl = new URL(this.siteUrl);
-    const baseHost = baseUrl.hostname.replace(/^www\./, '');
-    const links: string[] = await page.evaluate((host: string) => {
-      const anchors = Array.from(document.querySelectorAll('a[href]'));
-      const hrefs = new Set<string>();
-      for (const a of anchors) {
-        const href = (a as HTMLAnchorElement).href;
-        if (
-          !href ||
-          href.startsWith('javascript:') ||
-          href.startsWith('mailto:') ||
-          href.startsWith('tel:') ||
-          href.startsWith('#')
-        )
-          continue;
-        try {
-          const u = new URL(href);
-          const h = u.hostname.replace(/^www\./, '');
-          if (
-            h === host &&
-            u.pathname !== '/' &&
-            u.pathname !== '' &&
-            !u.pathname.startsWith('/#')
-          ) {
-            hrefs.add(href.split('#')[0]);
-          }
-        } catch {}
+    const baseHost = hostKey(baseUrl.hostname);
+    const domLinks: string[] = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('a[href]')).map(
+        (a) => (a as HTMLAnchorElement).getAttribute('href') || ''
+      )
+    );
+    const visited = new Set<string>([
+      normalizeInternalLink(this.siteUrl, this.siteUrl, baseHost) ?? '',
+    ]);
+    const queue: string[] = [];
+    const enqueue = (candidates: string[]): number => {
+      let added = 0;
+      for (const c of candidates) {
+        if (!c || visited.has(c)) continue;
+        visited.add(c);
+        queue.push(c);
+        added++;
       }
-      return Array.from(hrefs);
-    }, baseHost);
-    const ssrLinks: string[] = [];
-    for (const m of this.ssrHTML.matchAll(/<a\b[^>]*\shref=["']([^"']+)["']/gi)) {
-      const href = m[1];
-      if (/^(javascript:|mailto:|tel:|#)/i.test(href)) continue;
-      try {
-        const u = new URL(href, this.siteUrl);
-        if (
-          u.protocol.startsWith('http') &&
-          u.hostname.replace(/^www\./, '') === baseHost &&
-          u.pathname !== '/' &&
-          u.pathname !== ''
-        ) {
-          ssrLinks.push(u.href.split('#')[0]);
-        }
-      } catch {}
-    }
-    const uniqueLinks = [...new Set([...links, ...ssrLinks])].slice(0, 50);
-    log('Found ' + uniqueLinks.length + ' sub-page links');
-    if (uniqueLinks.length === 0) {
+      return added;
+    };
+    enqueue(
+      domLinks
+        .map((h) => normalizeInternalLink(h, page.url() || this.siteUrl, baseHost))
+        .filter((l): l is string => l !== null)
+    );
+    enqueue(extractInternalLinks(this.ssrHTML, this.siteUrl, baseHost));
+    log('Found ' + queue.length + ' sub-page links on the home page');
+    if (queue.length === 0) {
       log('No sub-pages to crawl');
       return;
     }
-    for (let i = 0; i < uniqueLinks.length; i++) {
-      const link = uniqueLinks[i];
-      this.cooking?.update('Crawling sub-page ' + (i + 1) + '/' + uniqueLinks.length);
+    let crawled = 0;
+    let truncated = false;
+    while (queue.length > 0) {
+      if (crawled >= MAX_SUBPAGES) {
+        truncated = true;
+        break;
+      }
+      const link = queue.shift()!;
+      crawled++;
+      this.cooking?.update(
+        'Crawling sub-page ' + crawled + '/' + Math.min(crawled + queue.length, MAX_SUBPAGES)
+      );
       try {
         const html = await captureSubpage(page, link, {
           needsHydrationCheck: this.platform.needsHydrationCheck,
@@ -269,11 +262,24 @@ export class FramerExporter implements ExporterContext {
         noteSubpage();
         noteFile('subpages/' + filename);
         log('  Saved: subpages/' + filename);
+        const discovered = enqueue(extractInternalLinks(html, page.url() || link, baseHost));
+        if (discovered > 0) {
+          log('  Discovered ' + discovered + ' new link(s) on ' + slug);
+        }
       } catch (e) {
         log('  Skipped ' + link + ': ' + (e as Error).message);
       }
     }
-    success('Sub-pages crawled: ' + uniqueLinks.length);
+    if (truncated) {
+      warn(
+        'Sub-page crawl stopped at the ' +
+          MAX_SUBPAGES +
+          ' page limit, ' +
+          queue.length +
+          ' discovered link(s) were not captured'
+      );
+    }
+    success('Sub-pages crawled: ' + this.subpages.size);
   }
   private deriveSlug(link: string, baseUrl: URL): string {
     try {
