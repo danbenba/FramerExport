@@ -11,6 +11,7 @@ import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
 import { extractInternalLinks, normalizeInternalLink, hostKey } from './links.js';
 import { AntiBotError } from './anti-bot.js';
 import { downloadAll, downloadLazyChunks } from './download.js';
+import { registerHtmlResources } from './html-resources.js';
 import { buildOutput } from './output.js';
 import { printSummary } from './summary.js';
 import { runAiPromptAssistant } from '../ai/prompt-assistant.js';
@@ -146,6 +147,7 @@ export class FramerExporter implements ExporterContext {
         await this.crawlSubpages();
       }
       await closeBrowser(this);
+      registerHtmlResources(this);
       this.phase('Downloading assets...');
       this.cooking.update('Downloading assets...');
       await downloadAll(this);
