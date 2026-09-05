@@ -23,6 +23,7 @@
     "test": "node --import tsx --test tests/unit/*.test.ts",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\"",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run build",
     "prepack": "npm run build"
   },
