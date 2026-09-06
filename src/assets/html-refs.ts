@@ -24,7 +24,7 @@ const META_KEYS: Set<string> = new Set([
 ]);
 const TAG_RE = /<(link|meta)\b[^>]*>/gi;
 function attr(tag: string, name: string): string | null {
-  const re = new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i');
+  const re = new RegExp(`(?:^|[\\s<])${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i');
   const m = tag.match(re);
   if (!m) return null;
   return (m[2] ?? m[3] ?? m[4] ?? '').trim();

@@ -147,7 +147,7 @@ export class FramerExporter implements ExporterContext {
         await this.crawlSubpages();
       }
       await closeBrowser(this);
-      registerHtmlResources(this);
+      await registerHtmlResources(this);
       this.phase('Downloading assets...');
       this.cooking.update('Downloading assets...');
       await downloadAll(this);

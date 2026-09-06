@@ -67,3 +67,15 @@ test('matches rel token lists case-insensitively', () => {
   const html = `<link REL="SHORTCUT ICON" HREF="https://cdn.example.com/fav.ico">`;
   assert.deepEqual(collectHtmlResourceUrls(html, BASE), ['https://cdn.example.com/fav.ico']);
 });
+
+test('does not treat prefixed attributes such as data-href as the real attribute', () => {
+  const html = `
+    <link rel="icon" data-href="https://cdn.example.com/decoy.png">
+    <meta property="og:image" data-content="https://cdn.example.com/decoy2.jpg">
+  `;
+  assert.deepEqual(collectHtmlResourceUrls(html, BASE), []);
+});
+test('still reads the real attribute when a prefixed one sits beside it', () => {
+  const html = `<link rel="icon" data-href="https://cdn.example.com/decoy.png" href="https://cdn.example.com/real.png">`;
+  assert.deepEqual(collectHtmlResourceUrls(html, BASE), ['https://cdn.example.com/real.png']);
+});
