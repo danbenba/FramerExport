@@ -19,21 +19,25 @@ export const bubble: PlatformHandler = {
     );
   },
   stripDomains: ['pluginpul.se'],
-  stripSelectors: ['script[src*="pluginpul.se"]'],
+  stripSelectors: [
+    'script[src*="pluginpul.se"]',
+    'body > div[style*="z-index: 100000000000"]:has(> a[href*="bubble.io?utm_source=app_mention"])',
+  ],
   stripPatterns: [
     /<a\b[^>]*href="https?:\/\/(?:www\.)?bubble\.io\/?(?:\?[^"]*)?"[^>]*>[\s\S]*?<\/a>/gi,
   ],
   needsHydrationCheck: true,
   hydrationTimeout: 8000,
-  hydrationSelector: '#main-page',
+  hydrationSelector: '.bubble-element.Page',
   captureRenderedDom: true,
+  captureResponsiveStyles: true,
   postCapture(html: string): string {
     html = html.replace(
       /<div style="[^"]*z-index: 100000000000[^"]*">[\s\S]*?Built on Bubble<\/div><\/div><\/div><\/div>/gi,
       ''
     );
     html = html.replace(
-      /<script\b(?![^>]*application\/ld\+json)[^>]*>[\s\S]*?<\/script>/gi,
+      /<script\b(?![^>]*(?:application\/ld\+json|data-export-responsive-runtime))[^>]*>[\s\S]*?<\/script>/gi,
       ''
     );
     return html;
