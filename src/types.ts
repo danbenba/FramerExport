@@ -1,6 +1,6 @@
 import type { Browser, Page } from 'puppeteer';
 import type { AssetMap } from './assets/asset-map.js';
-import type { PlatformHandler } from './platforms/types.js';
+import type { PlatformHandler, PlatformType } from './platforms/types.js';
 import type { CookingSpinner } from './cli/cooking.js';
 export interface Config {
   viewport: {
@@ -26,6 +26,7 @@ export interface ExporterContext {
   prettyPrint?: boolean;
   interactive?: boolean;
   platform: PlatformHandler;
+  platformOverride?: PlatformType;
   cooking?: CookingSpinner;
   deviceScaleFactor?: number;
   subpages: Map<string, string>;
