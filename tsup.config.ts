@@ -6,7 +6,11 @@ export default defineConfig({
   target: 'node20',
   outDir: 'dist/cli',
   clean: true,
-  sourcemap: true,
+  sourcemap: false,
+  minify: true,
+  esbuildOptions(options) {
+    options.legalComments = 'none';
+  },
   splitting: false,
   external: ['puppeteer', 'prettier', 'chalk', 'ora'],
   banner: {
