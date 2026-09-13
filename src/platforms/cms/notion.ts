@@ -23,14 +23,20 @@ export const notion: PlatformHandler = {
   stripPatterns: [
     /<a[^>]*href="[^"]*notion\.(so|com)[^"]*"[^>]*>[\s\S]*?Built with Notion[\s\S]*?<\/a>/gi,
   ],
-  hydrationTimeout: 8000,
+  hydrationTimeout: 15000,
   needsHydrationCheck: true,
-  hydrationSelector: '#notion-app',
+  hydrationSelector: '.notion-page-content',
   captureRenderedDom: true,
+  captureResponsiveStyles: true,
+  captureContentSelector: '.notion-page-content',
   postCapture(html: string): string {
     return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag: string) => {
       const openTag: string = tag.slice(0, tag.indexOf('>') + 1);
-      return /type=["']application\/(?:ld\+)?json["']/i.test(openTag) ? tag : '';
+      return /data-export-responsive-runtime\b|type=["']application\/(?:ld\+)?json["']/i.test(
+        openTag
+      )
+        ? tag
+        : '';
     });
   },
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
