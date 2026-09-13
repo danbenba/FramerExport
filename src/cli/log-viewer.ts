@@ -10,8 +10,9 @@ import {
 } from '../logger/index.js';
 import { getProgress, onProgress, type ExportProgress } from '../exporter/progress.js';
 import { RawInput, type InputEvent } from './input.js';
-import { TerminalCanvas, fitText, paintTerminal, plainText, textWidth } from './terminal-screen.js';
+import { TerminalCanvas, fitText, plainText, textWidth } from './terminal-screen.js';
 import { THEME } from './theme.js';
+import { readPreferences } from './preferences.js';
 
 type LogFilter = 'all' | 'warnings' | 'errors';
 type ViewerAction = 'close' | 'copy' | undefined;
@@ -33,20 +34,34 @@ export interface LogViewerLayout {
 export interface LogViewerOptions {
   title?: string;
   outDir?: string;
+  reduceMotion?: boolean;
 }
+
+const LOG_COLORS = {
+  log: THEME.secondary,
+  info: THEME.info,
+  warn: THEME.warning,
+  error: THEME.error,
+  ok: THEME.success,
+};
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 function cellSlice(value: string, offset: number, width: number): string {
+  if (width <= 0) return '';
+  const clean = plainText(value);
+  if (/^[\x20-\x7e]*$/.test(clean)) return clean.slice(offset, offset + width);
   let skipped = 0;
   let result = '';
-  for (const { segment } of graphemes.segment(plainText(value))) {
+  let used = 0;
+  for (const { segment } of graphemes.segment(clean)) {
     const size = textWidth(segment);
     if (skipped < offset) {
       skipped += size;
       continue;
     }
-    if (textWidth(result) + size > width) break;
+    if (used + size > width) break;
     result += segment;
+    used += size;
   }
   return result;
 }
@@ -68,10 +83,17 @@ export class LogViewerModel {
   complete = false;
   failure = '';
   notice = '';
+  hover = '';
+  animationTime = 0;
   progress: Readonly<ExportProgress> = { ...getProgress() };
   private lastLayout?: LogViewerLayout;
   private dragging = false;
   private selectAll = false;
+  private filterQuery: string | undefined;
+  private filterLevel: LogFilter | undefined;
+  private filteredCount = 0;
+  private filteredRecords: Array<{ record: LogRecord; line: number }> = [];
+  private searchable = new WeakMap<LogRecord, string>();
 
   constructor(
     records: readonly LogRecord[] = [],
@@ -86,18 +108,33 @@ export class LogViewerModel {
 
   filtered(): Array<{ record: LogRecord; line: number }> {
     const query = this.query.toLowerCase();
-    return this.records
-      .map((record, index) => ({ record, line: index + 1 }))
-      .filter(
-        ({ record }) =>
-          (this.filter === 'all' ||
-            (this.filter === 'warnings' && (record.level === 'warn' || record.level === 'error')) ||
-            (this.filter === 'errors' && record.level === 'error')) &&
-          (!query ||
-            `${record.time} ${record.level} ${plainText(record.message)}`
-              .toLowerCase()
-              .includes(query))
-      );
+    if (
+      this.filterQuery !== query ||
+      this.filterLevel !== this.filter ||
+      this.filteredCount > this.records.length
+    ) {
+      this.filterQuery = query;
+      this.filterLevel = this.filter;
+      this.filteredCount = 0;
+      this.filteredRecords = [];
+    }
+    for (let index = this.filteredCount; index < this.records.length; index++) {
+      const record = this.records[index];
+      if (this.filter === 'errors' && record.level !== 'error') continue;
+      if (this.filter === 'warnings' && record.level !== 'warn' && record.level !== 'error')
+        continue;
+      if (query) {
+        let searchable = this.searchable.get(record);
+        if (searchable === undefined) {
+          searchable = `${record.time} ${record.level} ${plainText(record.message)}`.toLowerCase();
+          this.searchable.set(record, searchable);
+        }
+        if (!searchable.includes(query)) continue;
+      }
+      this.filteredRecords.push({ record, line: index + 1 });
+    }
+    this.filteredCount = this.records.length;
+    return this.filteredRecords;
   }
 
   activate(id: string): ViewerAction {
@@ -126,6 +163,7 @@ export class LogViewerModel {
       const region = layout.regions.find(
         (item) => x >= item.x && x < item.x + item.width && y >= item.y && y < item.y + item.height
       );
+      this.hover = region?.id || '';
       if (
         (this.dragging && (event.kind === 'move' || event.kind === 'click')) ||
         (region?.id === 'scrollbar' && (event.kind === 'press' || event.kind === 'click'))
@@ -139,6 +177,7 @@ export class LogViewerModel {
       } else if (event.kind === 'click' && region) return this.activate(region.id);
       return undefined;
     }
+    this.hover = '';
     if (event.type === 'key' && event.name === 'ctrl-c') return 'close';
     if (this.searching) {
       if (event.type === 'paste' || event.type === 'char') {
@@ -186,14 +225,44 @@ export class LogViewerModel {
     this.scroll = Math.max(0, Math.min(this.lastLayout?.maximumScroll || 0, this.scroll + amount));
   }
 
+  phaseCanvas(columns: number, time = this.animationTime): TerminalCanvas {
+    const canvas = new TerminalCanvas(columns, 1);
+    const margin = columns >= 30 ? 2 : 0;
+    const width = Math.max(1, columns - margin * 2 - (columns > 1 ? 1 : 0));
+    const phase = fitText(
+      this.complete ? this.failure || 'Export finished' : this.progress.phase || 'Starting export',
+      width
+    );
+    if (this.complete || this.options.reduceMotion) {
+      canvas.text(margin, 0, phase, {
+        fg: this.failure ? THEME.error : this.complete ? THEME.success : '#B5B5B5',
+      });
+      return canvas;
+    }
+    const angle = (120 * Math.PI) / 180;
+    const span = Math.max(1, textWidth(phase)) * Math.sin(angle);
+    const sweep = (((time % 2000) / 2000) * 2 - 0.5) * span;
+    let x = margin;
+    for (const { segment } of graphemes.segment(phase)) {
+      const distance = Math.abs((x - margin) * Math.sin(angle) - sweep);
+      const brightness = Math.max(0, 1 - distance / Math.max(1, span * 0.18));
+      const channel = Math.round(181 + brightness * 74)
+        .toString(16)
+        .padStart(2, '0');
+      canvas.text(x, 0, segment, { fg: '#' + channel.repeat(3) });
+      x += textWidth(segment);
+    }
+    return canvas;
+  }
+
   render(columns: number, rows: number): LogViewerLayout {
     const canvas = new TerminalCanvas(columns, rows);
     columns = canvas.width;
     rows = canvas.height;
     const margin = columns >= 30 ? 2 : 0;
     const width = Math.max(1, columns - margin * 2 - (columns > 1 ? 1 : 0));
-    const header = rows >= 12 ? 4 : rows >= 6 ? 2 : rows >= 3 ? 1 : 0;
-    const footer = rows >= 12 ? 3 : rows >= 4 ? 1 : 0;
+    const header = rows >= 24 ? 7 : rows >= 12 ? 4 : rows >= 6 ? 2 : rows >= 3 ? 1 : 0;
+    const footer = rows >= 24 ? 4 : rows >= 12 ? 3 : rows >= 4 ? 1 : 0;
     const bodyHeight = Math.max(1, rows - header - footer);
     const regions: ViewerRegion[] = [];
     const filtered = this.filtered();
@@ -204,35 +273,47 @@ export class LogViewerModel {
     const button = (id: string, label: string, x: number, y: number) => {
       const size = Math.min(textWidth(label) + 2, columns - x - margin);
       if (size < 1) return;
-      canvas.text(x, y, fitText(' ' + label + ' ', size), { fg: THEME.text, bg: THEME.element });
+      canvas.text(x, y, fitText(' ' + label + ' ', size), {
+        fg: this.hover === id ? THEME.primary : THEME.text,
+        bg: this.hover === id ? THEME.border : THEME.element,
+      });
       regions.push({ id, x, y, width: size, height: 1 });
     };
     if (header) {
-      canvas.text(margin, 0, fitText(this.options.title || 'EXPORT LOG', width), { bold: true });
+      canvas.text(margin, 0, fitText(this.options.title || 'Export logs', width), { bold: true });
       if (columns >= 38)
         canvas.text(columns - margin - status.length - 1, 0, status, {
           fg: statusColor,
           bold: true,
         });
       if (header >= 2) {
-        const phase = this.complete
-          ? this.failure || 'Export finished'
-          : this.progress.phase || 'Starting export';
-        canvas.text(margin, 1, fitText(phase, width), { fg: statusColor });
+        canvas.copy(this.phaseCanvas(columns, this.animationTime), 0, 1, 0, 1);
       }
+      if (header >= 6)
+        canvas.text(
+          margin,
+          2,
+          fitText(
+            this.options.outDir ? path.join(this.options.outDir, 'export.log') : 'export.log',
+            width
+          ),
+          { fg: THEME.muted }
+        );
       if (header >= 4) {
         let x = margin;
         for (const [id, label] of [
           ['search', this.query ? 'Search: ' + fitText(this.query, 18) : '/ Search'],
           ['filter', 'Filter: ' + this.filter],
-          ['follow', this.follow ? 'Following' : 'Paused'],
+          ['follow', this.follow ? 'Following' : 'Latest logs'],
           ['copy', 'Copy all'],
         ]) {
           if (x + textWidth(label) + 2 > columns - margin) break;
-          button(id, label, x, 2);
-          x += textWidth(label) + 3;
+          button(id, label, x, header >= 7 ? header - 3 : header - 2);
+          x += textWidth(label) + 4;
         }
-        canvas.text(margin, 3, '─'.repeat(width), { fg: THEME.border });
+        canvas.text(margin, header >= 7 ? header - 2 : header - 1, '─'.repeat(width), {
+          fg: THEME.border,
+        });
       }
     }
     const numberWidth = columns >= 20 ? String(this.records.length || 1).length + 2 : 0;
@@ -241,16 +322,7 @@ export class LogViewerModel {
     const messageX = margin + numberWidth + timeWidth + levelWidth;
     filtered.slice(this.scroll, this.scroll + bodyHeight).forEach(({ record, line }, index) => {
       const y = header + index;
-      const color =
-        record.level === 'error'
-          ? THEME.error
-          : record.level === 'warn'
-            ? THEME.warning
-            : record.level === 'ok'
-              ? THEME.success
-              : record.level === 'info'
-                ? THEME.info
-                : THEME.text;
+      const color = LOG_COLORS[record.level];
       if (numberWidth)
         canvas.text(margin, y, String(line).padStart(numberWidth - 2), { fg: THEME.muted });
       if (timeWidth) canvas.text(margin + numberWidth, y, record.time, { fg: THEME.muted });
@@ -311,7 +383,12 @@ export class LogViewerModel {
           canvas.text(
             x,
             rows - 1,
-            fitText('/ Search · f Filter · p Pause · c Copy · ←→ Pan', columns - x),
+            fitText(
+              '/ Search · f Filter · p ' +
+                (this.follow ? 'Pause' : 'Follow') +
+                ' · c Copy · ←→ Pan',
+              columns - x
+            ),
             { fg: THEME.muted }
           );
       }
@@ -390,48 +467,94 @@ export async function runWithLogViewer<T>(
   if (!stdin.isTTY || !stdout.isTTY || process.env.TERM === 'dumb') return operation();
   const releaseHistory = retainLogHistory();
   const restoreOutput = suspendConsoleOutput();
-  const model = new LogViewerModel(getLogHistory(), options);
+  const model = new LogViewerModel(getLogHistory(), {
+    ...options,
+    reduceMotion: options.reduceMotion ?? readPreferences().reduceMotion,
+  });
   const depth = process.env.NO_COLOR !== undefined ? 1 : stdout.getColorDepth?.() || 8;
-  let previous: string[] = [];
+  let previousCanvas: TerminalCanvas | undefined;
+  let previousPhase: TerminalCanvas | undefined;
   let closed = false;
   let dirty = true;
   let copying = false;
-  let timer: NodeJS.Timeout | undefined;
+  let renderTimer: NodeJS.Timeout | undefined;
+  let animationTimer: NodeJS.Timeout | undefined;
+  const startedAt = performance.now();
   let resolveClosed!: () => void;
   const closedPromise = new Promise<void>((resolve) => {
     resolveClosed = resolve;
   });
   const draw = () => {
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = undefined;
     if (closed || !dirty) return;
-    const lines = model.render(stdout.columns || 80, stdout.rows || 24).canvas.lines(depth);
-    stdout.write(paintTerminal(lines, previous));
-    previous = lines;
+    model.animationTime = performance.now() - startedAt;
+    const canvas = model.render(stdout.columns || 80, stdout.rows || 24).canvas;
+    const output = canvas.paint(canvas.diff(previousCanvas), depth);
+    if (output) stdout.write(output);
+    previousCanvas = canvas;
+    previousPhase = new TerminalCanvas(canvas.width, 1);
+    previousPhase.copy(canvas, 0, 0, 1, 1);
     dirty = false;
+    scheduleAnimation();
+  };
+  const scheduleRender = () => {
+    if (closed) return;
+    dirty = true;
+    if (!renderTimer) renderTimer = setTimeout(draw, 16);
+  };
+  const scheduleAnimation = () => {
+    if (
+      closed ||
+      model.complete ||
+      model.options.reduceMotion ||
+      depth <= 1 ||
+      (stdout.rows || 24) < 6 ||
+      animationTimer
+    )
+      return;
+    animationTimer = setTimeout(() => {
+      animationTimer = undefined;
+      if (closed || model.complete) return;
+      if (dirty) draw();
+      else {
+        const phase = model.phaseCanvas(stdout.columns || 80, performance.now() - startedAt);
+        const output = phase.paint(phase.diff(previousPhase), depth, { x: 0, y: 1 });
+        if (output) stdout.write(output);
+        previousPhase = phase;
+        previousCanvas?.copy(phase, 0, 1, 0, 1);
+      }
+      scheduleAnimation();
+    }, 80);
   };
   const resize = () => {
-    previous = [];
+    previousCanvas = undefined;
+    previousPhase = undefined;
+    if (animationTimer) clearTimeout(animationTimer);
+    animationTimer = undefined;
     dirty = true;
     draw();
   };
   const offLog = onLog((record) => {
     model.append(record);
-    dirty = true;
+    scheduleRender();
   });
   const offProgress = onProgress((progress) => {
     model.progress = { ...progress };
-    dirty = true;
+    scheduleRender();
   });
   const cleanup = () => {
     if (closed) return;
     closed = true;
-    if (timer) clearInterval(timer);
+    if (renderTimer) clearTimeout(renderTimer);
+    if (animationTimer) clearTimeout(animationTimer);
     input.stop();
     stdout.off('resize', resize);
     process.off('SIGTERM', terminate);
     offLog();
     offProgress();
     restoreOutput();
-    stdout.write('\x1b[?2004l\x1b[?1006l\x1b[?1002l\x1b[?7h\x1b[0m\x1b[?25h\x1b[?1049l');
+    stdout.write('\x1b[?2004l\x1b[?1006l\x1b[?1003l\x1b[?7h\x1b[0m\x1b[?25h\x1b[?1049l');
     resolveClosed();
   };
   const terminate = () => {
@@ -439,7 +562,16 @@ export async function runWithLogViewer<T>(
     process.kill(process.pid, 'SIGTERM');
   };
   const input = new RawInput((event) => {
+    const previousHover = model.hover;
+    const previousScroll = model.scroll;
     const action = model.handle(event);
+    if (
+      event.type === 'mouse' &&
+      event.kind === 'move' &&
+      previousHover === model.hover &&
+      previousScroll === model.scroll
+    )
+      return;
     if (action === 'close') {
       cleanup();
       if (!model.complete)
@@ -458,19 +590,18 @@ export async function runWithLogViewer<T>(
         )
         .finally(() => {
           copying = false;
-          dirty = true;
+          scheduleRender();
         });
     }
     dirty = true;
     draw();
   });
   try {
-    stdout.write('\x1b[?1049h\x1b[?25l\x1b[?1002h\x1b[?1006h\x1b[?2004h');
+    stdout.write('\x1b[?1049h\x1b[?25l\x1b[?1003h\x1b[?1006h\x1b[?2004h');
     stdout.on('resize', resize);
     process.once('SIGTERM', terminate);
     input.start();
     draw();
-    timer = setInterval(draw, 50);
     let value!: T;
     let failure: unknown;
     let failed = false;
@@ -487,6 +618,8 @@ export async function runWithLogViewer<T>(
       });
     }
     model.complete = true;
+    if (animationTimer) clearTimeout(animationTimer);
+    animationTimer = undefined;
     if (options.outDir) model.notice = 'Log: ' + path.join(options.outDir, 'export.log');
     dirty = true;
     draw();
