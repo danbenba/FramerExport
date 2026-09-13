@@ -1,6 +1,6 @@
 {
   "name": "framer-export",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Export public pages from 25 website platforms into local HTML, CSS and assets. Captures dynamic styles, responsive resources and reusable scripts, with diagnostics for incomplete exports.",
   "type": "module",
   "main": "dist/cli/index.js",
