@@ -4,8 +4,8 @@ import { spawnSync } from 'child_process';
 import pkg from '../../package.json';
 import { showHelp } from './help.js';
 import { showBanner } from './banner.js';
-import { showLoadingIntro } from './cooking.js';
-import { checkForUpdates } from './update-check.js';
+import { checkForUpdates, installUpdate, getUpdateCommand } from './update-check.js';
+import { readPreferences, getPreferencesPath, type Preferences } from './preferences.js';
 import { select } from './select.js';
 import { ui } from './theme.js';
 import type { PlatformType } from '../platforms/types.js';
@@ -27,16 +27,27 @@ function hasFlag(args: string[], flag: string): boolean {
   return true;
 }
 
-async function showUpdateNotice(): Promise<void> {
-  const latest = await checkForUpdates(VERSION);
+async function showUpdateNotice(preferences: Preferences): Promise<void> {
+  const latest = await checkForUpdates(VERSION, { preferences });
   if (!latest) return;
+
+  const command = getUpdateCommand(latest);
+  if (preferences.autoInstallUpdates) {
+    const installed = await installUpdate(latest, { preferences, automatic: true });
+    if (installed.status === 'installed') {
+      console.log(`Updated to ${latest}. Re-run your command to use it.`);
+      process.exit(0);
+    }
+    console.log(installed.message);
+    return;
+  }
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.log('');
     console.log(
       `  ${ui.warning('↳')} Update available: ${ui.muted(VERSION)} -> ${ui.success(latest)}`
     );
-    console.log(`  ${ui.primary('  Run:')} ${ui.primarySoft('npm i -g framer-export@latest')}`);
+    console.log(command.status === 'ready' ? command.plan.display : command.message);
     console.log('');
     return;
   }
@@ -45,7 +56,10 @@ async function showUpdateNotice(): Promise<void> {
     'Update available',
     [
       { label: 'Continue without updating', value: 'continue' },
-      { label: 'Update now', value: 'update' },
+      {
+        label: command.status === 'ready' ? 'Update this installation' : 'Show update instructions',
+        value: 'update',
+      },
     ],
     0,
     {
@@ -59,22 +73,13 @@ async function showUpdateNotice(): Promise<void> {
   );
 
   if (action === 'update') {
-    console.log(
-      `  ${ui.primary('Updating:')} ${ui.primarySoft('npm i -g framer-export@latest')}\n`
-    );
-    const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    const result = spawnSync(npmCommand, ['i', '-g', 'framer-export@latest'], {
-      stdio: 'inherit',
-    });
-
-    if (result.status === 0) {
+    const result = await installUpdate(latest, { preferences });
+    if (result.status === 'installed') {
       console.log(`\n  ${ui.success('✓')} Updated. Re-run your command to use the new version.\n`);
       process.exit(0);
     }
 
-    console.log(
-      `\n  ${ui.error('✗')} Update failed. Run manually: ${ui.primarySoft('npm i -g framer-export@latest')}\n`
-    );
+    console.log('\n  ' + result.message + '\n');
   }
 }
 
@@ -112,6 +117,48 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  if (args[0] === 'config') {
+    console.log(JSON.stringify({ path: getPreferencesPath(), ...readPreferences() }, null, 2));
+    return;
+  }
+  if (args[0] === 'doctor' || hasFlag(args, '--doctor')) {
+    const { existsSync } = await import('node:fs');
+    const puppeteer = (await import('puppeteer')).default;
+    const browserPath = puppeteer.executablePath();
+    const preferences = readPreferences();
+    console.log(
+      JSON.stringify(
+        {
+          version: VERSION,
+          node: process.version,
+          platform: process.platform,
+          terminal: {
+            interactive: !!process.stdin.isTTY && !!process.stdout.isTTY,
+            columns: process.stdout.columns || null,
+            rows: process.stdout.rows || null,
+            colorDepth: process.stdout.getColorDepth?.() || 1,
+          },
+          browser: { installed: existsSync(browserPath), executable: browserPath },
+          preferences: getPreferencesPath(),
+          updates: {
+            enabled: preferences.checkUpdates,
+            channel: preferences.betaUpdates ? 'beta' : 'stable',
+            automaticInstall: preferences.autoInstallUpdates,
+          },
+        },
+        null,
+        2
+      )
+    );
+    process.exitCode = existsSync(browserPath) ? 0 : 1;
+    return;
+  }
+  if (args[0] === 'settings' || hasFlag(args, '--settings')) {
+    const { runSetup } = await import('./setup.js');
+    await runSetup(false, true);
+    return;
+  }
+
   if (args[0] === 'ui') {
     args.shift();
     const portValue = extractFlag(args, '--port');
@@ -125,6 +172,12 @@ async function main(): Promise<void> {
     showBanner();
     const { startUiServer } = await import('../ui/server.js');
     const handle = await startUiServer(port);
+    if (process.env.FEXPORT_COMPANION === '1') {
+      process.stdin.resume();
+      process.stdin.once('end', () => {
+        void handle.close().finally(() => process.exit(0));
+      });
+    }
     if (!hasFlag(args, '--no-open')) {
       const target = `http://localhost:${handle.port}`;
       const opener =
@@ -133,32 +186,33 @@ async function main(): Promise<void> {
           : process.platform === 'darwin'
             ? { cmd: 'open', args: [target] }
             : { cmd: 'xdg-open', args: [target] };
-      spawnSync(opener.cmd, opener.args, { stdio: 'ignore' });
+      spawnSync(opener.cmd, opener.args, { stdio: 'ignore', windowsHide: true });
     }
     return;
   }
 
-  await showLoadingIntro(VERSION);
-  await showUpdateNotice();
+  const preferences = readPreferences();
+  if (!hasFlag(args, '--no-update')) await showUpdateNotice(preferences);
+  const fresh = hasFlag(args, '--fresh');
 
   if (args.includes('--setup')) {
     hasFlag(args, '--setup');
     const legacyMode: boolean = hasFlag(args, '--legacy-mode');
     const { runSetup } = await import('./setup.js');
-    await runSetup(legacyMode);
+    await runSetup(legacyMode, false, fresh);
     return;
   }
 
   if (!args.length) {
     const { runSetup } = await import('./setup.js');
-    await runSetup(false);
+    await runSetup(false, false, fresh);
     return;
   }
 
   const platformOverride = extractFlag(args, '--platform') as PlatformType | null;
   const hasDprFlag = args.includes('--dpr');
   const dprValue = extractFlag(args, '--dpr');
-  const includeSubpages: boolean = hasFlag(args, '--subpages');
+  const includeSubpages = hasFlag(args, '--subpages') || preferences.includeSubpages;
 
   const deviceScaleFactor = dprValue === null ? 1 : Number(dprValue);
   if (
@@ -176,7 +230,9 @@ async function main(): Promise<void> {
   const url: string = args[0];
 
   try {
-    new URL(url);
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password)
+      throw new Error('Invalid public website URL');
   } catch {
     console.log(`  ${ui.error('✗')} ${ui.error.bold('Invalid URL:')} ${ui.text(url)}`);
     console.log(`  ${ui.muted('Expected: https://yoursite.framer.app')}\n`);
@@ -184,19 +240,30 @@ async function main(): Promise<void> {
   }
 
   const { FramerExporter, deriveOutputName } = await import('../exporter/index.js');
-  const { detectPlatform } = await import('../platforms/index.js');
+  const { detectPlatform, PLATFORM_REGISTRY } = await import('../platforms/index.js');
+  if (platformOverride && !PLATFORM_REGISTRY.some((item) => item.name === platformOverride)) {
+    throw new Error('Unknown provider: ' + platformOverride);
+  }
+  const defaultProvider =
+    preferences.defaultProvider !== 'auto' && preferences.defaultProvider !== 'unknown'
+      ? preferences.defaultProvider
+      : undefined;
 
-  const detected = platformOverride || detectPlatform(url).name;
+  const detected = platformOverride || defaultProvider || detectPlatform(url).name;
   const defaultDir: string = deriveOutputName(url, detected as PlatformType);
   const out: string = args[1] || `./${defaultDir}`;
 
   try {
-    await new FramerExporter(
+    const { CFG } = await import('../config/index.js');
+    CFG.concurrency = preferences.concurrency;
+    const exporter = new FramerExporter(
       url,
       path.resolve(out),
-      platformOverride || undefined,
+      platformOverride || defaultProvider,
       deviceScaleFactor
-    ).run(includeSubpages);
+    );
+    exporter.prettyPrint = preferences.prettyPrint;
+    await exporter.run(includeSubpages);
   } catch (e) {
     const { AntiBotError, formatAntiBotError } = await import('../exporter/anti-bot.js');
     if (e instanceof AntiBotError) {
@@ -212,4 +279,7 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+void main().catch((error) => {
+  console.error((error as Error).message);
+  process.exitCode = 1;
+});
