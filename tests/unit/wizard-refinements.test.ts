@@ -204,7 +204,8 @@ test('standard Windows terminal dimensions show the complete wordmark and brandi
     const lines = layout.canvas.lines(1);
     const art = terminalBrand(columns - 7).lines;
     for (const line of art) assert.ok(lines.some((shown) => shown.includes(line)));
-    assert.ok(lines[1].indexOf('Beta') > art[0].length);
+    if (pkg.version.includes('-')) assert.ok(lines[1].indexOf('Beta') > art[0].length);
+    else assert.ok(!lines.slice(0, art.length).join('\n').includes('Beta'));
     assert.ok(lines[2].indexOf('v' + pkg.version) > art[0].length);
     const before = { ...model.draft };
     model.handle({ type: 'mouse', kind: 'click', x: 10, y: 2 });
