@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LogViewerModel, formatLogRecords, runWithLogViewer } from '../../src/cli/log-viewer.js';
-import { textWidth } from '../../src/cli/terminal-screen.js';
+import { plainText, textWidth } from '../../src/cli/terminal-screen.js';
+import { THEME } from '../../src/cli/theme.js';
 import {
   clearLogHistory,
   getLogHistory,
@@ -59,6 +60,138 @@ test('paused scroll position remains stable while new logs arrive and End resume
   const followed = model.render(100, 24);
   assert.equal(model.follow, true);
   assert.equal(model.scroll, followed.maximumScroll);
+});
+
+test('live filtering keeps all 5000+ records and only searches newly appended messages', () => {
+  const model = new LogViewerModel(
+    Array.from(
+      { length: 5005 },
+      (_, index): LogRecord => ({
+        time: '10:20:01',
+        level: index % 17 === 0 ? 'error' : 'info',
+        message: `Asset ${index} ${index % 17 === 0 ? 'font' : 'image'}`,
+      })
+    )
+  );
+  let reads = 0;
+  for (const record of model.records) {
+    const message = record.message;
+    Object.defineProperty(record, 'message', {
+      get() {
+        reads++;
+        return message;
+      },
+    });
+  }
+  model.query = 'FONT';
+  model.filter = 'errors';
+  assert.equal(model.filtered().length, 295);
+  const initialReads = reads;
+  assert.equal(model.filtered().length, 295);
+  assert.equal(reads, initialReads);
+  model.append({ time: '10:20:02', level: 'error', message: 'New font failure' });
+  model.append({ time: '10:20:02', level: 'info', message: 'New font ready' });
+  const matched = model.filtered();
+  assert.equal(reads, initialReads);
+  assert.equal(matched.length, 296);
+  assert.equal(matched.at(-1)?.line, 5006);
+  const following = model.render(100, 30);
+  assert.equal(model.scroll, following.maximumScroll);
+  model.filter = 'all';
+  assert.equal(model.filtered().length, 297);
+  model.query = 'New';
+  assert.deepEqual(
+    model.filtered().map(({ line }) => line),
+    [5006, 5007]
+  );
+  model.query = '';
+  assert.equal(model.filtered().length, 5007);
+  assert.equal(model.records.length, 5007);
+});
+
+test('mouse wheel pauses following until the visible Latest logs control is clicked', () => {
+  const model = new LogViewerModel(
+    Array.from({ length: 90 }, (_, index) => ({ ...records[0], message: `Entry ${index}` }))
+  );
+  model.render(100, 30);
+  model.handle({ type: 'mouse', kind: 'wheel-up', x: 40, y: 15 });
+  const paused = model.scroll;
+  const layout = model.render(100, 30);
+  assert.equal(model.follow, false);
+  assert.match(layout.canvas.lines(1).join('\n'), /Latest logs/);
+  for (let index = 0; index < 30; index++) model.append(records[2]);
+  model.render(100, 30);
+  assert.equal(model.scroll, paused);
+  const resume = layout.regions.find(({ id }) => id === 'follow')!;
+  model.handle({ type: 'mouse', kind: 'click', x: resume.x + 1, y: resume.y + 1 });
+  const following = model.render(100, 30);
+  assert.equal(model.follow, true);
+  assert.equal(model.scroll, following.maximumScroll);
+  assert.match(following.canvas.lines(1).join('\n'), /Following/);
+});
+
+test('phase shine follows a two-second cycle and only changes the phase row', () => {
+  const model = new LogViewerModel(records, { reduceMotion: false });
+  model.progress = { ...model.progress, phase: 'Downloading export files' };
+  const initial = model.phaseCanvas(100, 0);
+  const shine = model.phaseCanvas(100, 1000);
+  assert.notEqual(initial.lines(24)[0], shine.lines(24)[0]);
+  assert.equal(plainText(initial.lines(24)[0]), plainText(shine.lines(24)[0]));
+  assert.deepEqual(initial.lines(24), model.phaseCanvas(100, 2000).lines(24));
+  assert.match(initial.lines(24)[0], /38;2;181;181;181/);
+  assert.match(shine.lines(24)[0], /38;2;255;255;255/);
+  model.animationTime = 0;
+  const before = model.render(100, 30).canvas;
+  model.animationTime = 1000;
+  const after = model.render(100, 30).canvas;
+  const changes = after.diff(before);
+  assert.ok(changes.length > 0);
+  assert.ok(changes.every(({ y, rows }) => y === 1 && rows === 1));
+  assert.doesNotMatch(after.paint(changes), /\x1b\[(?:2J|3J|\?1049h)/);
+});
+
+test('reduced motion and finished exports have no animated text', () => {
+  const model = new LogViewerModel(records, { reduceMotion: true });
+  assert.deepEqual(model.phaseCanvas(100, 0).lines(), model.phaseCanvas(100, 1000).lines());
+  const animated = new LogViewerModel(records, { reduceMotion: false });
+  animated.complete = true;
+  assert.deepEqual(animated.phaseCanvas(100, 0).lines(), animated.phaseCanvas(100, 1000).lines());
+  assert.match(animated.phaseCanvas(100).lines(1)[0], /Export finished/);
+  animated.failure = 'Network unavailable';
+  assert.match(animated.phaseCanvas(100).lines(1)[0], /Network unavailable/);
+  assert.deepEqual(animated.phaseCanvas(100, 0).lines(), animated.phaseCanvas(100, 1000).lines());
+});
+
+test('log levels retain distinct colors and the editor separates controls from its records', () => {
+  const model = new LogViewerModel(records, { reduceMotion: true });
+  const layout = model.render(100, 30);
+  const lines = layout.canvas.lines(24);
+  const colors = [THEME.secondary, THEME.info, THEME.warning, THEME.error, THEME.success];
+  colors.forEach((color, index) => {
+    const channels = [1, 3, 5].map((start) => parseInt(color.slice(start, start + 2), 16));
+    assert.ok(lines[layout.bodyTop + index].includes('38;2;' + channels.join(';')));
+  });
+  assert.equal(plainText(lines[layout.bodyTop - 1]).trim(), '');
+  const controls = layout.regions.filter(({ id }) =>
+    ['search', 'filter', 'follow', 'copy'].includes(id)
+  );
+  for (let index = 1; index < controls.length; index++) {
+    assert.ok(controls[index].x >= controls[index - 1].x + controls[index - 1].width + 2);
+  }
+});
+
+test('ASCII and grapheme messages pan in terminal cells without altering the stored records', () => {
+  const model = new LogViewerModel([
+    { ...records[0], message: '0123456789abcdefghijklmnopqrstuvwxyz' },
+    { ...records[1], message: '1234567界👩🏽‍💻e\u0301 tail' },
+  ]);
+  model.horizontal = 8;
+  const layout = model.render(100, 30);
+  const lines = layout.canvas.lines(1);
+  assert.match(lines[layout.bodyTop], /89abcdefghijklmnopqrstuvwxyz/);
+  assert.match(lines[layout.bodyTop + 1], /👩🏽‍💻e\u0301 tail/);
+  assert.doesNotMatch(lines[layout.bodyTop + 1], /界/);
+  assert.equal(model.records[1].message, '1234567界👩🏽‍💻e\u0301 tail');
 });
 
 test('search accepts pasted text, supports grapheme deletion and combines with level filters', () => {
