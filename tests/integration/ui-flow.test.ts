@@ -123,7 +123,12 @@ test(
       await page.waitForFunction(() => document.querySelectorAll('#gallery .card').length === 6);
       assert.equal(await activeScreen(page), 'screen-gallery');
       assert.equal(await page.$eval('.brand', (node) => node.textContent), 'framerexport');
-      assert.equal(await page.$eval('.release-badge', (node) => node.textContent), 'Beta');
+      assert.deepEqual(
+        await page.$$eval('.brand-group .release-badge', (nodes) =>
+          nodes.map((node) => node.textContent)
+        ),
+        pkg.version.includes('-') ? ['Beta'] : []
+      );
       assert.equal(
         await page.$eval('.release-version', (node) => node.textContent),
         'v' + pkg.version
@@ -131,9 +136,15 @@ test(
       assert.equal(
         await page.$eval('.brand-group', (node) => {
           const brand = node.querySelector('.brand')!.getBoundingClientRect();
-          const badge = node.querySelector('.release-badge')!.getBoundingClientRect();
+          const badge = node.querySelector('.release-badge')?.getBoundingClientRect();
           const version = node.querySelector('.release-version')!.getBoundingClientRect();
-          return badge.left >= brand.right && version.left >= badge.right;
+          return (
+            version.width > 0 &&
+            version.height > 0 &&
+            (badge
+              ? badge.left >= brand.right && version.left >= badge.right
+              : version.left >= brand.right)
+          );
         }),
         true
       );
