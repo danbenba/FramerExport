@@ -1,6 +1,6 @@
 export const APP_JS = `(function () {
   var state = { provider:'auto', siteUrl:'', outDir:'', prettyPrint:true, includeSubpages:false, concurrency:12, step:0, reached:0, viewMode:'cards', page:0, running:false, runId:null, serveCommand:'', startedAt:0 };
-  var providers = [], preferences = {}, es = null, elapsedTimer = null, draftTimer = null, deriveTimer = null, deriveSequence = 0, outEdited = false, ready = false, resetting = false, persistenceQueue = Promise.resolve(), tooltipTimer = null, tooltipTarget = null, logCounter = 0, visibleLogCount = 0;
+  var providers = [], preferences = {}, es = null, elapsedTimer = null, draftTimer = null, deriveTimer = null, deriveSequence = 0, outEdited = false, ready = false, resetting = false, persistenceQueue = Promise.resolve(), tooltipTimer = null, tooltipTarget = null, logCounter = 0, visibleLogCount = 0, latestLog = null, providerElements = new Map(), logScrollFrame = 0, logScrollTop = 0, logScrollHeight = 0, logClientHeight = 0, logPointerActive = false, logPointerScrolled = false, logTouchY = null;
   var screens = ['gallery','url','options','review'], headings = ['providerHeading','detailsHeading','optionsHeading','reviewHeading'];
   function $(id) { return document.getElementById(id); }
   function request(url, options) {
@@ -121,7 +121,7 @@ export const APP_JS = `(function () {
       }).catch(function() { if(sequence === deriveSequence) $('outError').textContent = 'Choose an output directory below.'; });
     },200);
   }
-  function setStatus(kind,text) { $('status').className = 'status ' + kind; $('status').hidden = kind === 'idle'; $('statusText').textContent = kind === 'idle' ? '' : text; }
+  function setStatus(kind,text) { $('status').className = 'status ' + kind; $('status').hidden = kind === 'idle'; $('statusText').textContent = kind === 'idle' ? '' : text; $('statusText').classList.toggle('shiny-text',kind === 'running'); updateLogShine(); }
   function toast(message) { $('toast').textContent = message; $('toast').classList.add('show'); setTimeout(function() { $('toast').classList.remove('show'); },2200); }
   function copyText(text,message) {
     function fallback() { var area = document.createElement('textarea'); area.value = text; document.body.appendChild(area); area.select(); try { if(!document.execCommand('copy')) throw new Error(); toast(message); } catch (_) { toast('Copy failed'); } area.remove(); }
@@ -131,8 +131,9 @@ export const APP_JS = `(function () {
     var query = $('searchInput').value.trim().toLowerCase(), size = state.viewMode === 'list' ? 8 : 6;
     var matches = providers.filter(function(p) { return (p.displayName + ' ' + p.description + ' ' + p.categoryLabel).toLowerCase().includes(query); });
     var pages = Math.max(1,Math.ceil(matches.length/size)); state.page = Math.min(state.page,pages-1);
-    var gallery = $('gallery'), scrollTop = resetScroll ? 0 : gallery.scrollTop; gallery.className = 'gallery ' + state.viewMode; $('galleryWrap').classList.toggle('list',state.viewMode === 'list'); gallery.replaceChildren();
+    var gallery = $('gallery'), scrollTop = resetScroll ? 0 : gallery.scrollTop, fragment = document.createDocumentFragment(); gallery.className = 'gallery ' + state.viewMode; $('galleryWrap').classList.toggle('list',state.viewMode === 'list');
     matches.slice(state.page*size,(state.page+1)*size).forEach(function(provider) {
+      var cached = providerElements.get(provider.name); if(cached) { cached.setAttribute('aria-pressed',String(provider.name === state.provider)); fragment.appendChild(cached); return; }
       var button = document.createElement('button'); button.type = 'button'; button.className = 'provider card'; button.dataset.provider = provider.name; button.setAttribute('aria-pressed',String(provider.name === state.provider));
       var icon = document.createElement('img'); icon.className = 'provider-icon'; icon.src = provider.iconDataUri; icon.style.background = provider.iconBackground || 'transparent'; icon.alt = ''; icon.width = 38; icon.height = 38; icon.decoding = 'async';
       var copy = document.createElement('span'); copy.className = 'provider-copy';
@@ -143,10 +144,11 @@ export const APP_JS = `(function () {
       copy.append(title,description,category);
       var check = document.createElement('span'); check.className = 'provider-check'; check.textContent = '✓'; check.setAttribute('aria-hidden','true');
       button.append(icon,copy,check);
-      button.onclick = function() { state.provider = provider.name; renderContext(); renderGallery(); renderStepper(); deriveOutput(); saveDraft(); var chosen = gallery.querySelector('[data-provider="' + provider.name + '"]'); if(chosen) chosen.focus({preventScroll:true}); };
-      gallery.appendChild(button);
+      button.onclick = function() { if(state.provider === provider.name) return; state.provider = provider.name; renderContext(); gallery.querySelectorAll('[data-provider]').forEach(function(item) { item.setAttribute('aria-pressed',String(item.dataset.provider === state.provider)); }); renderStepper(); deriveOutput(); saveDraft(); };
+      providerElements.set(provider.name,button); fragment.appendChild(button);
     });
-    if(!matches.length) { var empty = document.createElement('div'); empty.className = 'empty-state'; var title = document.createElement('b'); title.textContent = 'No providers found'; var hint = document.createElement('span'); hint.textContent = 'Try another name or category.'; empty.append(title,hint); gallery.appendChild(empty); }
+    if(!matches.length) { var empty = document.createElement('div'); empty.className = 'empty-state'; var title = document.createElement('b'); title.textContent = 'No providers found'; var hint = document.createElement('span'); hint.textContent = 'Try another name or category.'; empty.append(title,hint); fragment.appendChild(empty); }
+    gallery.replaceChildren(fragment);
     gallery.scrollTop = scrollTop;
     updateProviderScrollbar();
     $('resultCount').textContent = matches.length ? (state.page*size+1) + '–' + Math.min((state.page+1)*size,matches.length) + ' of ' + matches.length + ' providers' : '0 providers';
@@ -273,6 +275,9 @@ export const APP_JS = `(function () {
     visibleLogCount = 0;
     $('term').querySelectorAll('.ln').forEach(function(line) { line.hidden = !matchesLogFilter(line); if(!line.hidden) visibleLogCount++; });
     updateLogCounts();
+    if(hasLogFilter()) $('logFollow').checked = false;
+    rememberLogScroll();
+    updateFollowUi();
   }
   function matchesLogFilter(line) {
     var query = $('logSearch').value.trim().toLowerCase(), level = $('logLevel').value;
@@ -282,16 +287,45 @@ export const APP_JS = `(function () {
     $('logResultCount').textContent = visibleLogCount + ' of ' + logCounter + ' lines';
     $('exportLogCount').textContent = logCounter ? logCounter + ' log entries available' : 'Waiting for export activity';
   }
-  $('viewLogs').onclick = function() { hideTooltip(); renderLogFilter(); $('logsDialog').showModal(); if($('logFollow').checked) $('term').scrollTop = $('term').scrollHeight; };
+  function hasLogFilter() { return !!$('logSearch').value.trim() || $('logLevel').value !== 'all'; }
+  function updateFollowUi() { $('logFollow').disabled = hasLogFilter(); $('logResume').hidden = $('logFollow').checked && !hasLogFilter(); }
+  function pauseLogFollow() { $('logFollow').checked = false; cancelAnimationFrame(logScrollFrame); logScrollFrame = 0; updateFollowUi(); }
+  function rememberLogScroll() { var term = $('term'); logScrollTop = term.scrollTop; logScrollHeight = term.scrollHeight; logClientHeight = term.clientHeight; }
+  function followLatestLog() {
+    if(logScrollFrame || logPointerActive || !$('logsDialog').open || !$('logFollow').checked || hasLogFilter()) return;
+    logScrollFrame = requestAnimationFrame(function() { logScrollFrame = 0; if(!logPointerActive && $('logsDialog').open && $('logFollow').checked && !hasLogFilter()) { $('term').scrollTop = $('term').scrollHeight; rememberLogScroll(); } });
+  }
+  function updateLogShine() { if(latestLog) latestLog.classList.toggle('shiny-text',state.running && $('logsDialog').open); }
+  $('viewLogs').onclick = function() { hideTooltip(); renderLogFilter(); $('logsDialog').showModal(); updateLogShine(); followLatestLog(); };
   $('logsClose').onclick = function() { $('logsDialog').close(); };
+  $('logsDialog').addEventListener('close',function() { updateLogShine(); cancelAnimationFrame(logScrollFrame); logScrollFrame = 0; logPointerActive = false; logTouchY = null; });
   $('logSearch').oninput = renderLogFilter; $('logLevel').onchange = renderLogFilter;
-  $('logFollow').onchange = function() { if(this.checked) $('term').scrollTop = $('term').scrollHeight; };
+  $('logFollow').onchange = function() { updateFollowUi(); followLatestLog(); };
+  $('logResume').onclick = function() { $('logSearch').value = ''; $('logLevel').value = 'all'; $('logFollow').checked = true; renderLogFilter(); followLatestLog(); };
+  $('term').addEventListener('wheel',function(event) { if(event.deltaY < 0) pauseLogFollow(); },{passive:true});
+  $('term').addEventListener('keydown',function(event) { if(['ArrowUp','PageUp','Home'].includes(event.key) || (event.key === ' ' && event.shiftKey)) pauseLogFollow(); if(event.key === 'Home') { event.preventDefault(); this.scrollTop = 0; } else if(event.key === 'End') { event.preventDefault(); this.scrollTop = this.scrollHeight; if(!hasLogFilter()) { $('logFollow').checked = true; updateFollowUi(); followLatestLog(); } } });
+  $('term').addEventListener('pointerdown',function() { logPointerActive = true; logPointerScrolled = false; });
+  function endLogPointer() { if(!logPointerActive) return; logPointerActive = false; var term = $('term'); if(logPointerScrolled && $('logsDialog').open && !hasLogFilter() && term.scrollTop+term.clientHeight >= term.scrollHeight-2) { $('logFollow').checked = true; updateFollowUi(); } followLatestLog(); }
+  document.addEventListener('pointerup',endLogPointer); document.addEventListener('pointercancel',endLogPointer);
+  $('term').addEventListener('touchstart',function(event) { logTouchY = event.touches[0] ? event.touches[0].clientY : null; },{passive:true});
+  $('term').addEventListener('touchmove',function(event) { var y = event.touches[0] ? event.touches[0].clientY : null; if(y !== null && logTouchY !== null && y > logTouchY) pauseLogFollow(); logTouchY = y; },{passive:true});
+  $('term').addEventListener('scroll',function() {
+    var top = this.scrollTop, previousTop = logScrollTop, resized = this.scrollHeight !== logScrollHeight || this.clientHeight !== logClientHeight; rememberLogScroll();
+    if(!$('logsDialog').open || hasLogFilter()) return;
+    if(logPointerActive && top !== previousTop) logPointerScrolled = true;
+    var bottom = top+this.clientHeight >= this.scrollHeight-2;
+    if((!resized && top < previousTop-1) || (logPointerActive && top !== previousTop && !bottom)) pauseLogFollow();
+    else if(bottom && top > previousTop && !logPointerActive) { $('logFollow').checked = true; updateFollowUi(); }
+  },{passive:true});
+  new ResizeObserver(followLatestLog).observe($('term'));
+  document.addEventListener('visibilitychange',function() { document.documentElement.dataset.pageHidden = String(document.hidden); });
   function appendLog(record) {
-    var term = $('term'), bottom = term.scrollTop + term.clientHeight >= term.scrollHeight-60, line = document.createElement('div'), levelName = record.level === 'ok' ? 'success' : record.level; line.className = 'ln'; line.dataset.line = String(++logCounter); line.dataset.level = levelName;
+    var term = $('term'), line = document.createElement('div'), levelName = record.level === 'ok' ? 'success' : record.level; line.className = 'ln'; line.dataset.line = String(++logCounter); line.dataset.level = levelName;
     var time = document.createElement('span'); time.className = 't'; time.textContent = record.time ? '['+record.time+'] ' : '';
     var level = document.createElement('span'); level.className = 'level lv-'+levelName; level.textContent = '['+record.level+'] ';
     var message = document.createElement('span'); message.className = 'message'; message.textContent = record.message; line.append(time,level,message); term.appendChild(line);
-    line.hidden = !matchesLogFilter(line); if(!line.hidden) visibleLogCount++; updateLogCounts(); if(bottom && $('logFollow').checked) term.scrollTop = term.scrollHeight;
+    if(latestLog) latestLog.classList.remove('shiny-text'); latestLog = message; updateLogShine();
+    line.hidden = !matchesLogFilter(line); if(!line.hidden) visibleLogCount++; updateLogCounts(); followLatestLog();
   }
   function renderProgress(progress) {
     $('sidePhase').textContent = progress.phase || 'starting'; $('sideAssets').textContent = progress.downloaded + (progress.totalAssets ? '/'+progress.totalAssets : '') + ' downloaded';
@@ -322,7 +356,7 @@ export const APP_JS = `(function () {
     if(state.running) return; syncFields(); if(!validDetails()) { go(1,true); validateDetails(); return; }
     clearTimeout(draftTimer); post('/api/draft',draft()).catch(function() {});
     state.running = true; state.runId = null; state.serveCommand = ''; state.startedAt = Date.now();
-    $('runTool').textContent = selected().displayName; $('runUrl').textContent = state.siteUrl; $('term').replaceChildren(); logCounter = 0; $('logSearch').value = ''; $('logLevel').value = 'all'; renderLogFilter(); $('donebar').classList.remove('visible'); $('sideSummarySec').style.display = 'none'; $('sideElapsed').textContent = '0:00 elapsed'; $('exportOutput').textContent = state.outDir;
+    $('runTool').textContent = selected().displayName; $('runUrl').textContent = state.siteUrl; $('term').replaceChildren(); latestLog = null; logCounter = 0; $('logSearch').value = ''; $('logLevel').value = 'all'; $('logFollow').checked = true; renderLogFilter(); $('donebar').classList.remove('visible'); $('sideSummarySec').style.display = 'none'; $('sideElapsed').textContent = '0:00 elapsed'; $('exportOutput').textContent = state.outDir;
     setStatus('running','exporting'); show('export'); startElapsed(); connectEvents();
     post('/api/export',{url:state.siteUrl,platform:state.provider === 'auto' ? null : state.provider,outDir:state.outDir,subpages:state.includeSubpages,prettyPrint:state.prettyPrint,concurrency:state.concurrency}).then(function(data) {
       state.runId = data.runId; return request('/api/status');
