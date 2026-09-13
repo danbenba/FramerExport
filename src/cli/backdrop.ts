@@ -97,6 +97,42 @@ function bayer8(x: number, y: number): number {
   return bayer4(0.5 * x, 0.5 * y) * 0.25 + bayer2exact(x, y);
 }
 
+export function terminalPixelBlast(
+  columns: number,
+  rows: number,
+  time: number,
+  clicks: ReadonlyArray<{ x: number; y: number; time: number }> = []
+): (x: number, y: number) => { text: string; fg: string } | null {
+  const cache = new Map<string, number>();
+  const resY = rows * 2;
+  const aspect = columns / resY;
+  return (x, y) => {
+    const fx = x - columns * 0.5;
+    const fy = y * 2 - resY * 0.5;
+    const cellX = Math.floor(fx / CELL_PX) * CELL_PX;
+    const cellY = Math.floor(fy / CELL_PX) * CELL_PX;
+    const ux = (cellX / columns) * aspect;
+    const uy = cellY / resY;
+    const key = cellX + ':' + cellY;
+    let feed = cache.get(key);
+    if (feed === undefined) {
+      feed = fbm2(ux, uy, time * 0.025) * 0.5 - 0.65 + 0.15;
+      for (const click of clicks) {
+        const dx = ((click.x - columns * 0.5) / columns) * aspect;
+        const dy = (click.y * 2 - resY * 0.5) / resY;
+        const age = Math.max(0, time - click.time);
+        const distance = Math.hypot(ux - dx, uy - dy);
+        const ring = Math.exp(-Math.pow((distance - age * 0.3) / 0.1, 2));
+        feed = Math.max(feed, ring * Math.exp(-age - distance * 10));
+      }
+      cache.set(key, feed);
+    }
+    const edge = Math.min(x / columns, y / rows, 1 - x / columns, 1 - y / rows);
+    if (edge < 0.025 || feed + bayer8(fx, fy) - 0.5 < 0.5) return null;
+    return { text: '·', fg: edge < 0.12 ? '#252129' : '#332B3A' };
+  };
+}
+
 interface Click {
   x: number;
   y: number;
