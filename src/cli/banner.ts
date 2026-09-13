@@ -27,23 +27,61 @@ export const BRAND_ART = Array.from({ length: 4 }, (_, row) =>
     )
     .join(' ')
 );
+const compactGlyphs: Record<string, string[]> = {
+  f: ['011', '010', '111', '010', '010', '010', '010', '000'],
+  r: ['000', '000', '101', '110', '100', '100', '100', '000'],
+  a: ['000', '000', '110', '001', '111', '101', '111', '000'],
+  m: ['000', '000', '111', '111', '111', '101', '101', '000'],
+  e: ['000', '000', '010', '101', '111', '100', '011', '000'],
+  x: ['000', '000', '101', '101', '010', '101', '101', '000'],
+  p: ['000', '000', '110', '101', '110', '100', '100', '100'],
+  o: ['000', '000', '010', '101', '101', '101', '010', '000'],
+  t: ['010', '010', '111', '010', '010', '010', '011', '000'],
+};
+export function terminalBrand(width: number): { lines: string[]; split: number } {
+  if (width >= 95) return { lines: BRAND_ART, split: BRAND_SPLIT };
+  return {
+    lines: Array.from({ length: 4 }, (_, row) =>
+      [...'framerexport']
+        .map((letter) =>
+          Array.from({ length: 3 }, (_, col) => {
+            const top = compactGlyphs[letter][row * 2][col] === '1';
+            const bottom = compactGlyphs[letter][row * 2 + 1][col] === '1';
+            return top ? (bottom ? '█' : '▀') : bottom ? '▄' : ' ';
+          }).join('')
+        )
+        .join(' ')
+    ),
+    split: 24,
+  };
+}
 
 export function showBanner(): void {
   const width = Math.max(1, (process.stdout.columns || 80) - 2);
-  const lines =
-    width >= 71
-      ? [...BRAND_ART, 'framerexport · v' + pkg.version]
-      : ['framerexport', 'v' + pkg.version];
+  const prerelease = pkg.version.includes('-');
+  const version = 'v' + pkg.version;
+  const badge = chalk.bgHex('#FAB283').hex('#0A0A0A').bold(' Beta ');
   console.log('');
-  lines.forEach((line, index) =>
+  if (width >= 71) {
+    const brand = terminalBrand(width);
+    brand.lines.forEach((line, index) =>
+      console.log(
+        ' ' +
+          chalk.hex(BRAND_COLOR)(line.slice(0, brand.split)) +
+          ui.text(line.slice(brand.split)) +
+          (index === 1 && prerelease ? '  ' + badge : index === 2 ? '  ' + ui.muted(version) : '')
+      )
+    );
+  } else {
+    const name =
+      chalk.hex(BRAND_COLOR)(fitText('framer', Math.min(6, width))) +
+      (width > 6 ? ui.text(fitText('export', Math.min(6, width - 6))) : '');
+    const sameLine = width >= 14 + (prerelease ? 7 : 0) + version.length;
     console.log(
-      ' ' +
-        (width >= 71 && index < BRAND_ART.length
-          ? chalk.hex(BRAND_COLOR)(line.slice(0, BRAND_SPLIT)) + ui.text(line.slice(BRAND_SPLIT))
-          : index === 0
-            ? chalk.hex(BRAND_COLOR)('framer') + ui.text('export')
-            : ui.muted(fitText(line, width)))
-    )
-  );
+      ' ' + name + (sameLine ? '  ' + (prerelease ? badge + ' ' : '') + ui.muted(version) : '')
+    );
+    if (!sameLine)
+      console.log(' ' + ui.muted(fitText((prerelease ? 'Beta ' : '') + version, width)));
+  }
   console.log('');
 }
