@@ -111,8 +111,10 @@ test('buildOutput cleans attributes, injects SEO tags and writes serve files', a
   assert.doesNotMatch(index, /<link=/);
   assert.match(index, /<link rel='stylesheet'/);
   assert.doesNotMatch(index, /rel="preconnect"/);
-  assert.doesNotMatch(index, /w800\.png/);
-  assert.match(index, /srcset="local-400\.png 400w"/);
+  assert.match(
+    index,
+    /srcset="https:\/\/cdn.example.com\/w800\.png 800w, https:\/\/example.com\/local-400\.png 400w"/
+  );
   assert.match(index, /rel="canonical" href="https:\/\/example\.com"/);
   assert.match(index, /name="description"/);
   assert.match(index, /property="og:url" content="https:\/\/example\.com"/);
@@ -181,7 +183,7 @@ test('buildOutput rewrites asset URLs inside downloaded vendor scripts and style
   const js = await fs.readFile(path.join(outDir, 'scripts', 'vendor', 'main.js'), 'utf8');
   assert.match(js, /import\("\.\/chunk\.mjs"\)/);
   const css = await fs.readFile(path.join(outDir, 'styles', 'site.css'), 'utf8');
-  assert.match(css, /url\(\.\.\/assets\/images\/bg\.png\)/);
+  assert.match(css, /url\("?\.\.\/assets\/images\/bg\.png"?\)/);
 });
 test('buildOutput resolves relative refs inside downloaded CSS against their source URL', async (t) => {
   const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'framer-export-cssrel-test-'));
@@ -211,6 +213,6 @@ test('buildOutput resolves relative refs inside downloaded CSS against their sou
   };
   await buildOutput(exporter);
   const css = await fs.readFile(path.join(outDir, 'styles', 'screen.css'), 'utf8');
-  assert.match(css, /url\(\.\.\/assets\/fonts\/poppins\.woff2\)/);
-  assert.match(css, /url\(\.\.\/assets\/images\/bg\.png\)/);
+  assert.match(css, /url\("?\.\.\/assets\/fonts\/poppins\.woff2"?\)/);
+  assert.match(css, /url\("?\.\.\/assets\/images\/bg\.png"?\)/);
 });
