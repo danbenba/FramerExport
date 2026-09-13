@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { WizardModel, type WizardLayout } from '../../src/cli/wizard.js';
 import { defaultPreferences } from '../../src/cli/preferences.js';
-import { BRAND_ART } from '../../src/cli/banner.js';
+import { terminalBrand } from '../../src/cli/banner.js';
+import pkg from '../../package.json';
 import { TerminalCanvas } from '../../src/cli/terminal-screen.js';
 import { terminalPixelBlast } from '../../src/cli/backdrop.js';
 
@@ -201,7 +202,10 @@ test('standard Windows terminal dimensions show the complete wordmark and brandi
   ]) {
     const layout = model.render(columns, rows);
     const lines = layout.canvas.lines(1);
-    for (const line of BRAND_ART) assert.ok(lines.some((shown) => shown.includes(line)));
+    const art = terminalBrand(columns - 7).lines;
+    for (const line of art) assert.ok(lines.some((shown) => shown.includes(line)));
+    assert.ok(lines[1].indexOf('Beta') > art[0].length);
+    assert.ok(lines[2].indexOf('v' + pkg.version) > art[0].length);
     const before = { ...model.draft };
     model.handle({ type: 'mouse', kind: 'click', x: 10, y: 2 });
     assert.deepEqual(model.draft, before);
