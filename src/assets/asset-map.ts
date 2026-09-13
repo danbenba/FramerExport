@@ -34,7 +34,7 @@ function extFromContentType(contentType: string): string {
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-const URL_BOUNDARY = /^["'`)<>\s?#&\\,;]/;
+const URL_BOUNDARY = /^["'`)<>\s#\\,;]/;
 export function replaceUrl(text: string, url: string, rel: string): string {
   const parts: string[] = text.split(url);
   if (parts.length === 1) return text;
@@ -46,28 +46,67 @@ export function replaceUrl(text: string, url: string, rel: string): string {
   return out;
 }
 function replaceSitePath(text: string, sitePath: string, rel: string): string {
-  const pattern = new RegExp(
-    `(?<=["'(=]|,\\s?)${escapeRegex(sitePath)}(?=["')?#\\s,]|$)`,
-    'g'
-  );
+  const pattern = new RegExp(`(?<=["'(=]|,\\s?)${escapeRegex(sitePath)}(?=["')#\\s,]|$)`, 'g');
   return text.replace(pattern, rel);
 }
 export class AssetMap {
   entries: Map<string, AssetEntry> = new Map();
   buffers: Map<string, Buffer> = new Map();
+  contentTypes: Map<string, string> = new Map();
+  responseUrls: Map<string, string> = new Map();
+  failures: Map<string, string> = new Map();
+  private pathOwners: Map<string, string> = new Map();
   localPathFor(urlStr: string, platform?: PlatformHandler, contentType?: string): string | null {
-    if (this.entries.has(urlStr)) return this.entries.get(urlStr)!.localPath;
     let parsed: URL;
     try {
       parsed = new URL(urlStr);
     } catch {
       return null;
     }
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    parsed.hash = '';
+    urlStr = parsed.href;
+
+    if (/\.framercms$/i.test(parsed.pathname)) contentType = 'application/octet-stream';
+    const previousType = this.contentTypes.get(urlStr);
+    if (contentType) this.contentTypes.set(urlStr, contentType);
+    const previous = this.entries.get(urlStr);
+    if (previous && (!contentType || previousType || !extFromContentType(contentType)))
+      return previous.localPath;
+    if (previous) {
+      this.pathOwners.delete(previous.localPath.toLowerCase());
+      this.entries.delete(urlStr);
+    }
     const host: string = parsed.hostname;
     const pathname: string = parsed.pathname;
     let ext: string = path.extname(pathname.split('?')[0]).toLowerCase();
-    if (!ext && contentType) {
-      ext = extFromContentType(contentType);
+    if (
+      contentType &&
+      ![
+        '.css',
+        '.js',
+        '.mjs',
+        '.json',
+        '.svg',
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.gif',
+        '.webp',
+        '.avif',
+        '.ico',
+        '.woff2',
+        '.woff',
+        '.ttf',
+        '.otf',
+        '.mp4',
+        '.webm',
+        '.html',
+        '.xml',
+        '.framercms',
+      ].includes(ext)
+    ) {
+      ext = extFromContentType(contentType) || ext;
     }
     let dir: string | null = null;
     if (platform) {
@@ -82,22 +121,32 @@ export class AssetMap {
     if (baseName && baseName.length > 1 && baseName !== '/') {
       const clean: string = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
       filename = clean.includes('.') ? clean : `${clean}-${hash}${ext || ''}`;
+      if (ext && path.extname(filename).toLowerCase() !== ext) filename += ext;
     } else {
       filename = `asset-${hash}${ext || ''}`;
     }
-    if ((ext === '.mjs' || ext === '.js') && baseName.includes('.')) {
-      filename = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(filename)) {
+      filename = `${hash}-${filename}`;
     }
+    filename = filename.replace(/\.+$/, '_');
     if (filename.length > 100) {
       const extPart: string = path.extname(filename);
       filename = filename.slice(0, 93 - extPart.length) + '-' + hash + extPart;
     }
-    const localPath: string = `${dir}/${filename}`;
-    this.entries.set(urlStr, { localPath });
-    const base: string = urlStr.split('?')[0];
-    if (base !== urlStr && !this.entries.has(base)) {
-      this.entries.set(base, { localPath });
+    let localPath: string = `${dir}/${filename}`;
+
+    const owner = this.pathOwners.get(localPath.toLowerCase());
+    if (owner && owner !== urlStr) {
+      const suffix = path.extname(filename);
+      const stem = filename.slice(0, filename.length - suffix.length);
+      let attempt = 0;
+      do {
+        localPath = `${dir}/${stem}-${hash}${attempt ? '-' + attempt : ''}${suffix}`;
+        attempt++;
+      } while (this.pathOwners.has(localPath.toLowerCase()));
     }
+    this.pathOwners.set(localPath.toLowerCase(), urlStr);
+    this.entries.set(urlStr, { localPath });
     return localPath;
   }
   rewrite(text: string, fromDir: string = '', siteUrl: string = ''): string {
