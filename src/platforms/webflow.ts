@@ -1,4 +1,5 @@
 import type { PlatformHandler } from './types.js';
+import { rewriteHtmlTags } from '../assets/html-tags.js';
 
 const IMG_EXTS: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.avif'];
 const FONT_EXTS: string[] = ['.woff2', '.woff', '.ttf', '.otf', '.eot'];
@@ -30,18 +31,21 @@ export const webflow: PlatformHandler = {
   stripPatterns: [
     /<a[^>]*class="[^"]*w-webflow-badge[^"]*"[^>]*>[\s\S]*?<\/a>/g,
     /<a[^>]*href="[^"]*webflow\.com\?utm_campaign=brandjs[^"]*"[^>]*>[\s\S]*?<\/a>/g,
-    /<style>[^<]*\.w-webflow-badge[^<]*<\/style>/g,
     /Powered by <a[^>]*href="[^"]*webflow\.com"[^>]*>[^<]*<\/a>/g,
     /<!-- This site was created in Webflow\.[^>]*-->/g,
-    /<html([^>]*) data-wf-domain="[^"]*"/g,
-    /<html([^>]*) data-wf-page="[^"]*"/g,
-    /<html([^>]*) data-wf-site="[^"]*"/g,
-    /<html([^>]*) data-wf-status="[^"]*"/g,
     /<meta[^>]*content="Webflow"[^>]*>/g,
   ],
 
   hydrationTimeout: 2000,
   needsHydrationCheck: false,
+
+  postCapture(html: string): string {
+    return rewriteHtmlTags(html, (tag, name) =>
+      name === 'html'
+        ? tag.replace(/\s+data-wf-(?:domain|status)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+        : tag
+    );
+  },
 
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (
