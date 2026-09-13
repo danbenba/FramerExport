@@ -95,11 +95,15 @@ test('over-long filenames are truncated with a hash while keeping the extension'
   assert.ok(filename.length <= 100);
   assert.match(filename, /-[a-f0-9]{6}\.png$/);
 });
-test('querystring is stripped from the extension and the base URL is aliased', () => {
+test('querystrings retain asset identity without aliasing uncaptured variants', () => {
   const map = new AssetMap();
   const local = map.localPathFor('https://cdn.example.com/chunk.mjs?v=123');
   assert.equal(local, 'scripts/vendor/chunk.mjs');
-  assert.equal(map.entries.get('https://cdn.example.com/chunk.mjs')?.localPath, local);
+  assert.equal(map.entries.has('https://cdn.example.com/chunk.mjs'), false);
+  assert.equal(
+    map.rewrite('https://cdn.example.com/chunk.mjs?v=456'),
+    'https://cdn.example.com/chunk.mjs?v=456'
+  );
 });
 test('extension-less basenames get a stable 6-char hash suffix', () => {
   const map = new AssetMap();
@@ -214,4 +218,67 @@ test('rewrite replaces longer URLs before their prefixes', () => {
   map.localPathFor('https://cdn.example.com/app.js.map');
   const out = map.rewrite('https://cdn.example.com/app.js.map https://cdn.example.com/app.js');
   assert.equal(out, 'assets/misc/app.js.map scripts/vendor/app.js');
+});
+
+test('keeps colliding basenames and image query variants in separate files', () => {
+  const map = new AssetMap();
+  const urls = [
+    'https://one.example/a/theme.css',
+    'https://one.example/b/theme.css',
+    'https://two.example/theme.css',
+    'https://one.example/hero.jpg?w=100',
+    'https://one.example/hero.jpg?w=600',
+  ];
+  const paths = urls.map((url) => map.localPathFor(url)!);
+  assert.equal(new Set(paths).size, urls.length);
+  for (let i = 0; i < urls.length; i++) assert.equal(map.rewrite(`"${urls[i]}"`), `"${paths[i]}"`);
+});
+
+test('a queryless capture cannot rewrite uncaptured query variants', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://example.com/hero.jpg');
+  assert.equal(
+    map.rewrite('<img src="https://example.com/hero.jpg?w=800">'),
+    '<img src="https://example.com/hero.jpg?w=800">'
+  );
+  assert.equal(
+    map.rewrite('<img src="/hero.jpg?w=800">', '', 'https://example.com'),
+    '<img src="/hero.jpg?w=800">'
+  );
+});
+
+test('normalizes fragment identity and protects Windows case-insensitive paths', () => {
+  const map = new AssetMap();
+  const local = map.localPathFor('https://example.com/icon.svg#one');
+  assert.equal(map.localPathFor('https://example.com/icon.svg#two'), local);
+  assert.notEqual(
+    map.localPathFor('https://example.com/ICON.svg')!.toLowerCase(),
+    local!.toLowerCase()
+  );
+  assert.equal(map.localPathFor('data:image/svg+xml,anything'), null);
+});
+
+test('late content types classify extensionless and server-generated CSS correctly', () => {
+  const map = new AssetMap();
+  map.localPathFor('https://example.com/theme');
+  assert.match(
+    map.localPathFor('https://example.com/theme', undefined, 'text/css')!,
+    /^styles\/theme-.*\.css$/
+  );
+  assert.equal(
+    map.localPathFor('https://example.com/styles.php', undefined, 'text/css'),
+    'styles/styles.php.css'
+  );
+  assert.equal(
+    map.localPathFor('https://example.com/script.php', undefined, 'text/javascript'),
+    'scripts/vendor/script.php.js'
+  );
+});
+
+test('reserved Windows device filenames are made writable', () => {
+  const map = new AssetMap();
+  assert.match(
+    map.localPathFor('https://example.com/aux.js')!,
+    /^scripts\/vendor\/[a-f0-9]{6}-aux\.js$/
+  );
 });
