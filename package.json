@@ -1,6 +1,6 @@
 {
   "name": "framer-export",
-  "version": "5.0.0-beta.4",
+  "version": "5.0.0",
   "description": "Export public pages from 25 website platforms into local HTML, CSS and assets. Captures dynamic styles, responsive resources and reusable scripts, with diagnostics for incomplete exports.",
   "type": "module",
   "main": "dist/cli/index.js",
@@ -25,10 +25,11 @@
     "test:browser": "node --import tsx --test --test-concurrency=1 tests/integration/*.test.ts",
     "test:platform": "node --import tsx scripts/validate-platform.ts",
     "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run test:browser",
+    "release": "node scripts/release.mjs",
     "format": "prettier --write \"src/**/*.ts\"",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run typecheck && npm test && npm run test:browser && npm run build",
-    "prepack": "npm run build"
+    "prepublishOnly": "npm run check"
   },
   "keywords": [
     "framer",
@@ -61,7 +62,7 @@
   "license": "MIT",
   "author": "Dany (danbenba)",
   "publishConfig": {
-    "tag": "beta"
+    "tag": "latest"
   },
   "engines": {
     "node": ">=20.0.0"
