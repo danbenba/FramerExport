@@ -1,14 +1,14 @@
 import chalk from 'chalk';
 import type { CookingSpinner } from '../cli/cooking.js';
 import { THEME } from '../cli/theme.js';
+import { fitAnsi } from '../cli/box.js';
 let _cooking: CookingSpinner | null = null;
 export function setCooking(spinner: CookingSpinner | null): void {
   _cooking = spinner;
 }
 const T = (): string => new Date().toISOString().slice(11, 19);
 function trunc(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max - 2) + '..';
+  return process.stdout.isTTY ? fitAnsi(text, max) : text;
 }
 export type LogLevel = 'log' | 'info' | 'warn' | 'ok' | 'error';
 export interface LogRecord {
@@ -20,6 +20,26 @@ export type LogListener = (record: LogRecord) => void;
 const _history: LogRecord[] = [];
 const _listeners = new Set<LogListener>();
 const HISTORY_LIMIT = 5000;
+let _retainedHistory = 0;
+let _outputSuspensions = 0;
+export function retainLogHistory(): () => void {
+  _retainedHistory++;
+  let active = true;
+  return () => {
+    if (!active) return;
+    active = false;
+    _retainedHistory--;
+  };
+}
+export function suspendConsoleOutput(): () => void {
+  _outputSuspensions++;
+  let active = true;
+  return () => {
+    if (!active) return;
+    active = false;
+    _outputSuspensions--;
+  };
+}
 export function onLog(listener: LogListener): () => void {
   _listeners.add(listener);
   return () => _listeners.delete(listener);
@@ -41,11 +61,14 @@ export function setRenderHook(hook: (() => void) | null): void {
 function record(level: LogLevel, message: string): LogRecord {
   const entry: LogRecord = { time: T(), level, message };
   _history.push(entry);
-  if (_history.length > HISTORY_LIMIT) _history.shift();
+  if (!_retainedHistory && _history.length > HISTORY_LIMIT)
+    _history.splice(0, _history.length - HISTORY_LIMIT);
   for (const listener of _listeners) listener(entry);
   return entry;
 }
 function output(line: string, channel: 'log' | 'warn' | 'error' = 'log'): void {
+  if (_outputSuspensions) return;
+  if (process.stdout.isTTY) line = fitAnsi(line, Math.max(1, process.stdout.columns || 80));
   if (_cooking) _cooking.log(line);
   else if (channel === 'warn') console.warn(line);
   else if (channel === 'error') console.error(line);
