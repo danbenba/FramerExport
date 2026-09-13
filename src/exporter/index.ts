@@ -9,7 +9,6 @@ import { resetProgress, setPhase, noteFile, noteSubpage } from './progress.js';
 import { ExportSidebar } from '../cli/sidebar.js';
 import { launchAndCapture, captureSubpage, closeBrowser } from './capture.js';
 import { extractInternalLinks, normalizeInternalLink, hostKey } from './links.js';
-import { AntiBotError } from './anti-bot.js';
 import { downloadAll, downloadLazyChunks } from './download.js';
 import { registerHtmlResources } from './html-resources.js';
 import { buildOutput } from './output.js';
@@ -64,7 +63,9 @@ export class FramerExporter implements ExporterContext {
   ssrHTML: string;
   prettyPrint: boolean;
   interactive: boolean;
+  terminalPresentation = true;
   platform: PlatformHandler;
+  platformOverride?: PlatformType;
   cooking?: CookingSpinner;
   deviceScaleFactor?: number;
   subpages: Map<string, string> = new Map();
@@ -83,6 +84,8 @@ export class FramerExporter implements ExporterContext {
     this.prettyPrint = true;
     this.interactive = true;
     this.deviceScaleFactor = deviceScaleFactor;
+    this.platformOverride =
+      platformOverride && platformOverride !== 'unknown' ? platformOverride : undefined;
     if (platformOverride && platformOverride !== 'unknown') {
       this.platform = getPlatformByName(platformOverride);
     } else {
@@ -90,9 +93,8 @@ export class FramerExporter implements ExporterContext {
     }
   }
   async run(includeSubpages: boolean = false): Promise<void> {
-    console.log(
-      `\n  ${ui.text.bold('Framer Export')} ${chip('mirror')} ${ui.muted('v4 pipeline')}\n`
-    );
+    if (this.terminalPresentation)
+      console.log(`\n  ${ui.text.bold('Framer Export')} ${chip('mirror')}\n`);
     info('Source   : ' + chalk.underline(this.siteUrl));
     info('Output   : ' + ui.primary(this.outDir));
     info('Platform : ' + ui.primary(this.platform.displayName));
@@ -102,14 +104,14 @@ export class FramerExporter implements ExporterContext {
     } else {
       info('Subpages : ' + ui.muted('disabled (pass --subpages to crawl the whole site)'));
     }
-    console.log('');
+    if (this.terminalPresentation) console.log('');
     this.cooking = new CookingSpinner();
     setCooking(this.cooking);
     resetProgress();
     const sidebar = new ExportSidebar();
-    sidebar.start();
+    if (this.terminalPresentation) sidebar.start();
     this.phase('Preparing directories...');
-    this.cooking.start('Preparing directories...');
+    if (this.terminalPresentation) this.cooking.start('Preparing directories...');
     for (const d of [
       '',
       'assets/images',
@@ -136,7 +138,7 @@ export class FramerExporter implements ExporterContext {
       log(chalk.red('Could not fetch SSR HTML: ' + (e as Error).message));
     }
     const htmlDetected = detectPlatform(this.siteUrl, this.ssrHTML);
-    if (htmlDetected.name !== this.platform.name) {
+    if (!this.platformOverride && htmlDetected.name !== this.platform.name) {
       this.platform = htmlDetected;
       log('Platform refined: ' + ui.primary(this.platform.displayName) + ' (from HTML analysis)');
     }
@@ -172,20 +174,20 @@ export class FramerExporter implements ExporterContext {
       this.cooking?.stop();
       setCooking(null);
       await closeBrowser(this);
-      if (e instanceof AntiBotError) {
-        await fs.rm(this.outDir, { recursive: true, force: true }).catch(() => {});
-      }
+
+      warn('Export failed: ' + (e as Error).message);
+      await this.writeExportLog();
       throw e;
     }
     this.phase('Done');
     sidebar.stop();
     this.cooking.stop();
     setCooking(null);
-    console.log('');
+    if (this.terminalPresentation) console.log('');
     success('Export complete!');
     await this.writeExportLog();
-    await printSummary(this);
-    if (this.interactive) {
+    if (this.terminalPresentation) await printSummary(this);
+    if (this.interactive && this.terminalPresentation) {
       await runAiPromptAssistant(this);
     }
   }
@@ -252,10 +254,7 @@ export class FramerExporter implements ExporterContext {
         'Crawling sub-page ' + crawled + '/' + Math.min(crawled + queue.length, MAX_SUBPAGES)
       );
       try {
-        const html = await captureSubpage(page, link, {
-          needsHydrationCheck: this.platform.needsHydrationCheck,
-          hydrationTimeout: this.platform.hydrationTimeout,
-        });
+        const html = await captureSubpage(page, link, this.platform);
         const slug = this.deriveSlug(link, baseUrl);
         const filename = slug + '.html';
         const filepath = path.join(this.outDir, 'subpages', filename);
