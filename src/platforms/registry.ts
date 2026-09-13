@@ -83,7 +83,7 @@ export function platformsByCategory(): Record<PlatformCategory, PlatformHandler[
   return out;
 }
 export const STABLE_PLATFORMS = new Set<string>(
-  PLATFORM_REGISTRY.map((h) => h.name).filter((n) => n !== 'notion')
+  PLATFORM_REGISTRY.map((h) => h.name).filter((n) => !['notion', 'bubble', 'podia'].includes(n))
 );
 export function isBetaPlatform(name: string): boolean {
   return !STABLE_PLATFORMS.has(name);
