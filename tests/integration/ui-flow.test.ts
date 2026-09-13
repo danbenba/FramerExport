@@ -5,7 +5,17 @@ import http from 'node:http';
 import path from 'node:path';
 import test from 'node:test';
 import puppeteer, { type Page } from 'puppeteer';
+import pkg from '../../package.json';
 import { startUiServer } from '../../src/ui/server.js';
+import { FramerExporter } from '../../src/exporter/index.js';
+import {
+  log,
+  info,
+  warn,
+  error as logError,
+  success,
+  suspendConsoleOutput,
+} from '../../src/logger/index.js';
 
 async function fill(page: Page, selector: string, value: string): Promise<void> {
   await page.click(selector, { clickCount: 3 });
@@ -20,7 +30,10 @@ async function activeScreen(page: Page): Promise<string> {
 async function capture(page: Page, options: Parameters<Page['screenshot']>[0]): Promise<void> {
   await page.evaluate(async () => {
     await Promise.all(
-      document.getAnimations().map((animation) => animation.finished.catch(() => {}))
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => {}))
     );
   });
   await page.screenshot(options);
@@ -110,6 +123,36 @@ test(
       await page.waitForFunction(() => document.querySelectorAll('#gallery .card').length === 6);
       assert.equal(await activeScreen(page), 'screen-gallery');
       assert.equal(await page.$eval('.brand', (node) => node.textContent), 'framerexport');
+      assert.equal(await page.$eval('.release-badge', (node) => node.textContent), 'Beta');
+      assert.equal(
+        await page.$eval('.release-version', (node) => node.textContent),
+        'v' + pkg.version
+      );
+      assert.equal(
+        await page.$eval('.brand-group', (node) => {
+          const brand = node.querySelector('.brand')!.getBoundingClientRect();
+          const badge = node.querySelector('.release-badge')!.getBoundingClientRect();
+          const version = node.querySelector('.release-version')!.getBoundingClientRect();
+          return badge.left >= brand.right && version.left >= badge.right;
+        }),
+        true
+      );
+      assert.equal(
+        await page.evaluate(() => {
+          const steps = [...document.querySelectorAll('.stepper li')].map((node) =>
+            node.getBoundingClientRect()
+          );
+          const heading = document.querySelector('.screen-heading')!.getBoundingClientRect();
+          const toolbar = document.querySelector('.toolbar')!.getBoundingClientRect();
+          return (
+            steps.every((step, index) => index === 0 || step.left - steps[index - 1].right >= 12) &&
+            heading.top - steps[0].bottom >= 40 &&
+            toolbar.top - heading.bottom >= 28
+          );
+        }),
+        true,
+        'the four steps and form sections must have clear spacing'
+      );
       assert.equal(await page.$('footer'), null);
       assert.equal(await page.$eval('#status', (node) => (node as HTMLElement).hidden), true);
       assert.equal(
@@ -209,6 +252,10 @@ test(
       await page.mouse.wheel({ deltaY: 350 });
       await page.waitForFunction(() => document.getElementById('gallery')!.scrollTop > 0);
       assert.equal(
+        await page.$eval('#gallery', (node) => getComputedStyle(node).scrollBehavior),
+        'auto'
+      );
+      assert.equal(
         await page.$eval('#providerScroll', (node) => (node as HTMLElement).hidden),
         false
       );
@@ -221,6 +268,19 @@ test(
       await page.waitForFunction(
         () => document.getElementById('providerScroll')?.getAttribute('aria-valuenow') === '0'
       );
+      const originalCard = await page.$('#gallery [data-provider="framer"]');
+      assert(originalCard);
+      await originalCard.click();
+      assert.equal(
+        await originalCard.evaluate(
+          (node) =>
+            node.isConnected && node === document.querySelector('#gallery [data-provider="framer"]')
+        ),
+        true,
+        'selecting a provider must retain the card node and its hover state'
+      );
+      assert.equal(await page.$eval('#selectedProvider', (node) => node.textContent), 'Framer');
+      await page.click('#gallery [data-provider="auto"]');
       assert.match(await page.$eval('#pageLabel', (node) => node.textContent || ''), /Page 1 of 4/);
       await page.click('#pageNext');
       assert.match(
@@ -290,6 +350,14 @@ test(
       });
       await page.click('#optionsNext');
       assert.equal(await activeScreen(page), 'screen-review');
+      assert.equal(
+        await page.$eval('.review-provider-name', (node) => node.textContent),
+        'Provider: Carrd'
+      );
+      assert.equal(
+        await page.$eval('[data-edit="0"]', (node) => node.textContent),
+        'Edit provider'
+      );
       await page.click('.brand');
       assert.equal(
         await activeScreen(page),
@@ -602,6 +670,302 @@ test(
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       console.log('UI browser artifacts: ' + artifactDir);
+    }
+  }
+);
+
+test(
+  'browser logs keep following bursts, pause for reading and preserve level colors through shine',
+  { timeout: 60000 },
+  async (t) => {
+    const artifactRoot = path.resolve('tmp/beta4-validation');
+    await fs.mkdir(artifactRoot, { recursive: true });
+    const artifactDir = await fs.mkdtemp(path.join(artifactRoot, 'ui-logs-'));
+    const outDir = path.join(artifactDir, 'export');
+    await fs.mkdir(outDir, { recursive: true });
+    let completeRun!: () => void;
+    const runFinished = new Promise<void>((resolve) => {
+      completeRun = resolve;
+    });
+    t.mock.method(FramerExporter.prototype, 'run', () => runFinished);
+    const restoreOutput = suspendConsoleOutput();
+    const ui = await startUiServer(0, {
+      quiet: true,
+      preferencesHome: path.join(artifactDir, 'preferences'),
+    });
+    const origin = `http://127.0.0.1:${ui.port}`;
+    const browser = await puppeteer.launch({
+      headless: true,
+      ignoreDefaultArgs: ['--hide-scrollbars'],
+    });
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(String(error)));
+    try {
+      await page.setViewport({ width: 1440, height: 1000 });
+      await page.goto(origin, { waitUntil: 'networkidle0' });
+      await page.waitForSelector('#gallery .provider');
+      await page.click('#providerNext');
+      await fill(page, '#urlInput', 'https://example.test');
+      await fill(page, '#outInput', path.relative(process.cwd(), outDir));
+      await page.click('#urlNext');
+      await page.click('#optionsNext');
+      await page.click('#startBtn');
+      await page.waitForFunction(
+        async () => (await (await fetch('/api/status')).json()).run.state === 'running'
+      );
+      await page.click('#viewLogs');
+      page.setDefaultTimeout(5000);
+      info('Connected to controlled export');
+      await page.waitForFunction(() =>
+        document.getElementById('term')?.textContent?.includes('Connected to controlled export')
+      );
+
+      const emitBurst = async (prefix: string, count = 160) => {
+        for (let index = 0; index < count; index++) {
+          const emit = [log, info, warn, logError, success][index % 5];
+          emit(prefix + ' ' + index + ' — assets/styles/theme.css');
+          if (index % 8 === 7) await new Promise((resolve) => setTimeout(resolve, 8));
+        }
+        await page.waitForFunction(
+          (last) => document.querySelector('#term .ln:last-child')?.textContent?.includes(last),
+          {},
+          prefix + ' ' + (count - 1)
+        );
+      };
+      const waitAtBottom = () =>
+        page.waitForFunction(() => {
+          const term = document.getElementById('term')!;
+          return term.scrollHeight - term.clientHeight - term.scrollTop <= 2;
+        });
+      await emitBurst('Initial batch');
+      await waitAtBottom();
+      assert.equal(
+        await page.$eval('#logFollow', (node) => (node as HTMLInputElement).checked),
+        true
+      );
+      await page.evaluate(() => {
+        const global = window as typeof window & { followFailures: number; watchFollow: number };
+        global.followFailures = 0;
+        global.watchFollow = window.setInterval(() => {
+          if (!(document.getElementById('logFollow') as HTMLInputElement).checked)
+            global.followFailures++;
+        }, 16);
+      });
+      await emitBurst('Rapid batch', 240);
+      await waitAtBottom();
+      assert.equal(
+        await page.evaluate(() => {
+          const global = window as typeof window & { followFailures: number; watchFollow: number };
+          clearInterval(global.watchFollow);
+          return global.followFailures;
+        }),
+        0,
+        'programmatic scroll events and new log batches must never turn off auto-scroll'
+      );
+
+      await page.hover('#term');
+      await page.mouse.wheel({ deltaY: -700 });
+      await page.waitForFunction(
+        () => !(document.getElementById('logFollow') as HTMLInputElement).checked
+      );
+      await page.waitForFunction(() => {
+        const term = document.getElementById('term')!;
+        return term.scrollTop + term.clientHeight < term.scrollHeight - 400;
+      });
+      const readingPosition = await page.$eval('#term', (node) => node.scrollTop);
+      await emitBurst('While reading', 40);
+      assert(
+        Math.abs((await page.$eval('#term', (node) => node.scrollTop)) - readingPosition) <= 1,
+        'new lines must preserve the reading position'
+      );
+      assert.equal(await page.$eval('#logResume', (node) => (node as HTMLElement).hidden), false);
+      await page.click('#logResume');
+      await waitAtBottom();
+      assert.equal(
+        await page.$eval('#logFollow', (node) => (node as HTMLInputElement).checked),
+        true
+      );
+
+      await page.focus('#term');
+      await page.keyboard.press('Home');
+      await page.waitForFunction(() => document.getElementById('term')!.scrollTop === 0);
+      assert.equal(
+        await page.$eval('#logFollow', (node) => (node as HTMLInputElement).checked),
+        false
+      );
+      await page.keyboard.press('End');
+      await waitAtBottom();
+      await page.waitForFunction(
+        () => (document.getElementById('logFollow') as HTMLInputElement).checked
+      );
+
+      await page.click('#logFollow');
+      await page.click('#term');
+      assert.equal(
+        await page.$eval('#logFollow', (node) => (node as HTMLInputElement).checked),
+        false,
+        'clicking a paused log pane must not resume auto-scroll'
+      );
+      await page.click('#logResume');
+      await waitAtBottom();
+
+      const scrollbar = await page.$eval('#term', (node) => {
+        const rect = node.getBoundingClientRect();
+        const width = (node as HTMLElement).offsetWidth - node.clientWidth;
+        return { x: rect.right - width / 2, bottom: rect.bottom - 12 };
+      });
+      await page.mouse.move(scrollbar.x, scrollbar.bottom);
+      await page.mouse.down();
+      await page.mouse.move(scrollbar.x, scrollbar.bottom - 100, { steps: 10 });
+      await page.waitForFunction(
+        () => !(document.getElementById('logFollow') as HTMLInputElement).checked
+      );
+      await page.mouse.move(scrollbar.x, scrollbar.bottom, { steps: 10 });
+      await page.mouse.up();
+      await waitAtBottom();
+      await page.waitForFunction(
+        () => (document.getElementById('logFollow') as HTMLInputElement).checked
+      );
+
+      await fill(page, '#logSearch', 'visible marker');
+      assert.equal(
+        await page.$eval('#logFollow', (node) => (node as HTMLInputElement).disabled),
+        true
+      );
+      info('hidden by active query');
+      info('visible marker information');
+      warn('visible marker warning');
+      logError('visible marker error');
+      success('visible marker success');
+      await page.waitForFunction(
+        () => document.querySelectorAll('#term .ln:not([hidden])').length === 4
+      );
+      assert.equal(
+        await page.$eval('#logResultCount', (node) => node.textContent),
+        '4 of 446 lines'
+      );
+      await page.select('#logLevel', 'error');
+      await page.waitForFunction(
+        () => document.querySelectorAll('#term .ln:not([hidden])').length === 1
+      );
+      logError('visible marker new error');
+      info('visible marker filtered level');
+      await page.waitForFunction(
+        () => document.querySelectorAll('#term .ln:not([hidden])').length === 2
+      );
+      assert.equal(
+        await page.$eval('#logFollow', (node) => (node as HTMLInputElement).checked),
+        false
+      );
+      await page.click('#logResume');
+      await waitAtBottom();
+      assert.equal(await page.$eval('#logSearch', (node) => (node as HTMLInputElement).value), '');
+      assert.equal(
+        await page.$eval('#logLevel', (node) => (node as HTMLSelectElement).value),
+        'all'
+      );
+
+      await page.mouse.move(0, 0);
+      const colors = await page.evaluate(() =>
+        ['info', 'warn', 'error', 'success'].map(
+          (level) =>
+            getComputedStyle(
+              document.querySelector('#term .ln[data-level="' + level + '"] .message')!
+            ).color
+        )
+      );
+      assert.equal(new Set(colors).size, 4, 'each log level must have its own readable color');
+      assert.equal(
+        await page.$eval('#term .ln:last-child .message', (node) => getComputedStyle(node).color),
+        colors[0],
+        'shine must preserve the level color'
+      );
+      for (const selector of ['#statusText', '#term .ln:last-child .message']) {
+        assert.equal(
+          await page.$eval(selector, (node) => getComputedStyle(node).animationName),
+          'text-shine'
+        );
+        assert.equal(
+          await page.$eval(selector, (node) => getComputedStyle(node).animationDuration),
+          '2s'
+        );
+      }
+      assert.equal(await page.$$eval('#term .shiny-text', (nodes) => nodes.length), 1);
+      await page.hover('#term .ln:last-child .message');
+      assert.equal(
+        await page.$eval(
+          '#term .ln:last-child .message',
+          (node) => getComputedStyle(node).animationPlayState
+        ),
+        'paused'
+      );
+      await page.mouse.move(0, 0);
+      assert.equal(
+        await page.$eval(
+          '#term .ln:last-child .message',
+          (node) => getComputedStyle(node).animationPlayState
+        ),
+        'running'
+      );
+      await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+      assert.equal(
+        await page.$eval(
+          '#term .ln:last-child .message',
+          (node) => getComputedStyle(node).animationName
+        ),
+        'none'
+      );
+      assert.equal(
+        await page.$eval(
+          '#term .ln:last-child .message',
+          (node) => getComputedStyle(node).webkitTextFillColor
+        ),
+        colors[0]
+      );
+      await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+      await capture(page, { path: path.join(artifactDir, 'logs-desktop.png'), fullPage: true });
+      await page.setViewport({ width: 390, height: 600 });
+      await waitAtBottom();
+      assert.equal(
+        await page.$eval('#logsDialog', (node) => {
+          const dialog = node.getBoundingClientRect(),
+            footer = node.querySelector('.logs-footer')!.getBoundingClientRect();
+          return (
+            dialog.right <= innerWidth &&
+            dialog.bottom <= innerHeight &&
+            footer.bottom <= dialog.bottom
+          );
+        }),
+        true,
+        'all log controls must stay visible on a small display'
+      );
+      await capture(page, { path: path.join(artifactDir, 'logs-mobile.png'), fullPage: true });
+      await page.setViewport({ width: 1440, height: 1000 });
+      await waitAtBottom();
+      assert.equal(
+        await page.$eval('#logFollow', (node) => (node as HTMLInputElement).checked),
+        true,
+        'resizing a wrapped log list must preserve auto-scroll'
+      );
+      await emitBurst('After resize', 16);
+      await waitAtBottom();
+      completeRun();
+      await page.waitForFunction(
+        () => document.getElementById('statusText')?.textContent === 'done'
+      );
+      assert.equal(
+        await page.$$eval('#term .shiny-text', (nodes) => nodes.length),
+        0,
+        'completed logs must stop animating'
+      );
+      assert.deepEqual(errors, []);
+    } finally {
+      completeRun();
+      await browser.close();
+      await ui.close();
+      restoreOutput();
+      console.log('UI log browser artifacts: ' + artifactDir);
     }
   }
 );
