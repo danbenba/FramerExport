@@ -5,6 +5,14 @@ import { noteFile } from './progress.js';
 import { prettifyJS } from '../formatter/prettify.js';
 import { SERVE_SCRIPT } from '../server/template.js';
 import type { ExporterContext } from '../types.js';
+import { rewriteCssResourceUrls } from '../assets/css-refs.js';
+import { documentBaseUrl, rewriteHtmlResources, rewriteModuleSpecifiers } from './html-rewrite.js';
+import { injectRuntimeStyles } from './runtime-styles.js';
+import { injectRuntimeImports } from './runtime-imports.js';
+import { injectRuntimeAssets } from './runtime-assets.js';
+import { injectRuntimeCms } from './runtime-cms.js';
+import { rewriteHtmlTags } from '../assets/html-tags.js';
+import { decodeHtmlAttribute, htmlAttribute } from '../assets/html-refs.js';
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -35,34 +43,35 @@ function stripBySelector(html: string, sel: string): string {
   return html;
 }
 function removeElementById(html: string, id: string): string {
-  const marker: string = `id="${id}"`;
-  let idx: number = html.indexOf(marker);
-  while (idx !== -1) {
-    const tagStart: number = html.lastIndexOf('<', idx);
-    if (tagStart === -1) break;
-    const tagNameEnd: number = html.indexOf(' ', tagStart + 1);
-    const tagName: string = html.slice(tagStart + 1, tagNameEnd).toLowerCase();
-    let depth = 0;
-    let i: number = tagStart;
-    while (i < html.length) {
-      if (
-        html.startsWith(`<${tagName}`, i) &&
-        (html[i + tagName.length + 1] === ' ' || html[i + tagName.length + 1] === '>')
-      ) {
-        depth++;
-        i += tagName.length + 1;
-      } else if (html.startsWith(`</${tagName}>`, i)) {
-        depth--;
-        if (depth === 0) {
-          html = html.slice(0, tagStart) + html.slice(i + tagName.length + 3);
-          break;
-        }
-        i += tagName.length + 3;
-      } else {
-        i++;
-      }
+  const escaped = escapeRegex(id);
+  const opening = new RegExp(
+    `<([a-z][\\w:-]*)\\b[^>]*\\s+id\\s*=\\s*(?:"${escaped}"|'${escaped}'|${escaped}(?=[\\s>]))[^>]*>`,
+    'i'
+  );
+  for (;;) {
+    const match = opening.exec(html);
+    if (!match) break;
+    const start = match.index;
+    const end = start + match[0].length;
+    const name = match[1];
+    if (
+      /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/i.test(name) ||
+      /\/\s*>$/.test(match[0])
+    ) {
+      html = html.slice(0, start) + html.slice(end);
+      continue;
     }
-    idx = html.indexOf(marker);
+    const tags = new RegExp(`<(/?)${escapeRegex(name)}\\b[^>]*>`, 'gi');
+    tags.lastIndex = end;
+    let depth = 1;
+    let close: RegExpExecArray | null;
+    while ((close = tags.exec(html))) {
+      depth += close[1] ? -1 : /\/\s*>$/.test(close[0]) ? 0 : 1;
+      if (depth === 0) break;
+    }
+
+    if (!close || depth !== 0) break;
+    html = html.slice(0, start) + html.slice(tags.lastIndex);
   }
   return html;
 }
@@ -112,17 +121,6 @@ function stripSharedCruft(html: string): string {
   }
   return html;
 }
-function stripSrcsetCdnUrls(html: string): string {
-  html = html.replace(/srcset="([^"]*)"/g, (_match: string, srcset: string) => {
-    const cleaned: string = srcset
-      .split(',')
-      .map((entry: string) => entry.trim())
-      .filter((entry: string) => !entry.startsWith('http'))
-      .join(', ');
-    return cleaned ? 'srcset="' + cleaned + '"' : '';
-  });
-  return html;
-}
 type RewritePattern = {
   from: RegExp;
   to: string;
@@ -155,32 +153,63 @@ export function rewriteInternalLinks(
   html: string,
   siteUrl: string,
   routes: Map<string, string>,
-  fromSubpages: boolean
+  fromSubpages: boolean,
+  pageUrl: string = siteUrl
 ): string {
   const source = new URL(siteUrl);
   const sourceHost = source.hostname.replace(/^www\./, '');
   const rootPath = source.pathname.replace(/\/+$/, '') || '/';
-  return html.replace(
-    /<(?!link\b)([^>]*?\bhref\s*=\s*)(["'])(.*?)\2/gi,
-    (match: string, prefix: string, quote: string, href: string) => {
-      if (/^(javascript:|mailto:|tel:|#|data:)/i.test(href)) return match;
-      let target: URL;
-      try {
-        target = new URL(href, siteUrl);
-      } catch {
-        return match;
+  return rewriteHtmlTags(html, (tag, name) => {
+    if (name !== 'a' && name !== 'area') return tag;
+    return tag.replace(
+      /(\s+)([\w:-]+)(\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'<>]+))/g,
+      (
+        match: string,
+        space: string,
+        attribute: string,
+        equals: string,
+        double: string | undefined,
+        single: string | undefined,
+        bare: string | undefined
+      ) => {
+        if (attribute.toLowerCase() !== 'href') return match;
+        const prefix = space + attribute + equals;
+        const href = decodeHtmlAttribute(double ?? single ?? bare ?? '');
+        if (/^(javascript:|mailto:|tel:|#|data:)/i.test(href)) return match;
+        const quote = single !== undefined ? "'" : '"';
+        let target: URL;
+        try {
+          target = new URL(href, pageUrl);
+        } catch {
+          return match;
+        }
+        const targetPath = target.pathname.replace(/\/+$/, '') || '/';
+        const sameSite =
+          target.hostname.replace(/^www\./, '') === sourceHost && target.port === source.port;
+        let local: string;
+        if (sameSite && fromSubpages && targetPath === rootPath) {
+          local = '../index.html' + target.search + target.hash;
+        } else if (sameSite && routes.has(targetPath)) {
+          local =
+            (fromSubpages ? '' : 'subpages/') +
+            routes.get(targetPath) +
+            target.search +
+            target.hash;
+        } else {
+          if (
+            /^(?:[a-z][\w+.-]*:|\/\/)/i.test(href) ||
+            (!fromSubpages && new URL(pageUrl).href === source.href)
+          )
+            return match;
+          local = target.href;
+        }
+        const encoded = local
+          .replace(/&/g, '&amp;')
+          .replace(quote === '"' ? /"/g : /'/g, quote === '"' ? '&quot;' : '&#39;');
+        return prefix + quote + encoded + quote;
       }
-      if (target.hostname.replace(/^www\./, '') !== sourceHost) return match;
-      const targetPath = target.pathname.replace(/\/+$/, '') || '/';
-      if (fromSubpages && targetPath === rootPath) {
-        return `<${prefix}${quote}../index.html${target.hash}${quote}`;
-      }
-      const filename = routes.get(targetPath);
-      if (!filename) return match;
-      const local: string = (fromSubpages ? filename : 'subpages/' + filename) + target.hash;
-      return `<${prefix}${quote}${local}${quote}`;
-    }
-  );
+    );
+  });
 }
 function processHtml(
   html: string,
@@ -191,6 +220,7 @@ function processHtml(
   fromSubpages: boolean,
   report: RewriteReport
 ): string {
+  const baseUrl = documentBaseUrl(html, pageUrl);
   html = stripIntegrityAndCors(html);
   html = stripSharedCruft(html);
   html = processSEO(html, pageUrl);
@@ -208,10 +238,13 @@ function processHtml(
       warn('postCapture hook failed for ' + pageUrl + ': ' + (e as Error).message);
     }
   }
-  html = exporter.assets.rewrite(html, fromDir, exporter.siteUrl);
+  html = rewriteInternalLinks(html, exporter.siteUrl, routes, fromSubpages, baseUrl);
+  html = rewriteHtmlResources(html, baseUrl, fromDir, exporter.assets);
   html = applyRewritePatterns(html, report);
-  html = stripSrcsetCdnUrls(html);
-  return rewriteInternalLinks(html, exporter.siteUrl, routes, fromSubpages);
+  html = injectRuntimeStyles(html, exporter.assets, baseUrl, fromDir);
+  html = injectRuntimeAssets(html, exporter.assets, baseUrl, fromDir);
+  html = injectRuntimeCms(html, exporter.assets, baseUrl, fromDir);
+  return injectRuntimeImports(html, exporter.assets, baseUrl, fromDir);
 }
 async function buildSubpages(
   exporter: ExporterContext,
@@ -249,11 +282,12 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   html = processHtml(html, exporter, exporter.siteUrl, '', routes, false, report);
   success('Index HTML pipeline complete');
   await rewriteDownloadedFiles(exporter, report);
+  await rewriteEmbeddedHtmlAssets(exporter);
   await buildSubpages(exporter, routes, report);
   report.patterns.forEach(({ from }, index) => {
     if (!report.matched.has(index)) warn('Rewrite pattern matched nothing: ' + from.toString());
   });
-  success('All URLs rewritten to local paths');
+  success('Captured asset URLs rewritten to local paths');
   if (exporter.prettyPrint !== false) {
     exporter.cooking?.update('Pretty-printing JS files...');
     await prettifyDownloadedJS(exporter);
@@ -274,32 +308,46 @@ export async function buildOutput(exporter: ExporterContext): Promise<void> {
   );
   noteFile('package.json');
   log('package.json written for serve.js');
-  success('Output build complete');
-}
-function resolveCssRelativeRefs(
-  content: string,
-  sourceUrl: string,
-  dir: string,
-  exporter: ExporterContext
-): string {
-  return content.replace(
-    /url\(\s*(['"]?)([^'")]+)\1\s*\)/g,
-    (match: string, quote: string, ref: string) => {
-      if (/^(data:|https?:|\/\/|#|\.\.?\/(?:assets|styles|scripts)\/)/i.test(ref)) return match;
-      let resolved: string;
-      try {
-        resolved = new URL(ref, sourceUrl).href;
-      } catch {
-        return match;
-      }
-      const entry =
-        exporter.assets.entries.get(resolved) ?? exporter.assets.entries.get(resolved.split('?')[0]);
-      if (!entry) return match;
-      let rel: string = path.posix.relative(dir, entry.localPath);
-      if (!rel.startsWith('.')) rel = './' + rel;
-      return `url(${quote}${rel}${quote})`;
-    }
+  const failures = [...exporter.assets.failures].map(([url, message]) => ({ url, message }));
+  const captureMode = exporter.platform.captureRenderedDom
+    ? 'static-snapshot'
+    : 'html-with-runtime';
+  await fs.writeFile(
+    path.join(exporter.outDir, 'export-report.json'),
+    JSON.stringify(
+      {
+        source: exporter.siteUrl,
+        platform: exporter.platform.name,
+        captureMode,
+        generatedAt: new Date().toISOString(),
+        assets: new Set([...exporter.assets.entries.values()].map((entry) => entry.localPath)).size,
+        failedAssets: failures,
+        subpages: exporter.subpages.size,
+        visualValidation: 'not-run',
+        limitations: [
+          'Server-side accounts, payments, search and form processing are not exported.',
+          ...(captureMode === 'static-snapshot'
+            ? [
+                'Platform scripts are frozen to preserve rendering; platform app interactions require rebuilding.',
+              ]
+            : []),
+          ...(failures.length
+            ? ['Some assets could not be saved; remote fallback URLs may require network access.']
+            : []),
+        ],
+      },
+      null,
+      2
+    ) + '\n'
   );
+  noteFile('export-report.json');
+  if (failures.length)
+    warn(`${failures.length} asset(s) could not be saved. See export-report.json.`);
+  if (captureMode === 'static-snapshot')
+    warn(
+      'Static snapshot: platform account flows and app interactions are not included. See export-report.json.'
+    );
+  success('Output build complete');
 }
 async function rewriteDownloadedFiles(
   exporter: ExporterContext,
@@ -326,13 +374,19 @@ async function rewriteDownloadedFiles(
       try {
         let content: string = await fs.readFile(filePath, 'utf-8');
         const before: string = content;
+        const sourceUrl = sourceByLocal.get(`${dir}/${file}`);
         if (ext === '.css') {
-          const sourceUrl = sourceByLocal.get(`${dir}/${file}`);
-          if (sourceUrl) {
-            content = resolveCssRelativeRefs(content, sourceUrl, dir, exporter);
-          }
+          content = rewriteCssResourceUrls(
+            content,
+            sourceUrl ?? exporter.siteUrl,
+            dir,
+            exporter.assets
+          );
+        } else {
+          if (sourceUrl)
+            content = rewriteModuleSpecifiers(content, sourceUrl, dir, exporter.assets);
+          content = exporter.assets.rewrite(content, dir, exporter.siteUrl);
         }
-        content = exporter.assets.rewrite(content, dir, exporter.siteUrl);
         content = applyRewritePatterns(content, report);
         if (content !== before) {
           await fs.writeFile(filePath, content);
@@ -343,6 +397,50 @@ async function rewriteDownloadedFiles(
   }
   log('Rewrote URLs in ' + rewritten + ' JS/CSS files');
 }
+export async function rewriteEmbeddedHtmlAssets(exporter: ExporterContext): Promise<void> {
+  const rewritten = new Set<string>();
+  for (const [url, entry] of exporter.assets.entries) {
+    if (rewritten.has(entry.localPath) || !/\.html?$/i.test(entry.localPath)) continue;
+    const filePath = path.join(exporter.outDir, entry.localPath);
+    let html = await fs.readFile(filePath, 'utf-8');
+    const baseUrl = documentBaseUrl(html, exporter.assets.responseUrls.get(url) ?? url);
+    const fromDir = path.posix.dirname(entry.localPath);
+
+    html = stripIntegrityAndCors(html);
+    html = rewriteHtmlTags(
+      html,
+      (tag, name) => {
+        if (name !== 'a' && name !== 'area') return tag;
+        const href = htmlAttribute(tag, 'href');
+        if (!href || /^(?:#|[a-z][\w+.-]*:)/i.test(href)) return tag;
+        try {
+          const absolute = new URL(href, baseUrl).href
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;');
+          return tag.replace(
+            /(\s+href\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s>]+)/i,
+            (_match, prefix: string) => prefix + '"' + absolute + '"'
+          );
+        } catch {
+          return tag;
+        }
+      },
+      (body, name, opening) =>
+        name === 'script' && htmlAttribute(opening, 'type')?.toLowerCase() === 'module'
+          ? rewriteModuleSpecifiers(body, baseUrl, fromDir, exporter.assets)
+          : body
+    );
+    html = rewriteHtmlResources(html, baseUrl, fromDir, exporter.assets);
+    html = injectRuntimeStyles(html, exporter.assets, baseUrl, fromDir);
+    html = injectRuntimeAssets(html, exporter.assets, baseUrl, fromDir);
+    html = injectRuntimeCms(html, exporter.assets, baseUrl, fromDir);
+    html = injectRuntimeImports(html, exporter.assets, baseUrl, fromDir);
+    await fs.writeFile(filePath, html);
+    rewritten.add(entry.localPath);
+  }
+  if (rewritten.size) log('Rewrote resources in ' + rewritten.size + ' embedded HTML documents');
+}
+
 async function prettifyDownloadedJS(exporter: ExporterContext): Promise<void> {
   const dirs: string[] = ['scripts/vendor', 'scripts/modules'];
   let count = 0;
