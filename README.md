@@ -1,7 +1,7 @@
 <h1 align="center">F-EXPORT</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.0.0--beta.4-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-5.0.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933" alt="Node" />
 </p>
@@ -22,7 +22,7 @@ It knows 25 platforms and detects the right one from the URL, and when the URL i
 npm install -g framer-export
 ```
 
-For the beta channel, use `npm install -g framer-export@beta`. Local release candidates can be installed from the generated `.tgz` after validation.
+Version 5.0.0 uses the stable `latest` channel. You can also install the validated local package with `npm install -g ./framer-export-5.0.0.tgz`. Preview releases remain available through `framer-export@beta`.
 
 Or from source:
 
@@ -32,7 +32,7 @@ cd FramerExport
 npm install
 ```
 
-Node 20 or newer. Installation downloads Chrome for Testing through Puppeteer, which takes a moment. Beta 4 updates the bundled browser to Chrome 148; the old Chrome 127 was rejected by current Notion pages.
+Node 20 or newer. Installation downloads Chrome for Testing through Puppeteer, which takes a moment. Version 5 updates the bundled browser to Chrome 148; the old Chrome 127 was rejected by current Notion pages.
 
 ## Three ways to run it
 
@@ -229,6 +229,30 @@ The interface work draws on [Microsoft's terminal sequences](https://learn.micro
 To add a platform, create one file in `src/platforms/<category>/`, implement the `PlatformHandler` interface, register it in `src/platforms/registry.ts`, and add a research profile in `tests/research/` so the detection tests cover it. Look at `src/platforms/builder/carrd.ts` for a small example and `src/platforms/framer.ts` for a complete one.
 
 Commits follow the conventional format: `feat(scope):`, `fix(scope):`, `test:`, `docs:`, `chore:`.
+
+### Publishing
+
+Run release commands from the source checkout with development dependencies installed. Full publication runs TypeScript checks, unit tests, browser tests and the build before uploading to the stable `latest` channel:
+
+```bash
+npm run release
+```
+
+Publish the already built package directly, without tests or a build:
+
+```bash
+npm run release -- --bypass-tests
+```
+
+`--bypass-tests` belongs to the project's release script; `--bypass-checks` is an alias. This mode uploads the existing `dist` bundle as-is. It is equivalent to `npm publish --ignore-scripts`, using [npm's option to skip lifecycle scripts](https://docs.npmjs.com/cli/v11/using-npm/config/#ignore-scripts). To preview that direct upload:
+
+```bash
+npm run release -- --bypass-tests --dry-run
+```
+
+Arguments after `--`, such as `--dry-run` or `--otp=123456`, are forwarded to npm publish. The default release command checks and builds once; its final upload skips lifecycle scripts. Ordinary `npm publish` still runs the full check suite through `prepublishOnly`, then builds through `prepare`, following [npm's lifecycle order](https://docs.npmjs.com/cli/v11/using-npm/scripts/#npm-publish).
+
+Use `npm run check` to validate without publishing, or `npm pack` to build `framer-export-5.0.0.tgz`. Publish that already built archive with `npm publish ./framer-export-5.0.0.tgz --tag latest`.
 
 ## License
 
