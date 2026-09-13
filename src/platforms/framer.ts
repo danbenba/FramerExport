@@ -47,6 +47,7 @@ export const framer: PlatformHandler = {
   ],
   mapAssetDir(host: string, pathname: string, ext: string): string | null {
     if (host.includes('framerusercontent.com')) {
+      if (ext === '.framercms') return 'data';
       if (pathname.startsWith('/images/')) return 'assets/images';
       if (pathname.startsWith('/assets/')) {
         return FONT_EXTS.includes(ext) ? 'assets/fonts' : 'assets/misc';
