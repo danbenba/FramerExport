@@ -58,8 +58,19 @@ test('history keeps full messages, oldest first, with HH:MM:SS timestamps', (t) 
     assert.match(record.time, /^\d{2}:\d{2}:\d{2}$/);
   }
 });
-test('console output truncates messages to 120 visible chars', (t) => {
+test('TTY output truncates messages to 120 visible cells when the terminal has room', (t) => {
   const lines = captureConsole(t);
+  const properties = ['isTTY', 'columns'] as const;
+  const descriptors = properties.map((key) => Object.getOwnPropertyDescriptor(process.stdout, key));
+  Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
+  Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 200 });
+  t.after(() => {
+    properties.forEach((key, index) => {
+      const descriptor = descriptors[index];
+      if (descriptor) Object.defineProperty(process.stdout, key, descriptor);
+      else Reflect.deleteProperty(process.stdout, key);
+    });
+  });
   clearLogHistory();
   log('a'.repeat(300));
   assert.ok(lines[0].includes('a'.repeat(118) + '..'));
