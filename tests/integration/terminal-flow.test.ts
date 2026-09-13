@@ -121,6 +121,7 @@ async function launch(home: string, artifact: string, columns = 100, rows = 30) 
     stop,
     paste: (text: string) => child.write('\x1b[200~' + text + '\x1b[201~'),
     text: () => terminalText(terminal),
+    output: () => output,
     exited: () => exited,
     exitCode: () => exitCode,
     async resize(cols: number, rowCount: number) {
@@ -289,6 +290,46 @@ test(
       )
     );
     t.diagnostic(`Terminal flow artifacts: ${artifact}`);
+  }
+);
+
+test(
+  'the compact wizard keeps pagination visible and stays quiet while idle or within one hover target',
+  { timeout: 20_000 },
+  async (t) => {
+    const artifact = fs.mkdtempSync(path.join(path.resolve('tmp'), 'terminal-idle-'));
+    const home = path.join(artifact, 'home');
+    savePreferences(
+      { checkUpdates: false, launchUi: false, onboardingCompleted: true, reduceMotion: true },
+      { home }
+    );
+    const session = await launch(home, artifact, 80, 24);
+    t.after(() => session.stop());
+    await session.waitFor((text) => text.includes('Next page ›'), 'visible card pagination');
+    await session.clickText('Next page ›');
+    await session.waitFor((text) => text.includes('2 / 13'), 'second provider page');
+    await delay(200);
+    const idleOutput = session.output();
+    session.child.write('\x1b[<35;1;1M'.repeat(30));
+    await delay(3600);
+    assert.equal(
+      session.output(),
+      idleOutput,
+      'Idle time and unrelated mouse motion must not repaint the wizard'
+    );
+    const lines = session.text().split('\n');
+    const row = lines.findIndex((line) => line.includes('Settings'));
+    const column = lines[row].indexOf('Settings');
+    session.child.write(`\x1b[<35;${column + 2};${row + 1}M`);
+    await session.waitFor(
+      (text) => text.includes('Defaults, appearance'),
+      'settings hover tooltip'
+    );
+    await delay(100);
+    const hoverOutput = session.output();
+    session.child.write(`\x1b[<35;${column + 3};${row + 1}M`.repeat(30));
+    await delay(200);
+    assert.equal(session.output(), hoverOutput, 'Moving inside the same button must not redraw it');
   }
 );
 
