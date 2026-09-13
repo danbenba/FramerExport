@@ -1,7 +1,7 @@
 <h1 align="center">F-EXPORT</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.0.0-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-5.0.1-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933" alt="Node" />
 </p>
@@ -22,7 +22,7 @@ It knows 25 platforms and detects the right one from the URL, and when the URL i
 npm install -g framer-export
 ```
 
-Version 5.0.0 uses the stable `latest` channel. You can also install the validated local package with `npm install -g ./framer-export-5.0.0.tgz`. Preview releases remain available through `framer-export@beta`.
+Version 5.0.1 uses the stable `latest` channel. You can also install the validated local package with `npm install -g ./framer-export-5.0.1.tgz`. Preview releases remain available through `framer-export@beta`.
 
 Or from source:
 
@@ -252,7 +252,7 @@ npm run release -- --bypass-tests --dry-run
 
 Arguments after `--`, such as `--dry-run` or `--otp=123456`, are forwarded to npm publish. The default release command checks and builds once; its final upload skips lifecycle scripts. Ordinary `npm publish` still runs the full check suite through `prepublishOnly`, then builds through `prepare`, following [npm's lifecycle order](https://docs.npmjs.com/cli/v11/using-npm/scripts/#npm-publish).
 
-Use `npm run check` to validate without publishing, or `npm pack` to build `framer-export-5.0.0.tgz`. Publish that already built archive with `npm publish ./framer-export-5.0.0.tgz --tag latest`.
+Use `npm run check` to validate without publishing, or `npm pack` to build `framer-export-5.0.1.tgz`. Publish that already built archive with `npm publish ./framer-export-5.0.1.tgz --tag latest`.
 
 ## License
 
