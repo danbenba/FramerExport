@@ -2,16 +2,9 @@ import { stdin, stdout } from 'node:process';
 import path from 'node:path';
 import pkg from '../../package.json';
 import { RawInput, type InputEvent } from './input.js';
-import {
-  TerminalCanvas,
-  fitText,
-  textWidth,
-  wrapText,
-  plainText,
-  paintTerminal,
-} from './terminal-screen.js';
+import { TerminalCanvas, fitText, textWidth, wrapText, plainText } from './terminal-screen.js';
 import { THEME } from './theme.js';
-import { BRAND_ART, BRAND_COLOR, BRAND_SPLIT } from './banner.js';
+import { BRAND_COLOR, terminalBrand } from './banner.js';
 import { terminalPixelBlast } from './backdrop.js';
 import {
   TerminalIconRenderer,
@@ -142,6 +135,16 @@ export class WizardModel {
   private contentSize = '';
   private uiGeneration = 0;
   private galleryInitialized = false;
+  animateBackground(canvas: TerminalCanvas): void {
+    canvas.decorateBackground(
+      terminalPixelBlast(
+        canvas.width,
+        canvas.height,
+        this.preferences.reduceMotion ? 0 : this.animationTime,
+        this.preferences.reduceMotion ? [] : this.ripples
+      )
+    );
+  }
 
   constructor(readonly options: WizardOptions) {
     this.preferences = { ...options.preferences };
@@ -737,6 +740,7 @@ export class WizardModel {
       columns >= 80 ? Math.max(3, Math.floor((columns - 124) / 2)) : columns >= 30 ? 2 : 0;
     const width = Math.max(1, columns - margin * 2 - 1);
     const largeBrand = !modal && width >= 71 && rows >= 20;
+    const airy = !tiny && rows >= 28;
     const headerHeight = modal
       ? rows >= 5
         ? 2
@@ -744,9 +748,11 @@ export class WizardModel {
           ? 1
           : 0
       : largeBrand
-        ? 7
+        ? airy
+          ? 9
+          : 8
         : rows >= 18
-          ? 3
+          ? 4
           : rows >= 4
             ? 1
             : 0;
@@ -763,6 +769,7 @@ export class WizardModel {
       icons.push({ providerId: id, x, y: row, columns: size, rows: size / 2, background });
     };
     let y = 0;
+    let pinnedPagination = false;
     const add = (id: string, x: number, row: number, w: number, h = 1, disabled = false) =>
       bodyRegions.push({ id, x, y: row, width: w, height: h, body: true, disabled });
     const text = (value: string, style: { fg?: string; bold?: boolean } = {}, lines = 0) => {
@@ -977,7 +984,7 @@ export class WizardModel {
       }
     } else {
       text(WIZARD_STEPS[this.draft.step], { bold: true });
-      if (!tiny && this.draft.step !== 0) y++;
+      if (!tiny) y++;
       if (this.draft.step === 0) {
         const searchFocused = this.focus === 'field:query';
         body.fill(0, y, width, 1, { bg: THEME.element });
@@ -997,8 +1004,9 @@ export class WizardModel {
           }
         );
         add('field:query', 0, y++, width);
+        if (!tiny) y++;
         button('view:cards', 'Cards', y, 0, Math.min(11, width));
-        if (width >= 20) button('view:list', 'List', y, 12, Math.min(10, width - 12));
+        if (width >= 24) button('view:list', 'List', y, 14, Math.min(10, width - 14));
         else {
           y++;
           button('view:list', 'List', y);
@@ -1016,10 +1024,12 @@ export class WizardModel {
         const cards = this.preferences.viewMode === 'cards' && width >= 28;
         gridColumns = cards ? (width >= 108 ? 3 : width >= 66 ? 2 : 1) : 1;
         const cardHeight = cards ? 7 : width >= 64 ? 3 : 2;
+        const gap = cards ? 2 : tiny ? 1 : 2;
+        const columnGap = width >= 66 ? 4 : 2;
         pageSize = cards
           ? gridColumns *
-            Math.max(1, Math.min(3, Math.floor((bodyHeight - y - 3) / (cardHeight + 1))))
-          : Math.max(6, Math.min(12, Math.ceil((bodyHeight - y - 3) / cardHeight)));
+            Math.max(1, Math.min(3, Math.floor((bodyHeight - y - 3) / (cardHeight + gap))))
+          : Math.max(6, Math.min(12, Math.ceil((bodyHeight - y - 3) / (cardHeight + gap))));
         pageCount = Math.max(1, Math.ceil(providers.length / pageSize));
         if (!this.galleryInitialized) {
           this.page = Math.floor(
@@ -1038,15 +1048,15 @@ export class WizardModel {
           text('No providers found.', { fg: THEME.muted });
           text('Clear the search to see every provider.');
         }
-        const cardWidth = Math.floor((width - (gridColumns - 1) * 2) / gridColumns);
+        const cardWidth = Math.floor((width - (gridColumns - 1) * columnGap) / gridColumns);
         shown.forEach((id, index) => {
           const presentation = providerPresentation(id),
             selected = this.draft.provider === id,
             focused = this.focus === 'provider:' + id,
             hovered = this.hover === 'provider:' + id;
           const bg = hovered ? THEME.element : cards ? THEME.panel : THEME.background;
-          const x = (index % gridColumns) * (cardWidth + 2),
-            row = y + Math.floor(index / gridColumns) * (cardHeight + (cards ? 1 : 0));
+          const x = (index % gridColumns) * (cardWidth + columnGap),
+            row = y + Math.floor(index / gridColumns) * (cardHeight + gap);
           if (cards) {
             body.box(x, row, cardWidth, cardHeight, {
               bg,
@@ -1093,22 +1103,26 @@ export class WizardModel {
           }
           add('provider:' + id, x, row, cardWidth, cardHeight);
         });
-        y += Math.ceil(shown.length / gridColumns) * (cardHeight + (cards ? 1 : 0));
+        y += Math.ceil(shown.length / gridColumns) * (cardHeight + gap);
+        pinnedPagination = cards && footerHeight >= 3 && width >= 66 && y + 2 > bodyHeight;
         const pageLabel = `${this.page + 1} / ${pageCount} · ${providers.length} providers`;
-        text(pageLabel, { fg: THEME.muted });
-        button('page:previous', '‹ Previous page', y, 0, Math.min(19, width), this.page === 0);
-        if (width >= 39)
-          button('page:next', 'Next page ›', y++, 21, 17, this.page >= pageCount - 1);
+        if (pinnedPagination) y -= shown.length ? gap : 0;
         else {
-          y++;
-          button(
-            'page:next',
-            'Next page ›',
-            y++,
-            0,
-            Math.min(17, width),
-            this.page >= pageCount - 1
-          );
+          text(pageLabel, { fg: THEME.muted });
+          button('page:previous', '‹ Previous page', y, 0, Math.min(19, width), this.page === 0);
+          if (width >= 39)
+            button('page:next', 'Next page ›', y++, 21, 17, this.page >= pageCount - 1);
+          else {
+            y++;
+            button(
+              'page:next',
+              'Next page ›',
+              y++,
+              0,
+              Math.min(17, width),
+              this.page >= pageCount - 1
+            );
+          }
         }
       } else if (this.draft.step === 1) {
         text(providerPresentation(this.draft.provider).name, { fg: THEME.primary });
@@ -1146,12 +1160,15 @@ export class WizardModel {
         );
       } else {
         const provider = providerPresentation(this.draft.provider);
+        const providerLabel = 'Provider: ' + provider.name;
+        text(providerLabel, { bold: true });
+        const sameRow = width >= textWidth(providerLabel) + 23;
         button(
           'step:0',
-          provider.name + ' · Edit provider',
-          y++,
-          0,
-          Math.min(width, textWidth(provider.name) + 22)
+          'Edit provider',
+          sameRow ? y - 1 : y++,
+          sameRow ? width - 19 : 0,
+          Math.min(width, 19)
         );
         y++;
         for (const [label, value, step] of [
@@ -1223,12 +1240,26 @@ export class WizardModel {
       if (headerHeight > 1) canvas.text(0, 1, '─'.repeat(columns), { fg: THEME.border });
     } else if (headerHeight) {
       canvas.fill(0, 0, columns, headerHeight, { bg: THEME.background });
-      if (largeBrand)
-        BRAND_ART.forEach((line, index) => {
-          canvas.text(margin, index, line.slice(0, BRAND_SPLIT), { fg: BRAND_COLOR });
-          canvas.text(margin + BRAND_SPLIT, index, line.slice(BRAND_SPLIT), { fg: THEME.text });
+      const brand = terminalBrand(width);
+      const brandWidth = largeBrand ? textWidth(brand.lines[0]) : 12;
+      const metadataX = margin + brandWidth + 2;
+      const metadataWidth = Math.max(0, columns - margin - metadataX);
+      const prerelease = pkg.version.includes('-');
+      if (largeBrand) {
+        brand.lines.forEach((line, index) => {
+          canvas.text(margin, index, line.slice(0, brand.split), { fg: BRAND_COLOR });
+          canvas.text(margin + brand.split, index, line.slice(brand.split), { fg: THEME.text });
         });
-      else {
+        if (prerelease)
+          canvas.text(
+            metadataX,
+            1,
+            ' Beta ',
+            { fg: THEME.background, bg: THEME.primary, bold: true },
+            metadataWidth
+          );
+        canvas.text(metadataX, 2, fitText('v' + pkg.version, metadataWidth), { fg: THEME.muted });
+      } else {
         const title =
           headerHeight === 1
             ? this.screen === 'wizard'
@@ -1243,7 +1274,19 @@ export class WizardModel {
           canvas.text(margin, 0, 'framer', { fg: BRAND_COLOR, bold: true });
           canvas.text(margin + 6, 0, 'export', { bold: true });
         } else canvas.text(margin, 0, fitText(title, width), { bold: true });
-        if (width >= 70) canvas.text(margin + 16, 0, 'v' + pkg.version, { fg: THEME.muted });
+        if (headerHeight > 1 && metadataWidth >= 6) {
+          if (prerelease)
+            canvas.text(metadataX, 0, ' Beta ', {
+              fg: THEME.background,
+              bg: THEME.primary,
+              bold: true,
+            });
+          const versionX = metadataX + (prerelease ? 7 : 0);
+          if (columns - margin - versionX >= 6)
+            canvas.text(versionX, 0, fitText('v' + pkg.version, columns - margin - versionX), {
+              fg: THEME.muted,
+            });
+        }
       }
       const controls =
         width >= 40
@@ -1257,8 +1300,7 @@ export class WizardModel {
               ['help', '?'],
             ];
       let x = columns - margin - 1;
-      const controlsRow = largeBrand ? 4 : 0;
-      if (largeBrand) canvas.text(margin, controlsRow, 'v' + pkg.version, { fg: THEME.muted });
+      const controlsRow = largeBrand ? (airy ? 5 : 4) : headerHeight > 1 ? 1 : 0;
       for (const [id, label] of [...controls].reverse()) {
         const w = textWidth(label) + 2;
         x -= w;
@@ -1270,10 +1312,10 @@ export class WizardModel {
           regions.push({ id, x, y: controlsRow, width: w, height: 1 });
         }
       }
-      const stepRow = largeBrand ? 5 : 1;
+      const stepRow = largeBrand ? (airy ? 7 : 6) : 2;
       if (headerHeight > 1 && this.screen === 'wizard') {
         const labels =
-          width >= 79 ? WIZARD_STEPS : width >= 46 ? SHORT_STEPS : [SHORT_STEPS[this.draft.step]];
+          width >= 90 ? WIZARD_STEPS : width >= 60 ? SHORT_STEPS : [SHORT_STEPS[this.draft.step]];
         let x = margin;
         labels.forEach((label, index) => {
           const step = labels.length === 1 ? this.draft.step : index;
@@ -1295,10 +1337,11 @@ export class WizardModel {
             height: 1,
             disabled: step > this.visited,
           });
-          x += textWidth(value) + 1;
+          const spacing = width >= 60 ? 3 : 1;
+          x += textWidth(value) + spacing;
           if (index < labels.length - 1) {
             canvas.text(x, stepRow, '→', { fg: THEME.border });
-            x += 2;
+            x += spacing + 1;
           }
         });
       } else if (headerHeight > 1)
@@ -1312,8 +1355,6 @@ export class WizardModel {
               : 'Shortcuts',
           { fg: THEME.primary }
         );
-      if (headerHeight > 1)
-        canvas.text(margin, headerHeight - 1, '─'.repeat(width), { fg: THEME.border });
     }
     const providerCards =
       this.screen === 'wizard' && this.draft.step === 0 && this.preferences.viewMode === 'cards';
@@ -1337,7 +1378,7 @@ export class WizardModel {
     if (footerHeight) {
       const top = rows - footerHeight;
       canvas.fill(0, top, columns, footerHeight);
-      if (footerHeight >= 3)
+      if (footerHeight >= 3 && !pinnedPagination)
         canvas.text(
           margin,
           top,
@@ -1358,7 +1399,8 @@ export class WizardModel {
         x: number,
         w: number,
         primary = false,
-        disabled = false
+        disabled = false,
+        targetRow = row
       ) => {
         w = Math.min(w, columns - x);
         if (x < 0 || w < 1) return;
@@ -1371,8 +1413,8 @@ export class WizardModel {
             : this.focus === id || this.hover === id
               ? THEME.element
               : THEME.background;
-        canvas.fill(x, row, w, 1, { bg });
-        canvas.text(x, row, fitText((this.focus === id ? '› ' : '  ') + label, w), {
+        canvas.fill(x, targetRow, w, 1, { bg });
+        canvas.text(x, targetRow, fitText((this.focus === id ? '› ' : '  ') + label, w), {
           fg: disabled
             ? THEME.muted
             : primary
@@ -1383,8 +1425,34 @@ export class WizardModel {
           bg,
           bold: primary,
         });
-        regions.push({ id, x, y: row, width: w, height: 1, disabled });
+        regions.push({ id, x, y: targetRow, width: w, height: 1, disabled });
       };
+      if (pinnedPagination) {
+        canvas.text(
+          margin,
+          top,
+          fitText(`${this.page + 1} / ${pageCount} · ${providers.length} providers`, width - 40),
+          { fg: THEME.muted }
+        );
+        footerButton(
+          'page:previous',
+          '‹ Previous page',
+          margin + width - 38,
+          19,
+          false,
+          this.page === 0,
+          top
+        );
+        footerButton(
+          'page:next',
+          'Next page ›',
+          margin + width - 17,
+          17,
+          false,
+          this.page >= pageCount - 1,
+          top
+        );
+      }
       if (this.screen === 'wizard') {
         const next = this.draft.step === 3 ? 'Start export' : 'Next →';
         const nextWidth = Math.min(width, textWidth(next) + 4);
@@ -1499,21 +1567,60 @@ function renderProviderIcon(
   );
 }
 
+export function paintWizardFrame(
+  layout: WizardLayout,
+  images: TerminalIconRenderer,
+  previous?: TerminalCanvas,
+  depth = 24
+): string {
+  const dirty = layout.canvas.diff(previous);
+  const frame = images.frame(
+    layout.icons,
+    { columns: layout.canvas.width, rows: layout.canvas.height },
+    dirty.length > 0,
+    dirty
+  );
+  const rects = frame.forceRepaint
+    ? layout.canvas.diff()
+    : [...dirty, ...(frame.repaintRects || [])];
+  return frame.before + layout.canvas.paint(rects, depth) + frame.after;
+}
+
 export async function runWizard(options: WizardOptions): Promise<ExportDraft | null> {
   const model = new WizardModel(options);
   const images = new TerminalIconRenderer(await detectTerminalImageSupport());
   model.nativeIcons = images.mode !== 'text';
   return new Promise((resolve, reject) => {
-    let previous: string[] = [],
-      timer: NodeJS.Timeout | undefined;
+    let previous: TerminalCanvas | undefined, timer: NodeJS.Timeout | undefined;
+    let scheduled: NodeJS.Timeout | undefined;
+    let layout: WizardLayout | undefined;
     let active = true;
     let probing = false;
     const started = Date.now();
     const depth = process.env.NO_COLOR !== undefined ? 1 : stdout.getColorDepth?.() || 8;
     const input = new RawInput((event) => {
       try {
+        const hover = model.hover;
+        const scroll = model.scroll;
         model.handle(event);
-        draw();
+        if (
+          event.type === 'mouse' &&
+          event.kind === 'move' &&
+          hover === model.hover &&
+          scroll === model.scroll
+        )
+          return;
+        if (event.type === 'mouse' && (event.kind === 'move' || event.kind.startsWith('wheel'))) {
+          if (!scheduled)
+            scheduled = setTimeout(() => {
+              scheduled = undefined;
+              draw();
+            }, 16);
+        } else {
+          if (scheduled) clearTimeout(scheduled);
+          scheduled = undefined;
+          draw();
+        }
       } catch (error) {
         cleanup();
         reject(error);
@@ -1523,11 +1630,18 @@ export async function runWizard(options: WizardOptions): Promise<ExportDraft | n
       if (!active) return;
       active = false;
       if (timer) clearInterval(timer);
+      if (scheduled) clearTimeout(scheduled);
       input.stop();
       stdout.off('resize', resize);
       process.off('SIGTERM', terminate);
       stdout.write(images.cleanup());
       stdout.write('\x1b[?2004l\x1b[?1006l\x1b[?1003l\x1b[?7h\x1b[0m\x1b[?25h\x1b[?1049l');
+    };
+    const paint = () => {
+      if (!layout) return;
+      const output = paintWizardFrame(layout, images, previous, depth);
+      if (output) stdout.write(output);
+      previous = layout.canvas.clone();
     };
     const draw = () => {
       if (!active || probing) return;
@@ -1536,20 +1650,11 @@ export async function runWizard(options: WizardOptions): Promise<ExportDraft | n
         resolve(model.finished ? model.draft : null);
         return;
       }
-      const layout = model.render(stdout.columns || 80, stdout.rows || 24);
-      const lines = layout.canvas.lines(depth);
-      const frame = images.frame(
-        layout.icons,
-        { columns: layout.canvas.width, rows: layout.canvas.height },
-        lines.length !== previous.length || lines.some((line, index) => line !== previous[index])
-      );
-      stdout.write(
-        frame.before + paintTerminal(lines, frame.forceRepaint ? [] : previous) + frame.after
-      );
-      previous = lines;
+      layout = model.render(stdout.columns || 80, stdout.rows || 24);
+      paint();
     };
     const resize = () => {
-      previous = [];
+      previous = undefined;
       if (images.mode === 'sixel' && !probing) {
         probing = true;
         input.stop();
@@ -1583,12 +1688,24 @@ export async function runWizard(options: WizardOptions): Promise<ExportDraft | n
     let lastNotice = model.notice + model.error + model.uiAddress + model.uiOpening;
     timer = setInterval(() => {
       const notice = model.notice + model.error + model.uiAddress + model.uiOpening;
-      const animate = !model.preferences.reduceMotion && images.mode === 'text';
+      const animate =
+        !model.preferences.reduceMotion &&
+        images.mode === 'text' &&
+        !process.env.FRAMER_EXPORT_NO_BG;
       if (animate) model.animationTime = (Date.now() - started) / 1000;
-      if (notice !== lastNotice || animate) {
+      if (notice !== lastNotice) {
         lastNotice = notice;
         draw();
+      } else if (
+        animate &&
+        layout &&
+        !probing &&
+        !scheduled &&
+        ['wizard', 'onboarding'].includes(model.screen)
+      ) {
+        model.animateBackground(layout.canvas);
+        paint();
       }
-    }, 150);
+    }, 80);
   });
 }
