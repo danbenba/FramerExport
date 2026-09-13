@@ -27,6 +27,11 @@ export function showHelp(): void {
   const opts: Array<[string, string]> = [
     ['ui', 'Launch the web interface (gallery, options, live logs)'],
     ['--setup', 'Launch the interactive setup assistant'],
+    ['settings', 'Open saved preferences in ~/.fexport'],
+    ['config', 'Print the settings and their file location'],
+    ['doctor', 'Check terminal and bundled browser capabilities'],
+    ['--fresh', 'Start setup without restoring the saved draft'],
+    ['--no-update', 'Skip the update check for this launch'],
     ['--platform <p>', 'Force platform by id (e.g. framer, shopify, notion)'],
     ['--subpages', 'Crawl and export sub-pages'],
     ['--dpr <number>', 'Capture device pixel ratio (default: 1)'],
