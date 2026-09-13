@@ -47,6 +47,8 @@ export interface PlatformHandler {
   hydrationSelector?: string;
   scrollStrategy?: ScrollStrategy;
   captureRenderedDom?: boolean;
+  captureContentSelector?: string;
+  captureResponsiveStyles?: boolean;
   mapAssetDir(host: string, pathname: string, ext: string): string | null;
   skipAssetUrls?: RegExp[];
   lazyChunkDirs?: string[];
