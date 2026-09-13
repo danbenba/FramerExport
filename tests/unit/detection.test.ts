@@ -3,15 +3,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import type { Page } from 'puppeteer';
 import {
   PLATFORM_REGISTRY,
   CATEGORY_ORDER,
   sortedByPriority,
+  isBetaPlatform,
 } from '../../src/platforms/registry.js';
 import {
   detectByUrl,
   detectByGenerator,
   detectByHtml,
+  detectByDom,
   detectPlatform,
   getPlatformByName,
   readGenerator,
@@ -31,6 +34,10 @@ const profiles: ResearchProfile[] = fs
   .readdirSync(RESEARCH)
   .filter((f) => f.endsWith('.json') && !f.startsWith('_'))
   .map((f) => JSON.parse(fs.readFileSync(path.join(RESEARCH, f), 'utf8')));
+test('platforms that freeze client runtimes remain marked beta', () => {
+  for (const name of ['notion', 'bubble', 'podia']) assert.equal(isBetaPlatform(name), true);
+  for (const name of ['framer', 'webflow', 'wix']) assert.equal(isBetaPlatform(name), false);
+});
 test('registry contains exactly 25 platform handlers', () => {
   assert.equal(PLATFORM_REGISTRY.length, 25);
 });
@@ -152,4 +159,21 @@ test('getPlatformByName resolves known names and falls back to framer', () => {
   assert.equal(getPlatformByName('wix').name, 'wix');
   assert.equal(getPlatformByName('shopify').name, 'shopify');
   assert.equal(getPlatformByName('unknown'), framer);
+});
+
+test('DOM refinement recognizes beta platform markup without treating embedded Framer images as the host', async () => {
+  const page = {
+    evaluate: async () =>
+      '<html><body><div id="notion-app">Document</div>' +
+      '<img src="https://framerusercontent.com/images/example.png"></body></html>',
+  } as unknown as Page;
+  assert.equal((await detectByDom(page))?.name, 'notion');
+});
+
+test('DOM refinement recognizes client-rendered Gamma markers', async () => {
+  const page = {
+    evaluate: async () =>
+      '<html><body><div class="gamma-moveable-wrapper">Slide</div></body></html>',
+  } as unknown as Page;
+  assert.equal((await detectByDom(page))?.name, 'gamma');
 });
