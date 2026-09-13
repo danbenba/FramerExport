@@ -1,10 +1,9 @@
 {
   "name": "framer-export",
-  "version": "5.0.0-beta.3",
-  "description": "Export 25+ website platforms (Framer, Webflow, Wix, Shopify, Notion, WordPress, Squarespace, Ghost, and more) into a fully working local mirror. Downloads all assets, strips badges, rewrites URLs, and pretty-prints JS.",
+  "version": "5.0.0-beta.4",
+  "description": "Export public pages from 25 website platforms into local HTML, CSS and assets. Captures dynamic styles, responsive resources and reusable scripts, with diagnostics for incomplete exports.",
   "type": "module",
   "main": "dist/cli/index.js",
-  "types": "dist/cli/index.d.ts",
   "bin": {
     "framer-export": "bin/framer-export.js",
     "fexport": "bin/fexport.js",
@@ -14,17 +13,21 @@
     "dist/",
     "bin/",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "assets/provider-icons/SOURCES.md"
   ],
   "scripts": {
     "start": "tsx src/cli/index.ts",
     "dev": "tsx src/cli/index.ts",
     "build": "tsup",
     "test": "node --import tsx --test tests/unit/*.test.ts",
+    "test:browser": "node --import tsx --test --test-concurrency=1 tests/integration/*.test.ts",
+    "test:platform": "node --import tsx scripts/validate-platform.ts",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\"",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test && npm run test:browser && npm run build",
     "prepack": "npm run build"
   },
   "keywords": [
@@ -57,16 +60,24 @@
   },
   "license": "MIT",
   "author": "Dany (danbenba)",
+  "publishConfig": {
+    "tag": "beta"
+  },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "chalk": "^5.3.0",
     "prettier": "^3.2.0",
-    "puppeteer": "^22.0.0"
+    "puppeteer": "^24.43.1",
+    "string-width": "^7.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@xterm/addon-image": "^0.9.0",
+    "@xterm/headless": "^6.0.0",
+    "@xterm/xterm": "^6.0.0",
+    "node-pty": "^1.1.0",
     "tsup": "^8.5.1",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0"
