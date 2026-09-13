@@ -79,7 +79,7 @@ test('extractInternalLinks finds links only reachable from a sub-page (depth > 1
   const blog = '<a href="/blog/post-1">P1</a><a href="post-2">P2</a><a href="/">Home</a>';
   const fromHome = extractInternalLinks(home, 'https://example.com/', HOST);
   assert.deepEqual(fromHome, ['https://example.com/blog']);
-  // the browser lands on /blog/ (trailing slash), so relative hrefs resolve inside /blog/
+
   const fromBlog = extractInternalLinks(blog, fromHome[0] + '/', HOST);
   assert.deepEqual(fromBlog, [
     'https://example.com/blog/post-1',

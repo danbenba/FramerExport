@@ -10,7 +10,6 @@ tmp/
 *.env
 *.map
 
-# generated site exports (never commit)
 /framer-output/
 /out/
 /framer-*/
