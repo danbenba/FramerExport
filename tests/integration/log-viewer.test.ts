@@ -16,6 +16,12 @@ async function launch(mode = 'success') {
     allowProposedApi: true,
     scrollback: 100,
   });
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    TERM: 'xterm-256color',
+    COLORTERM: 'truecolor',
+  };
+  delete environment.NO_COLOR;
   const child = pty.spawn(
     process.execPath,
     ['--import', 'tsx', path.resolve('tests/fixtures/log-viewer-child.ts'), directory, mode],
@@ -25,7 +31,7 @@ async function launch(mode = 'success') {
       rows: 30,
       cwd: process.cwd(),
       useConptyDll: process.platform === 'win32',
-      env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+      env: environment,
     }
   );
   let pending = Promise.resolve();
@@ -89,6 +95,18 @@ async function launch(mode = 'success') {
     exitCode: () => exitCode,
     output: () => output,
     finish: () => fs.writeFileSync(path.join(directory, 'continue'), 'continue'),
+    async append(prefix: string, count: number) {
+      const id = `${Date.now()}-${prefix}`;
+      const temporary = path.join(directory, 'append.next.json');
+      fs.writeFileSync(temporary, JSON.stringify({ id, prefix, count }));
+      fs.renameSync(temporary, path.join(directory, 'append.json'));
+      await waitFor(
+        () =>
+          fs.existsSync(path.join(directory, 'appended')) &&
+          fs.readFileSync(path.join(directory, 'appended'), 'utf8') === id,
+        'appended log batch'
+      );
+    },
     async resize(columns: number, rows: number) {
       terminal.resize(columns, rows);
       child.resize(columns, rows);
@@ -144,6 +162,107 @@ test(
     assert.ok(saved.includes('Downloaded asset 1 café 界 👩🏽‍💻'));
     assert.ok(saved.includes('[warn] Retry marker'));
     assert.ok(saved.includes('[error] Missing font marker'));
+  }
+);
+
+test(
+  'live logs follow new batches, preserve an explicitly scrolled position and resume by mouse',
+  { timeout: 60000 },
+  async (t) => {
+    const viewer = await launch();
+    t.after(() => viewer.stop());
+    await viewer.waitFor(() => viewer.text().includes('Fixture is waiting'), 'initial live logs');
+    await viewer.append('First batch', 60);
+    await viewer.waitFor(() => viewer.text().includes('First batch 60'), 'automatic follow');
+    assert.ok(viewer.text().includes('Following'));
+    viewer.child.write('\x1b[<64;20;12M');
+    await viewer.waitFor(() => viewer.text().includes('Latest logs'), 'paused follow');
+    const body = viewer
+      .text()
+      .split('\n')
+      .slice(7, -4)
+      .map((line) => line.slice(0, -1));
+    await viewer.append('Second batch', 70);
+    await viewer.waitFor(() => viewer.text().includes('173 total'), 'paused batch count');
+    assert.deepEqual(
+      viewer
+        .text()
+        .split('\n')
+        .slice(7, -4)
+        .map((line) => line.slice(0, -1)),
+      body
+    );
+    assert.ok(!viewer.text().includes('Second batch 70'));
+    const screen = viewer.text().split('\n');
+    const row = screen.findIndex((line) => line.includes('Latest logs'));
+    const column = screen[row].indexOf('Latest logs') + 1;
+    viewer.child.write(`\x1b[<0;${column};${row + 1}M\x1b[<0;${column};${row + 1}m`);
+    await viewer.waitFor(
+      () => viewer.text().includes('Following') && viewer.text().includes('Second batch 70'),
+      'mouse resume'
+    );
+    assert.equal(viewer.terminal.buffer.active.baseY, 0);
+    viewer.finish();
+    await viewer.waitFor(() => viewer.text().includes('COMPLETE'), 'completed follow');
+    viewer.child.write('\r');
+    await viewer.waitFor(() => viewer.exitCode() === 0, 'finished follow process');
+  }
+);
+
+test(
+  'reduced-motion logs stay idle without terminal writes and ignore movement over empty space',
+  { timeout: 60000 },
+  async (t) => {
+    const viewer = await launch();
+    t.after(() => viewer.stop());
+    await viewer.waitFor(() => viewer.text().includes('Fixture is waiting'), 'idle live logs');
+    await delay(250);
+    const baseline = viewer.output();
+    await delay(3600);
+    assert.equal(viewer.output(), baseline);
+    viewer.child.write('\x1b[<35;15;12M\x1b[<35;17;13M\x1b[<35;19;14M');
+    await delay(250);
+    assert.equal(viewer.output(), baseline);
+    viewer.finish();
+    await viewer.waitFor(() => viewer.text().includes('COMPLETE'), 'idle completed logs');
+    await delay(200);
+    const complete = viewer.output();
+    await delay(300);
+    assert.equal(viewer.output(), complete);
+    viewer.child.write('\r');
+    await viewer.waitFor(() => viewer.exitCode() === 0, 'idle process exit');
+  }
+);
+
+test(
+  'enabled shine repaints the phase without redrawing records or clearing the terminal',
+  { timeout: 60000 },
+  async (t) => {
+    const viewer = await launch('animated');
+    t.after(() => viewer.stop());
+    await viewer.waitFor(() => viewer.text().includes('Fixture is waiting'), 'animated logs');
+    await delay(200);
+    const offset = viewer.output().length;
+    const before = viewer.text();
+    await delay(2300);
+    const animation = viewer.output().slice(offset);
+    assert.ok(animation.length > 0);
+    assert.ok(animation.length < 30000, `Unexpected animation output: ${animation.length} bytes`);
+    assert.doesNotMatch(animation, /Downloaded asset|Retry marker|Missing font|Fixture is waiting/);
+    assert.doesNotMatch(animation, /\x1b\[(?:2J|3J|\?1049h)/);
+    assert.equal(viewer.text(), before);
+    const positionedRows = [...animation.matchAll(/\x1b\[(\d+);\d+H/g)].map((match) =>
+      Number(match[1])
+    );
+    assert.ok(positionedRows.every((row) => row === 2));
+    viewer.finish();
+    await viewer.waitFor(() => viewer.text().includes('COMPLETE'), 'finished animated logs');
+    await delay(250);
+    const complete = viewer.output();
+    await delay(300);
+    assert.equal(viewer.output(), complete);
+    viewer.child.write('\r');
+    await viewer.waitFor(() => viewer.exitCode() === 0, 'animated process exit');
   }
 );
 
