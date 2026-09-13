@@ -29,27 +29,8 @@ export const podia: PlatformHandler = {
   hydrationSelector: '.react-page-section',
   captureRenderedDom: true,
   async preCapture(page: Page): Promise<void> {
-    await page
-      .waitForSelector('.react-page-section', { timeout: 8000 })
-      .catch(() => undefined);
+    await page.waitForSelector('.react-page-section', { timeout: 8000 }).catch(() => undefined);
     await new Promise<void>((r) => setTimeout(r, 1500));
-    await page.evaluate(`
-      (function() {
-        for (var i = 0; i < document.styleSheets.length; i++) {
-          var sheet = document.styleSheets[i];
-          var node = sheet.ownerNode;
-          if (!node || node.tagName !== 'STYLE') continue;
-          try {
-            var rules = sheet.cssRules;
-            var text = '';
-            for (var j = 0; j < rules.length; j++) text += rules[j].cssText + '\\n';
-            if (text && node.textContent.trim().length < text.trim().length) {
-              node.textContent = text;
-            }
-          } catch (e) {}
-        }
-      })()
-    `);
   },
   postCapture(html: string): string {
     return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag: string) => {
