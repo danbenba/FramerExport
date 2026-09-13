@@ -73,6 +73,8 @@ Provider logos use native images when the terminal supports Kitty graphics, iTer
 
 Wizard exports open a dedicated log viewer with line numbers, timestamps, log levels, progress counters and a scrollbar. Use `/` to search, `f` to cycle level filters, `p` to pause following, `c` to copy the full log, and the arrow keys to scroll vertically or pan across long lines. Home goes to the first entry and End resumes following new entries. Search and filters leave the saved log unchanged; wizard exports retain the full session even beyond 5,000 entries.
 
+In both interfaces, scrolling up pauses automatic following so you can read earlier entries. Latest logs returns to the newest entry and resumes following. Severity colors distinguish information, successes, warnings and errors; active progress has a subtle shine that respects reduced motion. The terminal paints only changed cells and preserves native icons between updates.
+
 Enter closes the viewer after the export completes or fails. Esc or Ctrl+C during an export returns to console output while the operation continues; a second Ctrl+C in the console stops the process. A failed export remains marked as failed and returns its original error after the viewer closes. Direct commands and legacy prompts retain the compact console output and optional progress sidebar.
 
 If arrow keys do not work in your terminal, `framer-export --setup --legacy-mode` falls back to plain text prompts.
