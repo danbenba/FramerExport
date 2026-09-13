@@ -1,8 +1,10 @@
 # Changelog
 
-## 5.0.0
+## 5.0.1
 
-The stable release uses npm's `latest` channel. Application headers show version 5.0.0 without the prerelease badge. `npm run release -- --bypass-tests` publishes the existing build directly, without tests or a build, like `npm publish --ignore-scripts`. Ordinary publication still runs all checks and builds first. `--dry-run` previews publication without uploading a package.
+The stable release uses 5.0.1 because npm permanently reserves 5.0.0 from an earlier publication that is no longer available. This changes the release version without changing the validated application behavior.
+
+The stable release uses npm's `latest` channel. Application headers show version 5.0.1 without the prerelease badge. `npm run release -- --bypass-tests` publishes the existing build directly, without tests or a build, like `npm publish --ignore-scripts`. Ordinary publication still runs all checks and builds first. `--dry-run` previews publication without uploading a package.
 
 The terminal and web interfaces share provider identities, offline brand icons and a four-step export assistant. Cards/list views, search, pagination, mouse scrolling, a draggable terminal scrollbar, keyboard shortcuts and clickable completed steps preserve entered data while navigating. Settings, Help and Open UI use dialogs with hover states and contextual hints. The lowercase wordmark fits an 80×24 terminal and adapts to smaller windows.
 
