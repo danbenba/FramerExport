@@ -2,9 +2,25 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { notion } from '../../src/platforms/cms/notion.js';
 import { podia } from '../../src/platforms/course/podia.js';
+import { webflow } from '../../src/platforms/webflow.js';
 import type { ExporterContext } from '../../src/types.js';
 
 const ctx = {} as ExporterContext;
+
+test('Webflow badge cleanup keeps the html element and runtime page/site identifiers', () => {
+  const html =
+    '<!DOCTYPE html><html data-wf-domain="example.webflow.io" data-wf-page="page-id" data-wf-site="site-id" data-wf-status="1" lang="en">' +
+    '<head><style>body{margin:0}.w-webflow-badge{display:block}</style></head><body><p>Page</p><a class="w-webflow-badge" href="https://webflow.com">Made in Webflow</a></body></html>';
+  const stripped = webflow.stripPatterns.reduce((text, pattern) => text.replace(pattern, ''), html);
+  const output = webflow.postCapture!(stripped, ctx);
+  assert.match(output, /^<!DOCTYPE html><html\s/);
+  assert.doesNotMatch(output, /data-wf-domain|data-wf-status/);
+  assert.match(output, /data-wf-page="page-id"/);
+  assert.match(output, /data-wf-site="site-id"/);
+  assert.match(output, /lang="en"/);
+  assert.match(output, /body\{margin:0\}/);
+  assert.doesNotMatch(output, /Made in Webflow/);
+});
 
 test('notion postCapture strips executable scripts but keeps JSON payloads', () => {
   const html =
