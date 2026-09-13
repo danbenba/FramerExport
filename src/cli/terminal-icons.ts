@@ -11,12 +11,15 @@ export interface TerminalImageSupport {
   cellHeight?: number;
 }
 
-export interface TerminalIconPlacement {
-  providerId: ProviderId;
+export interface TerminalImageRectangle {
   x: number;
   y: number;
   columns: number;
   rows: number;
+}
+
+export interface TerminalIconPlacement extends TerminalImageRectangle {
+  providerId: ProviderId;
   background?: string;
 }
 
@@ -24,6 +27,7 @@ export interface TerminalIconFrame {
   before: string;
   after: string;
   forceRepaint: boolean;
+  repaintRects?: TerminalImageRectangle[];
 }
 
 export function terminalImageSupportFromEnvironment(
@@ -137,11 +141,12 @@ export function providerMonogram(id: string): string {
 
 export class TerminalIconRenderer {
   private images = new Map<ProviderId, number>();
-  private displayed = new Set<number>();
+  private kittyPlacements = new Map<string, { imageId: number; placementId: number }>();
+  private inlinePlacements = new Map<string, TerminalIconPlacement>();
   private nextId = randomInt(1, 60_000_000);
-  private inlineVisible = false;
+  private nextPlacementId = 1;
   private cache = new Map<string, string>();
-  private previousFrame = '';
+  private viewport?: { columns: number; rows: number };
 
   constructor(private support: TerminalImageSupport = terminalImageSupportFromEnvironment()) {}
 
@@ -158,7 +163,8 @@ export class TerminalIconRenderer {
   frame(
     placements: readonly TerminalIconPlacement[],
     viewport: { columns: number; rows: number },
-    contentChanged = true
+    contentChanged = true,
+    dirtyRects?: readonly TerminalImageRectangle[]
   ): TerminalIconFrame {
     if (this.mode === 'text') return { before: '', after: '', forceRepaint: false };
     const visible = placements.filter(
@@ -178,15 +184,31 @@ export class TerminalIconRenderer {
         placement.x + placement.columns <= viewport.columns &&
         placement.y + placement.rows < viewport.rows
     );
-    const signature = JSON.stringify([visible, viewport]);
-    if (!contentChanged && signature === this.previousFrame)
-      return { before: '', after: '', forceRepaint: false };
-    this.previousFrame = signature;
-    if (this.mode === 'kitty') return this.kittyFrame(visible);
-    const forceRepaint = this.inlineVisible || visible.length > 0;
-    this.inlineVisible = visible.length > 0;
+    const resized =
+      !!this.viewport &&
+      (this.viewport.columns !== viewport.columns || this.viewport.rows !== viewport.rows);
+    this.viewport = { ...viewport };
+    if (this.mode === 'kitty') return this.kittyFrame(visible, resized);
+    const next = new Map(visible.map((placement) => [placementKey(placement), { ...placement }]));
+    const repaintRects = [...this.inlinePlacements]
+      .filter(([key]) => !next.has(key))
+      .flatMap(([, placement]) => {
+        const clipped = clipRectangle(placement, viewport);
+        return clipped ? [clipped] : [];
+      });
+    const dirty = resized
+      ? [{ x: 0, y: 0, ...viewport }]
+      : [...(contentChanged ? (dirtyRects ?? [{ x: 0, y: 0, ...viewport }]) : []), ...repaintRects];
+    const redraw = [...next]
+      .filter(
+        ([key, placement]) =>
+          !this.inlinePlacements.has(key) ||
+          dirty.some((rect) => rectanglesOverlap(placement, rect))
+      )
+      .map(([, placement]) => placement);
+    this.inlinePlacements = next;
     let after = '';
-    for (const placement of visible) {
+    for (const placement of redraw) {
       const presentation = providerPresentation(placement.providerId);
       const cursor = `\x1b[${placement.y + 1};${placement.x + 1}H`;
       if (this.mode === 'iterm') {
@@ -225,14 +247,29 @@ export class TerminalIconRenderer {
         after += '\x1b7' + cursor + sixel + '\x1b8';
       }
     }
-    return { before: forceRepaint ? '\x1b[2J' : '', after, forceRepaint };
+    return {
+      before: '',
+      after,
+      forceRepaint: resized,
+      ...(repaintRects.length ? { repaintRects } : {}),
+    };
   }
 
-  private kittyFrame(placements: readonly TerminalIconPlacement[]): TerminalIconFrame {
-    const before = [...this.displayed].map((id) => `\x1b_Ga=d,d=i,i=${id},q=2;\x1b\\`).join('');
-    this.displayed.clear();
+  private kittyFrame(
+    placements: readonly TerminalIconPlacement[],
+    resized = false
+  ): TerminalIconFrame {
+    const nextKeys = new Set(resized ? [] : placements.map(placementKey));
+    let before = '';
+    for (const [key, placement] of this.kittyPlacements) {
+      if (nextKeys.has(key)) continue;
+      before += `\x1b_Ga=d,d=i,i=${placement.imageId},p=${placement.placementId},q=2;\x1b\\`;
+      this.kittyPlacements.delete(key);
+    }
     let after = '';
     for (const placement of placements) {
+      const key = placementKey(placement);
+      if (this.kittyPlacements.has(key)) continue;
       let id = this.images.get(placement.providerId);
       if (id === undefined) {
         id = this.nextId++;
@@ -244,8 +281,9 @@ export class TerminalIconRenderer {
           after += `\x1b_G${header};${data.slice(start, start + 4096)}\x1b\\`;
         }
       }
-      after += `\x1b7\x1b[${placement.y + 1};${placement.x + 1}H\x1b_Ga=p,i=${id},c=${placement.columns},r=${placement.rows},C=1,q=2;\x1b\\\x1b8`;
-      this.displayed.add(id);
+      const placementId = this.nextPlacementId++;
+      after += `\x1b7\x1b[${placement.y + 1};${placement.x + 1}H\x1b_Ga=p,i=${id},p=${placementId},c=${placement.columns},r=${placement.rows},C=1,q=2;\x1b\\\x1b8`;
+      this.kittyPlacements.set(key, { imageId: id, placementId });
     }
     return { before, after, forceRepaint: false };
   }
@@ -253,14 +291,53 @@ export class TerminalIconRenderer {
   cleanup(): string {
     const erase =
       [...this.images.values()].map((id) => `\x1b_Ga=d,d=I,i=${id},q=2;\x1b\\`).join('') +
-      (this.inlineVisible ? '\x1b[2J' : '');
+      eraseRectangles([...this.inlinePlacements.values()], this.viewport);
     this.images.clear();
-    this.displayed.clear();
-    this.inlineVisible = false;
-    this.previousFrame = '';
+    this.kittyPlacements.clear();
+    this.inlinePlacements.clear();
+    this.viewport = undefined;
     this.cache.clear();
     return erase;
   }
+}
+
+function placementKey(placement: TerminalIconPlacement): string {
+  return `${placement.providerId}:${placement.x}:${placement.y}:${placement.columns}:${placement.rows}:${placement.background ?? ''}`;
+}
+
+function rectanglesOverlap(left: TerminalImageRectangle, right: TerminalImageRectangle): boolean {
+  return (
+    left.x < right.x + right.columns &&
+    left.x + left.columns > right.x &&
+    left.y < right.y + right.rows &&
+    left.y + left.rows > right.y
+  );
+}
+
+function clipRectangle(
+  rect: TerminalImageRectangle,
+  viewport: { columns: number; rows: number }
+): TerminalImageRectangle | null {
+  const x = Math.max(0, rect.x);
+  const y = Math.max(0, rect.y);
+  const columns = Math.min(viewport.columns, rect.x + rect.columns) - x;
+  const rows = Math.min(viewport.rows, rect.y + rect.rows) - y;
+  return columns > 0 && rows > 0 ? { x, y, columns, rows } : null;
+}
+
+function eraseRectangles(
+  rects: readonly TerminalImageRectangle[],
+  viewport?: { columns: number; rows: number }
+): string {
+  if (!viewport) return '';
+  let output = '';
+  for (const value of rects) {
+    const rect = clipRectangle(value, viewport);
+    if (!rect) continue;
+    for (let row = rect.y; row < rect.y + rect.rows; row++)
+      output += `\x1b[${row + 1};${rect.x + 1}H\x1b[${rect.columns}X`;
+  }
+  return output ? '\x1b7' + output + '\x1b8' : '';
 }
 
 function resampleRgba(source: Uint8Array, width: number, size: number): Uint8Array {
