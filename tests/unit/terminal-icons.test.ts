@@ -118,7 +118,7 @@ test('Kitty transmits the exact PNG in bounded chunks, replaces placements and r
   assert.match(first.after, /c=8,r=4,C=1,q=2/);
   assert.equal(first.forceRepaint, false);
   const next = renderer.frame([{ ...placement, x: 12 }], viewport);
-  assert.match(next.before, /a=d,d=i,i=\d+,q=2/);
+  assert.match(next.before, /a=d,d=i,i=\d+,p=\d+,q=2/);
   assert.doesNotMatch(next.after, /a=t/);
   assert.match(next.after, /\x1b\[6;13H/);
   assert.deepEqual(renderer.frame([{ ...placement, x: 12 }], viewport, false), {
@@ -151,8 +151,8 @@ test('fully hidden or clipped images never write past the viewport, including it
 test('iTerm images preserve aspect ratio and clear previous images when a modal replaces them', () => {
   const renderer = new TerminalIconRenderer({ mode: 'iterm' });
   const first = renderer.frame([placement], viewport);
-  assert.equal(first.before, '\x1b[2J');
-  assert.equal(first.forceRepaint, true);
+  assert.equal(first.before, '');
+  assert.equal(first.forceRepaint, false);
   assert.match(
     first.after,
     /File=inline=1;size=\d+;width=8;height=4;preserveAspectRatio=1;doNotMoveCursor=1:/
@@ -164,9 +164,10 @@ test('iTerm images preserve aspect ratio and clear previous images when a modal 
     forceRepaint: false,
   });
   assert.deepEqual(renderer.frame([], viewport), {
-    before: '\x1b[2J',
+    before: '',
     after: '',
-    forceRepaint: true,
+    forceRepaint: false,
+    repaintRects: [{ x: 3, y: 5, columns: 8, rows: 4 }],
   });
   assert.equal(renderer.cleanup(), '');
 });
@@ -176,14 +177,78 @@ test('SIXEL native dimensions follow terminal cells and are refreshed after a fo
   const first = renderer.frame([placement], viewport);
   assert.match(first.after, /\x1bP0;1q"1;1;76;76/);
   assert.ok(first.after.length < 30000);
-  assert.equal(renderer.setSupport({ mode: 'sixel', cellWidth: 6, cellHeight: 12 }), '\x1b[2J');
+  const resized = renderer.setSupport({ mode: 'sixel', cellWidth: 6, cellHeight: 12 });
+  assert.doesNotMatch(resized, /\x1b\[2J/);
+  assert.match(resized, /\x1b\[6;4H\x1b\[8X/);
   assert.match(renderer.frame([placement], viewport).after, /\x1bP0;1q"1;1;44;44/);
-  assert.equal(renderer.setSupport({ mode: 'text' }), '\x1b[2J');
+  assert.match(renderer.setSupport({ mode: 'text' }), /\x1b\[8X/);
   assert.deepEqual(renderer.frame([placement], viewport), {
     before: '',
     after: '',
     forceRepaint: false,
   });
+});
+
+test('unrelated text updates preserve native images without retransmission or screen erasure', () => {
+  for (const mode of ['sixel', 'iterm', 'kitty'] as const) {
+    const renderer = new TerminalIconRenderer({ mode, cellWidth: 10, cellHeight: 20 });
+    const images = [placement, { ...placement, providerId: 'webflow' as const, x: 24 }];
+    renderer.frame(images, viewport);
+    for (let index = 0; index < 100; index++) {
+      assert.deepEqual(
+        renderer.frame(images, viewport, true, [{ x: 0, y: 0, columns: 80, rows: 1 }]),
+        { before: '', after: '', forceRepaint: false }
+      );
+    }
+    assert.deepEqual(
+      renderer.frame(images, viewport, true, [
+        { x: placement.x + placement.columns, y: placement.y, columns: 1, rows: 1 },
+      ]),
+      { before: '', after: '', forceRepaint: false }
+    );
+  }
+});
+
+test('only an inline image touched by an actual text span is retransmitted', () => {
+  for (const mode of ['sixel', 'iterm'] as const) {
+    const renderer = new TerminalIconRenderer({ mode, cellWidth: 10, cellHeight: 20 });
+    const images = [placement, { ...placement, providerId: 'webflow' as const, x: 24 }];
+    renderer.frame(images, viewport);
+    const changed = renderer.frame(images, viewport, true, [{ x: 5, y: 7, columns: 1, rows: 1 }]);
+    assert.equal(changed.before, '');
+    assert.equal(changed.forceRepaint, false);
+    assert.equal(changed.repaintRects, undefined);
+    assert.equal(
+      [...changed.after.matchAll(mode === 'sixel' ? /\x1bP/g : /\x1b\]1337;/g)].length,
+      1
+    );
+    assert.match(changed.after, /\x1b\[6;4H/);
+    assert.doesNotMatch(changed.after, /\x1b\[6;25H/);
+  }
+});
+
+test('moving and removing icons repaint only their previous rectangles while resize remains bounded', () => {
+  for (const mode of ['sixel', 'iterm'] as const) {
+    const renderer = new TerminalIconRenderer({ mode, cellWidth: 10, cellHeight: 20 });
+    const unchanged = { ...placement, providerId: 'webflow' as const, x: 24 };
+    renderer.frame([placement, unchanged], viewport);
+    const next = renderer.frame([unchanged], viewport, false, []);
+    assert.deepEqual(next.repaintRects, [{ x: 3, y: 5, columns: 8, rows: 4 }]);
+    assert.equal(next.after, '');
+    assert.equal(next.before, '');
+    assert.equal(next.forceRepaint, false);
+    const moved = { ...unchanged, x: 4, y: 2 };
+    const resize = renderer.frame([moved], { columns: 40, rows: 12 }, true, []);
+    assert.equal(resize.forceRepaint, true);
+    assert.match(resize.after, /\x1b\[3;5H/);
+    assert.doesNotMatch(resize.before, /\x1b\[2J/);
+    assert.deepEqual(renderer.frame([moved], { columns: 40, rows: 12 }, false, []), {
+      before: '',
+      after: '',
+      forceRepaint: false,
+    });
+    assert.doesNotMatch(renderer.cleanup(), /\x1b\[2J/);
+  }
 });
 
 test('SIXEL encoding retains pixel positions, alpha blending, final partial bands and bounded palette entries', () => {
