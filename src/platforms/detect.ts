@@ -45,23 +45,10 @@ export function detectPlatform(url: string, html?: string): PlatformHandler {
 }
 export async function detectByDom(page: Page): Promise<PlatformHandler | null> {
   try {
-    const signal: string = await page.evaluate(() => {
-      const html: string = document.documentElement.outerHTML || '';
-      if (/wix-viewer-model|_wix_|wix-ecom/i.test(html)) return 'wix';
-      if (/data-wf-|w-webflow-badge|webflow\.js/i.test(html)) return 'webflow';
-      if (/framerusercontent|framercanvas|framerstatic/i.test(html)) return 'framer';
-      const srcs: string[] = [];
-      const scripts: NodeListOf<HTMLScriptElement> = document.querySelectorAll('script[src]');
-      scripts.forEach((s) => {
-        if (s.src) srcs.push(s.src);
-      });
-      const allSrcs: string = srcs.join(' ');
-      if (/wixstatic\.com|parastorage\.com/.test(allSrcs)) return 'wix';
-      if (/website-files\.com|webflow\.com/.test(allSrcs)) return 'webflow';
-      if (/framerusercontent\.com|framerstatic\.com|framer\.app/.test(allSrcs)) return 'framer';
-      return '';
-    });
-    if (signal) return getPlatformByName(signal as PlatformType);
+    const html = await page.evaluate(() => document.documentElement.outerHTML || '');
+
+    const detected = detectByHtml(html);
+    if (detected) return detected;
   } catch {}
   for (const platform of sortedByPriority()) {
     if (!platform.detectByDom) continue;
