@@ -1,4 +1,5 @@
 import { stdin } from 'node:process';
+import { StringDecoder } from 'node:string_decoder';
 
 export type KeyName =
   | 'up'
@@ -10,13 +11,23 @@ export type KeyName =
   | 'escape'
   | 'backspace'
   | 'delete'
-  | 'ctrl-c';
+  | 'ctrl-c'
+  | 'shift-tab'
+  | 'home'
+  | 'end'
+  | 'page-up'
+  | 'page-down'
+  | 'alt-left'
+  | 'ctrl-a'
+  | 'ctrl-u'
+  | 'ctrl-l';
 
 export type MouseKind = 'move' | 'click' | 'press' | 'wheel-up' | 'wheel-down';
 
 export type InputEvent =
   | { type: 'key'; name: KeyName }
   | { type: 'char'; char: string }
+  | { type: 'paste'; text: string }
   | { type: 'mouse'; kind: MouseKind; x: number; y: number };
 
 const ESC = '\x1B';
@@ -28,6 +39,17 @@ export function parseInput(buffer: string): { events: InputEvent[]; rest: string
 
   while (i < buffer.length) {
     const ch = buffer[i];
+
+    const controlKeys: Record<string, KeyName> = {
+      '\x01': 'ctrl-a',
+      '\x15': 'ctrl-u',
+      '\x0c': 'ctrl-l',
+    };
+    if (controlKeys[ch]) {
+      events.push({ type: 'key', name: controlKeys[ch] });
+      i++;
+      continue;
+    }
 
     if (ch === '\x03') {
       events.push({ type: 'key', name: 'ctrl-c' });
@@ -58,14 +80,41 @@ export function parseInput(buffer: string): { events: InputEvent[]; rest: string
       const next = rest[1];
 
       if (next === '[' || next === 'O') {
+        if (rest.startsWith('\x1B[200~')) {
+          const end = rest.indexOf('\x1B[201~', 6);
+          if (end < 0) return { events, rest };
+          events.push({ type: 'paste', text: rest.slice(6, end) });
+          i += end + 6;
+          continue;
+        }
+        const keyCodes: Array<[string, KeyName]> = [
+          ['\x1B[Z', 'shift-tab'],
+          ['\x1B[H', 'home'],
+          ['\x1B[F', 'end'],
+          ['\x1BOH', 'home'],
+          ['\x1BOF', 'end'],
+          ['\x1B[1~', 'home'],
+          ['\x1B[4~', 'end'],
+          ['\x1B[7~', 'home'],
+          ['\x1B[8~', 'end'],
+          ['\x1B[5~', 'page-up'],
+          ['\x1B[6~', 'page-down'],
+          ['\x1B[1;3D', 'alt-left'],
+        ];
+        const keyCode = keyCodes.find(([sequence]) => rest.startsWith(sequence));
+        if (keyCode) {
+          events.push({ type: 'key', name: keyCode[1] });
+          i += keyCode[0].length;
+          continue;
+        }
         const sgr = rest.match(/^\x1B\[<(\d+);(\d+);(\d+)([mM])/);
         if (sgr) {
           const code = Number(sgr[1]);
           const x = Number(sgr[2]);
           const y = Number(sgr[3]);
           const release = sgr[4] === 'm';
-          if (code === 64) events.push({ type: 'mouse', kind: 'wheel-up', x, y });
-          else if (code === 65) events.push({ type: 'mouse', kind: 'wheel-down', x, y });
+          if ((code & 64) === 64)
+            events.push({ type: 'mouse', kind: code & 1 ? 'wheel-down' : 'wheel-up', x, y });
           else if ((code & 32) === 32) events.push({ type: 'mouse', kind: 'move', x, y });
           else if (release) events.push({ type: 'mouse', kind: 'click', x, y });
           else events.push({ type: 'mouse', kind: 'press', x, y });
@@ -144,8 +193,11 @@ export class RawInput {
   private buffer = '';
   private escTimer: NodeJS.Timeout | null = null;
   private active = false;
+  private decoder = new StringDecoder('utf8');
+  private wasRaw = false;
   private onData = (chunk: Buffer): void => {
-    this.buffer += chunk.toString('utf-8');
+    this.buffer += this.decoder.write(chunk);
+    if (this.buffer.length > 1024 * 1024) this.buffer = '';
     this.drain();
   };
 
@@ -154,6 +206,7 @@ export class RawInput {
   start(): void {
     if (this.active) return;
     this.active = true;
+    this.wasRaw = stdin.isRaw;
     stdin.setRawMode(true);
     stdin.resume();
     stdin.on('data', this.onData);
@@ -165,7 +218,7 @@ export class RawInput {
     if (this.escTimer) clearTimeout(this.escTimer);
     this.escTimer = null;
     stdin.removeListener('data', this.onData);
-    stdin.setRawMode(false);
+    stdin.setRawMode(this.wasRaw);
     stdin.pause();
   }
 
