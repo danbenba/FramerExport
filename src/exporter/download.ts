@@ -3,73 +3,99 @@ import path from 'path';
 import { CFG } from '../config/index.js';
 import { log, warn, success } from '../logger/index.js';
 import { setTotalAssets, noteDownload, noteFile } from './progress.js';
-import { dlBuffer } from '../network/download.js';
+import { dlBuffer, dlResource } from '../network/download.js';
 import { pool } from '../network/pool.js';
+import { absolutizeCssResourceUrls, collectCssResourceUrls } from '../assets/css-refs.js';
+import { collectHtmlResources, type HtmlResource } from '../assets/html-refs.js';
 import type { ExporterContext } from '../types.js';
+
 export async function downloadAll(exporter: ExporterContext): Promise<void> {
-  const seen: Set<string> = new Set();
-  const toDownload: Array<{
-    url: string;
-    localPath: string;
-  }> = [];
-  for (const [url, { localPath }] of exporter.assets.entries) {
-    if (seen.has(localPath)) continue;
-    seen.add(localPath);
-    toDownload.push({ url, localPath });
-  }
-  const total: number = toDownload.length;
-  setTotalAssets(total);
-  log('Starting download of ' + total + ' unique assets');
-  log('Concurrency: ' + CFG.concurrency + ' parallel downloads');
-  log('Retry policy: ' + CFG.retries + ' attempts, ' + CFG.dlTimeout + 'ms timeout');
+  const scheduled = new Set<string>();
+  const tasks: Array<() => Promise<void>> = [];
+  const stripDomains = [...CFG.sharedStripDomains, ...exporter.platform.stripDomains];
   let ok = 0;
   let cached = 0;
   let fail = 0;
-  let completed = 0;
-  let lastReported = 0;
-  const tasks: Array<() => Promise<void>> = toDownload.map(
-    ({ url, localPath }) =>
-      async (): Promise<void> => {
-        const dest: string = path.join(exporter.outDir, localPath);
+  const maxAssets = 20000;
+  const enqueue = (url: string, depth: number): void => {
+    if (scheduled.has(url)) return;
+    if (scheduled.size >= maxAssets)
+      throw new Error('Resource dependency traversal exceeded ' + maxAssets + ' assets');
+    scheduled.add(url);
+    tasks.push(async () => {
+      let localPath = exporter.assets.entries.get(url)!.localPath;
+      try {
+        const cachedBuffer = /\.framercms$/i.test(new URL(url).pathname)
+          ? undefined
+          : exporter.assets.buffers.get(url);
+        let data: Buffer;
+        let sourceUrl = url;
+        let contentType = exporter.assets.contentTypes.get(url) ?? '';
+        if (cachedBuffer) {
+          data = cachedBuffer;
+          cached++;
+        } else {
+          const resource = await dlResource(url, CFG.retries, exporter.siteUrl);
+          data = resource.buffer;
+          sourceUrl = resource.url;
+          contentType = resource.contentType;
+          localPath = exporter.assets.localPathFor(url, exporter.platform, contentType)!;
+        }
+        exporter.assets.responseUrls.set(url, sourceUrl);
+        let refs: HtmlResource[] = [];
+        if (/text\/css/i.test(contentType) || localPath.endsWith('.css')) {
+          const css = data.toString('utf-8');
+          refs = collectCssResourceUrls(css, sourceUrl).map((ref) => ({
+            url: ref.url,
+            contentType: ref.isImport ? 'text/css' : undefined,
+          }));
+
+          data = Buffer.from(absolutizeCssResourceUrls(css, sourceUrl));
+        } else if (/text\/html/i.test(contentType) || /\.html?$/i.test(localPath)) {
+          refs = collectHtmlResources(data.toString('utf-8'), sourceUrl);
+        }
+        for (const ref of refs) {
+          if (exporter.assets.failures.has(ref.url)) continue;
+          const host = new URL(ref.url).hostname;
+          if (stripDomains.some((domain) => host.includes(domain))) continue;
+          if (exporter.platform.skipAssetUrls?.some((re) => re.test(ref.url))) continue;
+          if (!scheduled.has(ref.url) && depth >= 20)
+            throw new Error('Resource dependency depth exceeded 20 at ' + ref.url);
+          const mapped = exporter.assets.localPathFor(ref.url, exporter.platform, ref.contentType);
+          if (mapped) enqueue(ref.url, depth + 1);
+        }
+        const dest = path.join(exporter.outDir, localPath);
         await fs.mkdir(path.dirname(dest), { recursive: true });
-        try {
-          const buf: Buffer | undefined =
-            exporter.assets.buffers.get(url) || exporter.assets.buffers.get(url.split('?')[0]);
-          if (buf) {
-            await fs.writeFile(dest, buf);
-            cached++;
-            ok++;
-          } else {
-            const data: Buffer = await dlBuffer(url);
-            await fs.writeFile(dest, data);
-            ok++;
-          }
-          noteDownload(true);
-          noteFile(localPath);
-        } catch (e) {
-          fail++;
-          noteDownload(false);
-          if (!url.includes('framer.com/edit') && !url.includes('framerstatic.com/editorbar')) {
-            warn('Download failed: ' + path.basename(localPath) + ' - ' + (e as Error).message);
-          }
-        }
-        completed++;
-        const pct: number = Math.floor((completed / total) * 100);
-        if (pct >= lastReported + 10 || completed === total) {
-          exporter.cooking?.update('Downloading... ' + completed + '/' + total + ' (' + pct + '%)');
-          log('Download progress: ' + completed + '/' + total + ' (' + pct + '%)');
-          lastReported = pct;
-        }
+        await fs.writeFile(dest, data);
+        ok++;
+        noteDownload(true);
+        noteFile(localPath);
+      } catch (error) {
+        fail++;
+        noteDownload(false);
+
+        exporter.assets.entries.delete(url);
+        exporter.assets.failures.set(url, (error as Error).message);
+        warn('Download failed: ' + url + ' - ' + (error as Error).message);
+      } finally {
+        exporter.assets.buffers.delete(url);
+        setTotalAssets(scheduled.size);
+        exporter.cooking?.update('Downloading... ' + (ok + fail) + '/' + scheduled.size);
       }
-  );
+    });
+  };
+  for (const url of exporter.assets.entries.keys()) enqueue(url, 0);
+  setTotalAssets(scheduled.size);
+  log('Starting download of ' + scheduled.size + ' assets and their CSS/HTML dependencies');
   await pool(tasks, CFG.concurrency);
-  success(
-    'Downloads complete: ' + ok + ' succeeded, ' + cached + ' from cache, ' + fail + ' failed'
-  );
-  const totalBytes: number = [...exporter.assets.entries.values()].length;
-  log('Total unique assets written to disk: ' + totalBytes);
   exporter.assets.buffers.clear();
-  log('Network buffer cache cleared');
+  if (fail) {
+    warn(
+      'Downloads complete: ' + ok + ' succeeded, ' + cached + ' from cache, ' + fail + ' failed'
+    );
+  } else {
+    success('Downloads complete: ' + ok + ' succeeded, ' + cached + ' from cache');
+  }
 }
 const SIBLING_IMPORT = /(?:import|from)\s*\(?\s*["'`]\.\/([A-Za-z0-9_.-]+\.m?js)["'`]/g;
 const MAX_CHUNK_DEPTH = 5;
@@ -100,17 +126,22 @@ export async function downloadLazyChunks(exporter: ExporterContext): Promise<voi
         } catch {
           continue;
         }
-        if (exporter.assets.entries.has(chunkUrl)) continue;
+        if (exporter.assets.entries.has(chunkUrl) || exporter.assets.failures.has(chunkUrl))
+          continue;
         const dest: string | null = exporter.assets.localPathFor(chunkUrl, exporter.platform);
         if (!dest) continue;
         sourceOf.set(dest, chunkUrl);
         try {
+          await fs.mkdir(path.dirname(path.join(exporter.outDir, dest)), { recursive: true });
           await fs.writeFile(path.join(exporter.outDir, dest), await dlBuffer(chunkUrl));
           next.push(dest);
           added++;
           noteDownload(true);
           noteFile(dest);
         } catch (e) {
+          exporter.assets.entries.delete(chunkUrl);
+          exporter.assets.failures.set(chunkUrl, (e as Error).message);
+          noteDownload(false);
           warn('Lazy chunk failed: ' + match[1] + ' - ' + (e as Error).message);
         }
       }
