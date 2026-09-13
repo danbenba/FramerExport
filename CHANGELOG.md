@@ -1,6 +1,8 @@
 # Changelog
 
-## 5.0.0-beta.4 (release candidate)
+## 5.0.0
+
+The stable release uses npm's `latest` channel. Application headers show version 5.0.0 without the prerelease badge. `npm run release -- --bypass-tests` publishes the existing build directly, without tests or a build, like `npm publish --ignore-scripts`. Ordinary publication still runs all checks and builds first. `--dry-run` previews publication without uploading a package.
 
 The terminal and web interfaces share provider identities, offline brand icons and a four-step export assistant. Cards/list views, search, pagination, mouse scrolling, a draggable terminal scrollbar, keyboard shortcuts and clickable completed steps preserve entered data while navigating. Settings, Help and Open UI use dialogs with hover states and contextual hints. The lowercase wordmark fits an 80×24 terminal and adapts to smaller windows.
 
@@ -26,4 +28,4 @@ The UI rejects unsupported URL schemes, returns to the gallery after a rejected 
 
 The new browser suite compares source and exported pages at desktop and mobile sizes, shuts down the source before replay, and tests navigation, form validation, CSSOM, stylesheet loaders and the full UI flow. Live checks still leave Wix mobile image variants, some Podia widgets and Framer animation states incompletely validated.
 
-Bubble, Notion and Podia retain the beta label. Server-side accounts, payments, search and platform workflows are not recreated by a static export. Publication is gated by type checking, unit tests, browser tests and the production build; the default publication tag for this prerelease is `beta`.
+Bubble, Notion and Podia retain the beta label. Server-side accounts, payments, search and platform workflows are not recreated by a static export. Publication runs type checking, unit tests, browser tests and the production build by default; the explicit release bypass uploads the existing build directly. The default publication tag is `latest`.
