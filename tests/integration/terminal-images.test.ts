@@ -6,6 +6,8 @@ import puppeteer from 'puppeteer';
 import { TerminalIconRenderer } from '../../src/cli/terminal-icons.js';
 import { TerminalCanvas, paintTerminal } from '../../src/cli/terminal-screen.js';
 import { providerPresentation } from '../../src/platforms/presentation.js';
+import { WizardModel, paintWizardFrame } from '../../src/cli/wizard.js';
+import { defaultPreferences } from '../../src/cli/preferences.js';
 
 test(
   'native terminal image protocols render the provider artwork, resize and erase cleanly in Chromium',
@@ -172,6 +174,54 @@ test(
             erased.before + paintTerminal(new TerminalCanvas(80, 24).lines()) + erased.after
           );
           assert.equal(cleared, true);
+          renderer.cleanup();
+          const model = new WizardModel({
+            preferences: { ...defaultPreferences, onboardingCompleted: true, reduceMotion: true },
+          });
+          model.nativeIcons = true;
+          let previous: TerminalCanvas | undefined;
+          const presentWizard = async () => {
+            const layout = model.render(80, 24);
+            const output = paintWizardFrame(layout, renderer, previous);
+            assert.ok(!output.includes('\x1b[2J'), 'wizard must not clear the entire viewport');
+            previous = layout.canvas.clone();
+            const imageCells = await page.evaluate(async (data) => {
+              const scope = window as any;
+              await new Promise<void>((resolve) => scope.term.write(data, resolve));
+              let count = 0;
+              for (let y = 0; y < 24; y++)
+                for (let x = 0; x < 80; x++) if (scope.addon.getImageAtBufferCell(x, y)) count++;
+              return count;
+            }, output);
+            return { layout, output, imageCells };
+          };
+          const initial = await presentWizard();
+          assert.ok(initial.imageCells > 0, 'wizard provider artwork is visible');
+          assert.equal(
+            (await presentWizard()).output,
+            '',
+            'idle wizard produces no terminal writes'
+          );
+          const settings = initial.layout.regions.find((region) => region.id === 'settings')!;
+          model.handle({ type: 'mouse', kind: 'move', x: settings.x + 1, y: settings.y + 1 });
+          const hovered = await presentWizard();
+          assert.ok(
+            !hovered.output.includes('\x1bP') && !hovered.output.includes('\x1b]1337'),
+            'header hover preserves unchanged native images'
+          );
+          assert.equal(hovered.imageCells, initial.imageCells);
+          model.activate('settings');
+          assert.equal(
+            (await presentWizard()).imageCells,
+            0,
+            'modal removes every provider image without a full clear'
+          );
+          model.activate('overlay:back');
+          assert.equal(
+            (await presentWizard()).imageCells,
+            initial.imageCells,
+            'closing the modal restores provider images'
+          );
           renderer.cleanup();
           report.push({ mode, fontSize, ...comparison });
         }
