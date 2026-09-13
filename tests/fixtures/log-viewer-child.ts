@@ -27,15 +27,30 @@ try {
       warn('Retry marker for asset 12');
       error('Missing font marker');
       info('Fixture is waiting');
-      while (!fs.existsSync(path.join(directory, 'continue')))
+      let lastBatch = '';
+      while (!fs.existsSync(path.join(directory, 'continue'))) {
+        const batchPath = path.join(directory, 'append.json');
+        if (fs.existsSync(batchPath)) {
+          const batch = JSON.parse(fs.readFileSync(batchPath, 'utf8')) as {
+            id: string;
+            prefix: string;
+            count: number;
+          };
+          if (batch.id !== lastBatch) {
+            lastBatch = batch.id;
+            for (let index = 1; index <= batch.count; index++) log(`${batch.prefix} ${index}`);
+            fs.writeFileSync(path.join(directory, 'appended'), batch.id);
+          }
+        }
         await new Promise((resolve) => setTimeout(resolve, 30));
+      }
       log('Operation actually settled');
       fs.writeFileSync(path.join(directory, 'export.log'), formatLogRecords(getLogHistory()));
       if (mode === 'failure') throw new Error('Fixture export rejected');
       setPhase('Done');
       return 73;
     },
-    { outDir: directory }
+    { outDir: directory, reduceMotion: mode !== 'animated' }
   );
   console.log('VIEWER_RESULT=' + result);
 } catch (error) {
