@@ -1,7 +1,7 @@
 <h1 align="center">F-EXPORT</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.0.0--beta.3-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-5.0.0--beta.4-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/node-%3E%3D20-339933" alt="Node" />
 </p>
@@ -22,6 +22,8 @@ It knows 25 platforms and detects the right one from the URL, and when the URL i
 npm install -g framer-export
 ```
 
+For the beta channel, use `npm install -g framer-export@beta`. Local release candidates can be installed from the generated `.tgz` after validation.
+
 Or from source:
 
 ```bash
@@ -30,7 +32,7 @@ cd FramerExport
 npm install
 ```
 
-Node 20 or newer. The first run downloads a Chromium build for Puppeteer, which takes a moment.
+Node 20 or newer. Installation downloads Chrome for Testing through Puppeteer, which takes a moment. Beta 4 updates the bundled browser to Chrome 148; the old Chrome 127 was rejected by current Notion pages.
 
 ## Three ways to run it
 
@@ -40,7 +42,7 @@ Node 20 or newer. The first run downloads a Chromium build for Puppeteer, which 
 framer-export ui
 ```
 
-This starts a local server on port 4400 and opens your browser. You get a gallery of every supported platform. Click one (or pick auto-detect), paste the URL, adjust the options, and watch the export run with live logs on the left and a summary panel on the right showing the current phase, asset counters and the last files written. When it finishes you can copy the full log or the serve command with one click.
+This starts a local server on port 4400 and opens your browser. The four steps are Select provider, Site details, Options and Review. Browse the provider icons in cards or a list, search and change pages, then paste the URL and choose export options. Completed steps remain clickable and retain your input. Settings and Help open in dialogs, with hover hints on controls. The export screen shows progress and a file summary; View logs opens an editor-style dialog with line numbers, search, level filters, automatic following and copying.
 
 The server only listens on 127.0.0.1 and rejects cross-origin requests, so nothing on the network or in another browser tab can trigger exports on your machine. Use `--port <n>` to change the port and `--no-open` if you do not want the browser to open by itself.
 
@@ -50,11 +52,57 @@ The server only listens on 127.0.0.1 and rejects cross-origin requests, so nothi
 framer-export
 ```
 
-Running it with no arguments opens the interactive setup. First you pick the tool from a scrollable list grouped by category, and you can just start typing to filter it. Then you enter the URL, then the output directory, and finally a single options panel with checkboxes for pretty-printing and sub-pages, plus a concurrency setting. If the URL looks like a different platform than the one you picked, it asks before continuing.
+Running it with no arguments opens the same four-step workflow in the terminal. Provider names, descriptions, logos and colors are shared with the web interface. Cards use pagination; the list adds a draggable scrollbar. Completed steps show a checkmark; Back and the step links let you change earlier details without retyping later ones. Settings, Help and Open UI use dialogs that preserve the underlying step, with hover states and contextual hints.
 
-While the export runs, terminals wider than 100 columns get a live sidebar on the right with the phase, elapsed time, download counters and recent files. The log stream itself stays untouched.
+The first launch includes a short introduction. Preferences and an unfinished export draft are stored in `~/.fexport`; relaunching restores your place. Use `--fresh` for a new draft. All 25 provider icons are bundled for offline use; their original files and provenance are in [assets/provider-icons](assets/provider-icons/SOURCES.md).
+
+The lowercase `framerexport` wordmark fits a standard 80×24 terminal and switches to compact text in smaller windows. Both interfaces use graphite surfaces, a peach accent and a restrained PixelBlast background. The terminal adapts the background to character cells; native image modes keep that background still to avoid repeatedly repainting images.
+
+Provider logos use native images when the terminal supports Kitty graphics, iTerm inline images or detected Sixel graphics with known cell dimensions. Unsupported terminals, multiplexers and disabled image mode use colored monograms with provider names. Set `FEXPORT_TERMINAL_IMAGES=0` to force this fallback. Font metrics, graphics protocols and available colors belong to the terminal, so its physical pixels cannot be guaranteed identical to a browser. Layout and image placement stay within the viewport, including compact windows, and adjust on resize.
+
+| Input                        | Action                   |
+| ---------------------------- | ------------------------ |
+| Tab / Shift+Tab              | Move between controls    |
+| Arrow keys / Enter           | Browse and select        |
+| Esc / Alt+Left               | Go back                  |
+| Mouse wheel / scrollbar drag | Scroll content           |
+| Page Up / Page Down          | Change provider pages    |
+| Ctrl+A / Ctrl+U              | Select or clear a field  |
+| `,` / `?`                    | Preferences / shortcuts  |
+| Ctrl+C                       | Save the draft and leave |
+
+Wizard exports open a dedicated log viewer with line numbers, timestamps, log levels, progress counters and a scrollbar. Use `/` to search, `f` to cycle level filters, `p` to pause following, `c` to copy the full log, and the arrow keys to scroll vertically or pan across long lines. Home goes to the first entry and End resumes following new entries. Search and filters leave the saved log unchanged; wizard exports retain the full session even beyond 5,000 entries.
+
+Enter closes the viewer after the export completes or fails. Esc or Ctrl+C during an export returns to console output while the operation continues; a second Ctrl+C in the console stops the process. A failed export remains marked as failed and returns its original error after the viewer closes. Direct commands and legacy prompts retain the compact console output and optional progress sidebar.
 
 If arrow keys do not work in your terminal, `framer-export --setup --legacy-mode` falls back to plain text prompts.
+
+### Preferences
+
+Run `fexport settings` to edit preferences, or `fexport config` to print their file location and current values. Both interfaces use the same `~/.fexport/settings.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "defaultProvider": "auto",
+  "launchUi": false,
+  "checkUpdates": true,
+  "autoInstallUpdates": false,
+  "betaUpdates": false,
+  "viewMode": "cards",
+  "reduceMotion": false,
+  "onboardingCompleted": false,
+  "prettyPrint": true,
+  "includeSubpages": false,
+  "concurrency": 12
+}
+```
+
+`launchUi` starts a separate local web process alongside the terminal and closes it when the terminal exits. Updates are checked at most once a day. Automatic installation is opt-in and preserves a supported npm installation's local/global scope. Source checkouts, npx and other package managers receive instructions instead. Beta updates are opt-in; a stable release takes precedence over an older prerelease.
+
+Motion is enabled by default. Enable `reduceMotion` for a still terminal background and reduced web animations; the web interface also respects the operating system's reduced-motion preference. `FRAMER_EXPORT_NO_BG=1` disables the terminal background. Reset program asks for confirmation before removing preferences, the saved draft and the update cache. It restores the welcome screen and keeps exported folders, unrelated files and configuration backups.
+
+Settings writes are atomic. An invalid settings file uses defaults and is preserved until an explicit save. `FEXPORT_HOME` overrides the directory for isolated environments. `fexport doctor` reports the terminal capabilities, bundled browser installation and update channel without downloading anything. `--no-update` skips the check for one launch.
 
 ### The direct command
 
@@ -73,12 +121,17 @@ Auto-detection covers the hosted domains (`.framer.app`, `.webflow.io`, `.wixsit
 framer-export <url> [output-dir]      export a site
 framer-export ui [--port <n>]         launch the web interface
 framer-export --setup                 launch the terminal wizard
+framer-export settings                edit persistent preferences
+framer-export config                  show preferences as JSON
+framer-export doctor                  inspect terminal and browser availability
 
 --platform <id>    force a platform (framer, webflow, wix, shopify, notion, ...)
 --subpages         crawl internal links and export every page
 --dpr <number>     capture device pixel ratio, default 1
 --legacy-mode      with --setup, use plain text prompts
 --no-open          with ui, do not open the browser
+--fresh            start setup without restoring the saved draft
+--no-update        skip the update check for this launch
 --about            version and package information
 --version, -v      version number
 --help, -h         full help with the platform list
@@ -98,7 +151,9 @@ E-commerce: Gumroad, Shopify.
 
 AI builders: Gamma.
 
-Every platform has been validated against a real production site: exported, served locally and compared to the original. Notion is the one exception still marked beta in the gallery and in `--help` — its handler is in place but the notion.site edge rate-limits automated capture, so expect retries.
+Platform detection covers all 25 handlers. Rendering and offline behavior depend on the source site; detection alone does not establish visual fidelity. Bubble, Notion and Podia are marked beta because they use static snapshots to preserve rendered content. Their original application scripts are removed, so hosted account flows, dashboards and other application interactions need a separate implementation. Notion may also fail to load because of upstream availability or access restrictions.
+
+The beta 4 regression suite compares complete local exports with their source at desktop and mobile sizes, with the source server stopped. It checks fonts, responsive images, dynamic styles, navigation and local form behavior. No export recreates a platform's account database, payment backend or form processing service.
 
 Each platform is a single self-contained handler in `src/platforms/`. It declares how to detect the platform, which domains and selectors to strip, how long to wait for hydration, how to route assets into folders, and optional hooks that run before capture, after capture and after the build. Adding a platform never touches the others.
 
@@ -110,6 +165,7 @@ framer-mysite-fresh-build-a1b2/
   serve.js            a small static server with SPA fallback
   package.json        so "npm run serve" works
   export.log          the complete log of the run
+  export-report.json  missing assets, capture mode and functional limitations
   styles/             CSS files
   scripts/vendor/     third-party bundles
   scripts/modules/    page modules and lazy chunks
@@ -130,17 +186,17 @@ node serve.js
 
 The site has to be served over HTTP because module scripts do not load from `file://`. The bundled server handles MIME types, CORS headers and the sub-page fallback, so a route like `/about` resolves to `subpages/about.html` automatically.
 
-Every run also writes `export.log` with the full untruncated log history. The finish panel in the terminal and the web interface both offer to copy it to the clipboard, which is handy when you want to report a problem or feed the context to an AI tool.
+Every run writes `export.log` with untruncated messages from its retained log history. The terminal wizard's log viewer and the web interface offer clipboard copying, which is handy when reporting a problem or passing context to another tool.
 
 ## The AI conversion assistant
 
-After a terminal export you can generate a conversion brief for an AI coding agent. Pick a target stack (React with Vite, Next.js, Vue, SvelteKit or Astro), pick the tool you use (Claude Code, Codex, OpenCode or another agent), pick a goal (clean rebuild, pixel-perfect migration, component system, or performance and SEO), and it writes a detailed prompt file into `ai/` inside the export. The prompt references the real files and counts from your export, so the agent starts from facts instead of guesses.
+After a direct-command or legacy terminal export you can generate a conversion brief for an AI coding agent. Pick a target stack (React with Vite, Next.js, Vue, SvelteKit or Astro), pick the tool you use (Claude Code, Codex, OpenCode or another agent), pick a goal (clean rebuild, pixel-perfect migration, component system, or performance and SEO), and it writes a detailed prompt file into `ai/` inside the export. The prompt references the real files and counts from your export, so the agent starts from facts instead of guesses. The modern wizard finishes in its log viewer.
 
 ## How it works
 
 The pipeline has six phases. First it fetches the server-rendered HTML over plain HTTP, which is what search engines see and what gives the cleanest markup. Then it launches Puppeteer, blocks the analytics domains the platform handler lists, navigates, waits for the hydration selector, scrolls through the page to trigger lazy loading, and records every network response into an asset map. Sub-page crawling reuses the same browser session when enabled.
 
-Once the browser closes, the downloader writes all unique assets to disk with a configurable concurrency, then follows `import` statements inside downloaded JS chunks to resolve lazily loaded modules the browser never requested. The build step rewrites every URL to a local relative path, strips badges, trackers and integrity attributes, injects canonical and Open Graph tags when they are missing, pretty-prints the JavaScript unless you turned that off, and writes `index.html`, `serve.js` and `export.log`.
+The capture also serializes styles added through CSSOM rules and constructed stylesheets. Once the browser closes, the downloader writes unique assets with a configurable concurrency and follows CSS imports and resource URLs, including fonts and images only used at other breakpoints. Redirected stylesheets retain their correct URL base; assets with identical filenames or different query parameters remain distinct. Lazy JavaScript imports are resolved where possible. The build step localizes captured resources, preserves relative navigation, strips badges and trackers, and writes `index.html`, `serve.js`, `export.log` and `export-report.json`.
 
 ## When something goes wrong
 
@@ -153,14 +209,20 @@ If detection picks the wrong platform on a custom domain, pass `--platform` expl
 ## Development
 
 ```bash
-npm run dev          # run the CLI from source
-npm test             # 150 unit and integration tests, node test runner
-npm run typecheck    # tsc --noEmit
-npm run build        # bundle with tsup into dist/
-npm run format       # prettier over src/
+npm run dev
+npm test
+npm run test:browser
+npm run test:platform -- webflow https://smallshop.webflow.io/
+npm run typecheck
+npm run build
+npm run format
 ```
 
 The test suite covers platform detection for all 25 handlers against recorded research profiles, asset mapping, URL rewriting, the logger, the generated serve.js (spawned for real and probed over HTTP), the progress state and every route of the UI server, including its origin and host checks.
+
+Terminal tests run the actual CLI in a pseudoterminal and interpret its output with xterm. They exercise onboarding, mouse/keyboard input, draft restoration, live resizing, companion server cleanup, log search/filtering and completed or detached export lifecycles. Unit tests also check Unicode cell widths, grapheme editing, terminal image protocol generation and rendering bounds down to a 1×1 cell buffer. This is a clipping check, not a claim that a full interface is readable in one cell; protocol tests do not establish identical native image rendering in every terminal emulator.
+
+The interface work draws on [Microsoft's terminal sequences](https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences), [xterm's supported sequences](https://xtermjs.org/docs/api/vtfeatures/), [Ink](https://github.com/vadimdemedes/ink), [Bubble Tea](https://github.com/charmbracelet/bubbletea) and Apple's guidance on [onboarding](https://developer.apple.com/design/human-interface-guidelines/onboarding) and [scroll views](https://developer.apple.com/design/human-interface-guidelines/scroll-views). The existing ANSI input layer remains in use with a clipped cell renderer; xterm and node-pty are development tools rather than runtime UI dependencies.
 
 To add a platform, create one file in `src/platforms/<category>/`, implement the `PlatformHandler` interface, register it in `src/platforms/registry.ts`, and add a research profile in `tests/research/` so the detection tests cover it. Look at `src/platforms/builder/carrd.ts` for a small example and `src/platforms/framer.ts` for a complete one.
 
